@@ -1,8 +1,9 @@
 ## Interface: 120005
 ## Title: KrononBags
-## Notes: Bag unificada da guilda Kronon — categorias ordenáveis, abas recolhíveis, drag and drop, ilvl no ícone, selo BoE/Warband, item novo, cooldown, valor do lixo, auto-abrir e organizar automático. Botões seguros (usar/equipar via clique direito).
+## Notes: Bag unificada da guilda Kronon — botões nativos (usar/equipar/abrir/vender), categorias ordenáveis, abas recolhíveis, ilvl no ícone, selo BoE/Warband, item novo, cooldown, valor do lixo, auto-abrir e organizar automático.
 ## Author: Kronon
-## Version: 0.6.1
+## Version: 0.7.0
 ## SavedVariables: KrononBagsDB
+## X-Curse-Project-ID: 1577314
 
 KrononBags.lua

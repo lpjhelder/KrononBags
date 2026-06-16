@@ -9,7 +9,7 @@ local ADDON_NAME = ...
 local DB
 local UI, CFG
 local goldText, currencyText, freeBox, freeNum, reagentBox, reagentNum, emptyHeader
-local Refresh, RenderGrid, OnPreClick, OnEnter, AcquireButton, Categorize, GetIlvl, Toggle, CreateUI, OpenItemMenu, ResolveCat
+local Refresh, RenderGrid, OnEnter, AcquireButton, Categorize, GetIlvl, Toggle, CreateUI, OpenItemMenu, ResolveCat
 local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney
 
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- mochila + 4 bolsas + bolsa de reagentes
@@ -297,123 +297,85 @@ end
 
 -- ---------------- Handlers de botão ----------------
 OnEnter = function(self)
-  if not self.bag or not self.itemID then return end
+  if not self.bag or not self.slot then return end
   -- ao olhar o item, ele deixa de ser "novo" (igual à bag da Blizzard)
   if C_NewItems and C_NewItems.RemoveNewItem then C_NewItems.RemoveNewItem(self.bag, self.slot) end
-  if self.newGlow then self.newGlow:Hide() end
+  if self.kbNewGlow then self.kbNewGlow:Hide() end
   GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
   GameTooltip:SetBagItem(self.bag, self.slot)
-  GameTooltip:AddLine(" ")
-  GameTooltip:AddLine("Esquerdo: menu  |  Direito: equipar/usar", 0.5, 1, 0.5)
-  GameTooltip:AddLine("Alt+Clique: favoritar (já protege de venda)", 0.5, 1, 0.5)
-  GameTooltip:AddLine("Arraste pra mover/trocar de slot", 0.5, 1, 0.5)
+  if self.itemID then
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Direito: usar / equipar / abrir / vender", 0.5, 1, 0.5)
+    GameTooltip:AddLine("Esquerdo: pegar / arrastar", 0.5, 1, 0.5)
+    GameTooltip:AddLine("Estrela: clique = favoritar  |  direito = menu", 0.5, 1, 0.5)
+  end
   GameTooltip:Show()
 end
 
--- PreClick: roda em contexto INSEGURO (menu, favoritar, drag-drop). O uso/equipar de
--- fato é feito pela AÇÃO SEGURA (atributo type2 = "item" + item2 = "bag slot"), porque
--- C_Container.UseContainerItem é protegida no 12.0 e não pode ser chamada por addon.
-OnPreClick = function(self, button)
-  -- soltar/trocar item do cursor (clique esquerdo)
-  if button == "LeftButton" and self.bag and self.slot and CursorHasItem() then
-    C_Container.PickupContainerItem(self.bag, self.slot); return
-  end
-  local itemID = self.itemID
-  if not itemID then
-    -- slot vazio (modo grade): solta o item segurado / pega
-    if self.bag and self.slot then C_Container.PickupContainerItem(self.bag, self.slot) end
-    return
-  end
-  if IsAltKeyDown() or IsControlKeyDown() then
-    DB.favorites[itemID] = (not DB.favorites[itemID]) or nil -- favorito = protegido
-    Refresh(); return
-  end
-  if button == "LeftButton" then OpenItemMenu(self); return end
-  -- botão direito num item protegido no vendedor: só avisa (a venda é bloqueada via atributo)
-  if button == "RightButton" and MerchantFrame and MerchantFrame:IsShown() and IsProtected(itemID) then
-    print("|cfff0d98cKrononBags|r: |cffffff00" .. (self.itemName or "item") .. "|r protegido — não foi vendido.")
-  end
+local function ToggleFavorite(itemID)
+  if not itemID then return end
+  DB.favorites[itemID] = (not DB.favorites[itemID]) or nil -- favorito = protegido
+  Refresh()
 end
 
--- define (fora de combate) a ação SEGURA de clique-direito = usar/equipar/vender o item.
--- Usa o tipo "item" com atributo "bag slot" (macrotext em SecureActionButton não funciona mais no 12.0).
-local function SetItemSecure(b, bag, slot, itemID)
-  if InCombatLockdown() then return end -- não dá pra mexer em atributo seguro em combate
-  local blockSell = MerchantFrame and MerchantFrame:IsShown() and itemID and IsProtected(itemID)
-  if itemID and not blockSell then
-    b:SetAttribute("type2", "item")
-    b:SetAttribute("item2", bag .. " " .. slot)
-  else
-    b:SetAttribute("type2", nil)
-    b:SetAttribute("item2", nil)
+-- frames "porta-bolsa": o ID do PAI = bagID. O ItemButton nativo lê GetParent():GetID()
+-- pra saber a bolsa no clique seguro (usar/equipar/abrir/vender).
+local bagHolders = {}
+local function GetBagHolder(bag)
+  local h = bagHolders[bag]
+  if not h then
+    h = CreateFrame("Frame", nil, UI)
+    h:SetID(bag)
+    h:SetAllPoints(UI)
+    bagHolders[bag] = h
   end
+  return h
 end
 
+-- Botão de item = template NATIVO da Blizzard (ContainerFrameItemButtonTemplate).
+-- O clique-DIREITO usa/equipa/abre/vende de forma SEGURA (nativo), o esquerdo pega/arrasta.
+-- NÃO usamos OnClick/PreClick/atributos no botão (isso causava taint → bloqueio silencioso).
+-- Favoritar/menu ficam numa ESTRELA separada (não-segura) pra não contaminar o clique.
 AcquireButton = function(i)
   local b = pool[i]
   if not b then
-    b = CreateFrame("Button", "KrononBagsItem" .. i, UI, "SecureActionButtonTemplate")
+    b = CreateFrame("ItemButton", "KrononBagsItem" .. i, UI, "ContainerFrameItemButtonTemplate")
     b:SetSize(BTN, BTN)
-    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    b:RegisterForDrag("LeftButton")
-    -- com Alt/Ctrl (favoritar) NÃO disparar a ação segura de usar/vender.
-    -- Cobre TODAS as combinações que contêm Alt ou Ctrl (a resolução segura usa o
-    -- prefixo combinado na ordem shift-ctrl-alt-; sem o atributo exato cai no type2 base).
-    b:SetAttribute("alt-type2", "")
-    b:SetAttribute("ctrl-type2", "")
-    b:SetAttribute("ctrl-alt-type2", "")
-    b:SetAttribute("shift-alt-type2", "")
-    b:SetAttribute("shift-ctrl-type2", "")
-    b:SetAttribute("shift-ctrl-alt-type2", "")
-    b.slotBg = b:CreateTexture(nil, "BACKGROUND")
-    b.slotBg:SetAllPoints()
-    b.slotBg:SetAtlas("bags-item-slot64"); b.slotBg:Hide()
-    b.slotBorder = b:CreateTexture(nil, "ARTWORK")
-    b.slotBorder:SetAllPoints()
-    b.slotBorder:SetTexture("Interface\\Common\\WhiteIconFrame")
-    b.slotBorder:SetVertexColor(0.4, 0.4, 0.45, 0.7); b.slotBorder:Hide()
-    b.icon = b:CreateTexture(nil, "BORDER")
-    b.icon:SetAllPoints()
-    b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-    b.border = b:CreateTexture(nil, "OVERLAY")
-    b.border:SetAllPoints()
-    b.border:SetTexture("Interface\\Common\\WhiteIconFrame")
-    b.border:Hide()
-    b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
-    b.count:SetPoint("BOTTOMRIGHT", -2, 2)
-    b.fav = b:CreateTexture(nil, "OVERLAY")
-    b.fav:SetSize(13, 13); b.fav:SetPoint("TOPLEFT", 0, 0)
-    b.fav:SetAtlas("PetJournal-FavoritesIcon"); b.fav:Hide()
-    b.lock = b:CreateTexture(nil, "OVERLAY")
-    b.lock:SetSize(10, 10); b.lock:SetPoint("TOPRIGHT", -1, -1)
-    b.lock:SetColorTexture(0.9, 0.1, 0.1, 1); b.lock:Hide()
-    -- item level (canto superior direito, colorido por raridade) — fonte explícita p/ garantir render
-    b.ilvl = b:CreateFontString(nil, "OVERLAY")
-    b.ilvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
-    b.ilvl:SetPoint("TOPRIGHT", -2, -2); b.ilvl:Hide()
-    -- selo de vínculo BoE/Warband/WuE (canto inferior esquerdo)
-    b.bind = b:CreateFontString(nil, "OVERLAY")
-    b.bind:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
-    b.bind:SetPoint("BOTTOMLEFT", 2, 2); b.bind:SetTextColor(0.4, 1, 0.4); b.bind:Hide()
-    -- destaque de item novo (anel amarelo levemente maior)
-    b.newGlow = b:CreateTexture(nil, "OVERLAY")
-    b.newGlow:SetPoint("TOPLEFT", -2, 2); b.newGlow:SetPoint("BOTTOMRIGHT", 2, -2)
-    b.newGlow:SetTexture("Interface\\Common\\WhiteIconFrame")
-    b.newGlow:SetBlendMode("ADD"); b.newGlow:SetVertexColor(1, 0.9, 0.2); b.newGlow:Hide()
-    -- cooldown (poção/healthstone/trinket on-use)
-    b.cd = CreateFrame("Cooldown", nil, b, "CooldownFrameTemplate")
-    b.cd:SetAllPoints(); b.cd:SetDrawEdge(false)
-    b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    -- selos próprios (nomes únicos kb* pra não colidir com campos do template nativo)
+    b.kbIlvl = b:CreateFontString(nil, "OVERLAY")
+    b.kbIlvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
+    b.kbIlvl:SetPoint("TOPRIGHT", -2, -2); b.kbIlvl:Hide()
+    b.kbBind = b:CreateFontString(nil, "OVERLAY")
+    b.kbBind:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+    b.kbBind:SetPoint("BOTTOMLEFT", 2, 2); b.kbBind:SetTextColor(0.4, 1, 0.4); b.kbBind:Hide()
+    b.kbNewGlow = b:CreateTexture(nil, "OVERLAY")
+    b.kbNewGlow:SetPoint("TOPLEFT", -2, 2); b.kbNewGlow:SetPoint("BOTTOMRIGHT", 2, -2)
+    b.kbNewGlow:SetTexture("Interface\\Common\\WhiteIconFrame")
+    b.kbNewGlow:SetBlendMode("ADD"); b.kbNewGlow:SetVertexColor(1, 0.9, 0.2); b.kbNewGlow:Hide()
+    b.kbQuest = b:CreateTexture(nil, "OVERLAY")
+    b.kbQuest:SetAllPoints(); b.kbQuest:SetTexture("Interface\\Common\\WhiteIconFrame")
+    b.kbQuest:SetVertexColor(1, 0.82, 0); b.kbQuest:Hide()
+    -- estrela: favoritar (esquerdo) + menu (direito) — botão separado, acima do item
+    local star = CreateFrame("Button", nil, b)
+    star:SetSize(14, 14); star:SetPoint("TOPLEFT", -1, 1)
+    star:SetFrameLevel(b:GetFrameLevel() + 5)
+    star:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    star.tex = star:CreateTexture(nil, "OVERLAY"); star.tex:SetAllPoints()
+    star.tex:SetAtlas("PetJournal-FavoritesIcon")
+    star:SetScript("OnClick", function(_, mb)
+      local id = b.itemID
+      if not id then return end
+      if mb == "RightButton" then OpenItemMenu(b) else ToggleFavorite(id) end
+    end)
+    star:SetScript("OnEnter", function(s)
+      GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
+      GameTooltip:SetText("Esquerdo: favoritar (protege de venda)\nDireito: menu (mover p/ categoria)")
+      GameTooltip:Show()
+    end)
+    star:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b.kbStar = star
     b:SetScript("OnEnter", OnEnter)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    b:SetScript("PreClick", OnPreClick) -- menu/favoritar/drop (inseguro); o usar/vender é a ação segura
-    -- drag and drop: pega item ao arrastar, solta/troca ao receber (slots físicos)
-    b:SetScript("OnDragStart", function(self)
-      if self.bag and self.slot then C_Container.PickupContainerItem(self.bag, self.slot) end
-    end)
-    b:SetScript("OnReceiveDrag", function(self)
-      if self.bag and self.slot then C_Container.PickupContainerItem(self.bag, self.slot) end
-    end)
     pool[i] = b
   end
   return b
@@ -454,7 +416,7 @@ local function DrawEmpty(yOff)
   return yOff - (BTN + PAD) - 6
 end
 
--- desenha os "selos" de um botão de item: ilvl, vínculo (BoE/Warband), missão, novo, cooldown
+-- desenha os "selos" próprios de um botão de item: ilvl, vínculo (BoE/Warband), missão, novo
 local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
   -- ilvl (só equipável, se ligado na config)
   local equipLoc = select(4, C_Item.GetItemInfoInstant(itemID))
@@ -467,19 +429,19 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
       end
     end
     if lvl and lvl > 1 then
-      b.ilvl:SetText(lvl)
+      b.kbIlvl:SetText(lvl)
       if DB.settings.ilvlUseRarity then
         local r, g, bl = GetItemQualityColor(quality or 1)
-        b.ilvl:SetTextColor(r, g, bl)
+        b.kbIlvl:SetTextColor(r, g, bl)
       else
-        b.ilvl:SetTextColor(1, 1, 1) -- branco
+        b.kbIlvl:SetTextColor(1, 1, 1) -- branco
       end
-      b.ilvl:Show()
+      b.kbIlvl:Show()
     else
-      b.ilvl:Hide()
+      b.kbIlvl:Hide()
     end
   else
-    b.ilvl:Hide()
+    b.kbIlvl:Hide()
   end
   -- selo de vínculo (só se ainda NÃO estiver vinculado ao personagem)
   local tag
@@ -490,31 +452,61 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
     elseif bindType == 8 then tag = "WB"       -- Vínculo de Brigada
     elseif bindType == 9 then tag = "WuE" end  -- Brigada até equipar
   end
-  if tag then b.bind:SetText(tag); b.bind:Show() else b.bind:Hide() end
-  -- item de missão: borda dourada (reaproveita b.border)
+  if tag then b.kbBind:SetText(tag); b.kbBind:Show() else b.kbBind:Hide() end
+  -- item de missão: borda dourada própria
   local qinfo = C_Container.GetContainerItemQuestInfo(bag, slot)
-  if qinfo and (qinfo.isQuestItem or qinfo.questID) then
-    b.border:SetVertexColor(1, 0.82, 0); b.border:Show()
-  end
+  if qinfo and (qinfo.isQuestItem or qinfo.questID) then b.kbQuest:Show() else b.kbQuest:Hide() end
   -- item novo
-  if C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then b.newGlow:Show() else b.newGlow:Hide() end
-  -- cooldown
-  local cs, cd, cen = C_Container.GetContainerItemCooldown(bag, slot)
-  CooldownFrame_Set(b.cd, cs or 0, cd or 0, cen or 0)
+  if C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then b.kbNewGlow:Show() else b.kbNewGlow:Hide() end
 end
 
 local function ClearBadges(b)
-  b.ilvl:Hide(); b.bind:Hide(); b.newGlow:Hide()
-  if b.cd then CooldownFrame_Set(b.cd, 0, 0, 0) end
+  b.kbIlvl:Hide(); b.kbBind:Hide(); b.kbNewGlow:Hide(); b.kbQuest:Hide()
 end
 
 -- atualização leve só dos cooldowns dos botões visíveis (evento BAG_UPDATE_COOLDOWN)
 local function UpdateCooldowns()
   for _, b in ipairs(pool) do
-    if b:IsShown() and b.bag and b.slot and b.itemID then
+    if b:IsShown() and b.bag and b.slot and b.itemID and b.Cooldown then
       local cs, cd, cen = C_Container.GetContainerItemCooldown(b.bag, b.slot)
-      CooldownFrame_Set(b.cd, cs or 0, cd or 0, cen or 0)
+      CooldownFrame_Set(b.Cooldown, cs or 0, cd or 0, cen or 0)
     end
+  end
+end
+
+-- preenche o botão NATIVO: amarra bag/slot (clique seguro), display nativo + selos próprios.
+-- Proteção: favorito no vendedor não vende (tiramos o registro do clique-direito daquele botão).
+local function FillButton(b, bag, slot)
+  b:SetParent(GetBagHolder(bag))
+  b:SetID(slot)
+  b.bag, b.slot = bag, slot
+  local info = C_Container.GetContainerItemInfo(bag, slot)
+  if info and info.itemID then
+    b.itemID = info.itemID
+    b.itemName = C_Item.GetItemInfo(info.hyperlink) or ""
+    b:SetItemButtonTexture(info.iconFileID)
+    SetItemButtonCount(b, info.stackCount or 1)
+    b:SetItemButtonQuality(info.quality, nil, true, info.isBound)
+    if b.Cooldown then
+      local cs, cd, cen = C_Container.GetContainerItemCooldown(bag, slot)
+      CooldownFrame_Set(b.Cooldown, cs or 0, cd or 0, cen or 0)
+    end
+    b.kbStar:Show()
+    DecorateBadges(b, bag, slot, info.itemID, info.quality, GetIlvl(info.hyperlink), info.isBound)
+    if MerchantFrame and MerchantFrame:IsShown() and IsProtected(info.itemID) then
+      b:RegisterForClicks("LeftButtonUp")               -- favorito não vende (sem clique direito)
+    else
+      b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    end
+  else
+    b.itemID, b.itemName = nil, nil
+    b:SetItemButtonTexture(nil)
+    SetItemButtonCount(b, 0)
+    if b.IconBorder then b.IconBorder:Hide() end
+    if b.Cooldown then CooldownFrame_Set(b.Cooldown, 0, 0, 0) end
+    b.kbStar:Hide()
+    ClearBadges(b)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   end
 end
 
@@ -533,29 +525,7 @@ RenderGrid = function()
     for slot = 1, slots do
       idx = idx + 1
       local b = AcquireButton(idx)
-      b.bag, b.slot = bag, slot
-      b.slotBg:Show(); b.slotBorder:Show()
-      local info = C_Container.GetContainerItemInfo(bag, slot)
-      if info and info.itemID then
-        b.itemID, b.itemName = info.itemID, (C_Item.GetItemInfo(info.hyperlink) or "")
-        b.icon:SetTexture(info.iconFileID); b.icon:Show()
-        if (info.stackCount or 1) > 1 then b.count:SetText(info.stackCount); b.count:Show() else b.count:Hide() end
-        if info.quality and info.quality > 1 then
-          local r, g2, bl = GetItemQualityColor(info.quality)
-          b.border:SetVertexColor(r, g2, bl); b.border:Show()
-        else
-          b.border:Hide()
-        end
-        b.fav:SetShown(IsProtected(info.itemID) and true or false)
-        DecorateBadges(b, bag, slot, info.itemID, info.quality, GetIlvl(info.hyperlink), info.isBound)
-        SetItemSecure(b, bag, slot, info.itemID)
-      else
-        b.itemID, b.itemName = nil, nil
-        b.icon:Hide(); b.count:Hide(); b.border:Hide(); b.fav:Hide()
-        ClearBadges(b)
-        SetItemSecure(b, bag, slot, nil)
-      end
-      b.lock:Hide()
+      FillButton(b, bag, slot)
       b:SetSize(BTN, BTN); b:ClearAllPoints()
       b:SetPoint("TOPLEFT", PAD + col * (BTN + PAD), yOff)
       b:Show()
@@ -680,20 +650,7 @@ Refresh = function()
         for _, it in ipairs(g) do
           btnIdx = btnIdx + 1
           local b = AcquireButton(btnIdx)
-          b.bag, b.slot, b.itemID, b.itemName = it.bag, it.slot, it.itemID, it.name
-          b.icon:SetTexture(it.icon); b.icon:Show()
-          b.slotBg:Hide(); b.slotBorder:Hide()
-          if (it.count or 1) > 1 then b.count:SetText(it.count); b.count:Show() else b.count:Hide() end
-          if it.quality and it.quality > 1 then
-            local r, g2, bl = GetItemQualityColor(it.quality)
-            b.border:SetVertexColor(r, g2, bl); b.border:Show()
-          else
-            b.border:Hide()
-          end
-          b.fav:SetShown(IsProtected(it.itemID) and true or false) -- estrela = favorito/protegido
-          DecorateBadges(b, it.bag, it.slot, it.itemID, it.quality, it.ilvl, it.bound)
-          SetItemSecure(b, it.bag, it.slot, it.itemID)
-          b.lock:Hide()
+          FillButton(b, it.bag, it.slot)
           b:SetSize(BTN, BTN)
           b:ClearAllPoints()
           b:SetPoint("TOPLEFT", PAD + col * (BTN + PAD), yOff)
