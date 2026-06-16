@@ -69,6 +69,7 @@ local function InitDB()
   if KrononBagsDB.settings.autoOpen == nil then KrononBagsDB.settings.autoOpen = true end
   if KrononBagsDB.settings.showIlvl == nil then KrononBagsDB.settings.showIlvl = true end
   if KrononBagsDB.settings.ilvlUseRarity == nil then KrononBagsDB.settings.ilvlUseRarity = true end
+  if KrononBagsDB.settings.frameStyle == nil then KrononBagsDB.settings.frameStyle = "dark" end -- "dark" (atual) | "blizzard" (moldura nativa)
   -- favoritar e proteger agora são UMA coisa só: migra protegidos antigos
   for id in pairs(KrononBagsDB.protected) do KrononBagsDB.favorites[id] = true end
   wipe(KrononBagsDB.protected)
@@ -356,27 +357,39 @@ AcquireButton = function(i)
     b.kbQuest = b:CreateTexture(nil, "OVERLAY")
     b.kbQuest:SetAllPoints(); b.kbQuest:SetTexture("Interface\\Common\\WhiteIconFrame")
     b.kbQuest:SetVertexColor(1, 0.82, 0); b.kbQuest:Hide()
-    -- estrela: favoritar (esquerdo) + menu (direito) — botão separado, acima do item
+    -- estrela: favoritar (esquerdo) + menu (direito) — botão separado, acima do item.
+    -- DOURADA só quando favoritado; num não-favoritado, aparece APAGADA ao passar o mouse (pra clicar).
     local star = CreateFrame("Button", nil, b)
     star:SetSize(14, 14); star:SetPoint("TOPLEFT", -1, 1)
     star:SetFrameLevel(b:GetFrameLevel() + 5)
     star:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     star.tex = star:CreateTexture(nil, "OVERLAY"); star.tex:SetAllPoints()
     star.tex:SetAtlas("PetJournal-FavoritesIcon")
+    b.kbStar = star
+    local function updateStar()
+      if b.itemID and DB.favorites[b.itemID] then
+        star:Show(); star.tex:SetDesaturated(false); star.tex:SetAlpha(1)
+      elseif b.itemID and b:IsMouseOver() then
+        star:Show(); star.tex:SetDesaturated(true); star.tex:SetAlpha(0.4)
+      else
+        star:Hide()
+      end
+    end
+    b.kbUpdateStar = updateStar
     star:SetScript("OnClick", function(_, mb)
       local id = b.itemID
       if not id then return end
       if mb == "RightButton" then OpenItemMenu(b) else ToggleFavorite(id) end
     end)
     star:SetScript("OnEnter", function(s)
+      updateStar()
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
       GameTooltip:SetText("Esquerdo: favoritar (protege de venda)\nDireito: menu (mover p/ categoria)")
       GameTooltip:Show()
     end)
-    star:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    b.kbStar = star
-    b:SetScript("OnEnter", OnEnter)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    star:SetScript("OnLeave", function() GameTooltip:Hide(); updateStar() end)
+    b:SetScript("OnEnter", function(self) OnEnter(self); if self.kbUpdateStar then self.kbUpdateStar() end end)
+    b:SetScript("OnLeave", function(self) GameTooltip:Hide(); if self.kbUpdateStar then self.kbUpdateStar() end end)
     pool[i] = b
   end
   return b
@@ -404,13 +417,14 @@ end
 
 -- seção "Vazio": header + slot geral + slot reagentes (tamanho de item, clicáveis)
 local function DrawEmpty(yOff)
-  emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", MARGIN, yOff)
+  local M = UI.kbMargin or MARGIN
+  emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", M, yOff)
   emptyHeader:SetText("|cfff0d98cVazio|r"); emptyHeader:Show()
   yOff = yOff - 18
-  freeBox:SetSize(BTN, BTN); freeBox:ClearAllPoints(); freeBox:SetPoint("TOPLEFT", MARGIN, yOff); freeBox:Show()
+  freeBox:SetSize(BTN, BTN); freeBox:ClearAllPoints(); freeBox:SetPoint("TOPLEFT", M, yOff); freeBox:Show()
   if (C_Container.GetContainerNumSlots(5) or 0) > 0 then
     reagentBox:SetSize(BTN, BTN); reagentBox:ClearAllPoints()
-    reagentBox:SetPoint("TOPLEFT", MARGIN + (BTN + PAD), yOff); reagentBox:Show()
+    reagentBox:SetPoint("TOPLEFT", M + (BTN + PAD), yOff); reagentBox:Show()
   else
     reagentBox:Hide()
   end
@@ -498,7 +512,7 @@ local function FillButton(b, bag, slot)
       local cs, cd, cen = C_Container.GetContainerItemCooldown(bag, slot)
       CooldownFrame_Set(b.Cooldown, cs or 0, cd or 0, cen or 0)
     end
-    b.kbStar:Show()
+    if b.kbUpdateStar then b.kbUpdateStar() end
     DecorateBadges(b, bag, slot, info.itemID, info.quality, GetIlvl(info.hyperlink), info.isBound)
     if MerchantFrame and MerchantFrame:IsShown() and IsProtected(info.itemID) then
       b:RegisterForClicks("LeftButtonUp")               -- favorito não vende (sem clique direito)
@@ -511,7 +525,7 @@ local function FillButton(b, bag, slot)
     SetItemButtonCount(b, 0)
     if b.IconBorder then b.IconBorder:Hide() end
     if b.Cooldown then CooldownFrame_Set(b.Cooldown, 0, 0, 0) end
-    b.kbStar:Hide()
+    if b.kbUpdateStar then b.kbUpdateStar() end
     ClearBadges(b)
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   end
@@ -520,13 +534,14 @@ end
 -- ---------------- Render: modo grade (todos os slots, estilo Blizzard) ----------------
 RenderGrid = function()
   local cols = (DB.settings and DB.settings.cols) or COLS
-  UI:SetWidth(cols * (BTN + PAD) - PAD + MARGIN * 2)
+  local M, TOP, BOT = UI.kbMargin or MARGIN, UI.kbTop or 34, UI.kbBottom or (MARGIN + 22)
+  UI:SetWidth(cols * (BTN + PAD) - PAD + M * 2)
   for _, b in ipairs(pool) do b:Hide() end
   for _, h in ipairs(headerPool) do h:Hide() end
   for _, eb in ipairs(equipBtnPool) do eb:Hide() end
 
   local idx, col = 0, 0
-  local yOff = -34
+  local yOff = -TOP
   for _, bag in ipairs(BAGS) do
     local slots = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, slots do
@@ -534,7 +549,7 @@ RenderGrid = function()
       local b = AcquireButton(idx)
       FillButton(b, bag, slot)
       b:SetSize(BTN, BTN); b:ClearAllPoints()
-      b:SetPoint("TOPLEFT", MARGIN + col * (BTN + PAD), yOff)
+      b:SetPoint("TOPLEFT", M + col * (BTN + PAD), yOff)
       b:Show()
       col = col + 1
       if col >= cols then col = 0; yOff = yOff - (BTN + PAD) end
@@ -543,7 +558,7 @@ RenderGrid = function()
   if col > 0 then yOff = yOff - (BTN + PAD) end
   yOff = DrawEmpty(yOff)
   UpdateMoney()
-  UI:SetHeight(math.max(-yOff + MARGIN + 22, 140))
+  UI:SetHeight(math.max(-yOff + BOT, 140))
 end
 
 -- ---------------- Render ----------------
@@ -608,9 +623,10 @@ Refresh = function()
 
   -- 5) desenha
   local cols = (DB.settings and DB.settings.cols) or COLS
-  UI:SetWidth(cols * (BTN + PAD) - PAD + MARGIN * 2)
+  local M, TOP, BOT = UI.kbMargin or MARGIN, UI.kbTop or 34, UI.kbBottom or (MARGIN + 22)
+  UI:SetWidth(cols * (BTN + PAD) - PAD + M * 2)
   local btnIdx, hdrIdx, ebIdx = 0, 0, 0
-  local yOff = -34
+  local yOff = -TOP
   for _, cat in ipairs(order) do
     local g = groups[cat]
     if g and #g > 0 then
@@ -635,7 +651,7 @@ Refresh = function()
       h.cat = cat
       local collapsed = DB.collapsed[cat]
       h:SetSize(cols * (BTN + PAD), 16)
-      h:ClearAllPoints(); h:SetPoint("TOPLEFT", MARGIN, yOff)
+      h:ClearAllPoints(); h:SetPoint("TOPLEFT", M, yOff)
       local sign = collapsed and "Interface\\Buttons\\UI-PlusButton-Up" or "Interface\\Buttons\\UI-MinusButton-Up"
       h.label:SetText("|T" .. sign .. ":14:14:0:0|t |cfff0d98c" .. cat .. "|r  |cff999999(" .. #g .. ")|r")
       h:Show()
@@ -660,7 +676,7 @@ Refresh = function()
           FillButton(b, it.bag, it.slot)
           b:SetSize(BTN, BTN)
           b:ClearAllPoints()
-          b:SetPoint("TOPLEFT", MARGIN + col * (BTN + PAD), yOff)
+          b:SetPoint("TOPLEFT", M + col * (BTN + PAD), yOff)
           b:Show()
           col = col + 1
           if col >= cols then col = 0; yOff = yOff - (BTN + PAD) end
@@ -673,7 +689,7 @@ Refresh = function()
 
   yOff = DrawEmpty(yOff)
   UpdateMoney()
-  UI:SetHeight(math.max(-yOff + MARGIN + 22, 140))
+  UI:SetHeight(math.max(-yOff + BOT, 140))
 end
 
 -- ---------------- Popup: nova categoria ----------------
@@ -706,6 +722,7 @@ StaticPopupDialogs["KRONONBAGS_NEWCAT"] = {
 
 -- ---------------- Janela ----------------
 ApplyOpacity = function()
+  if DB and DB.settings and DB.settings.frameStyle == "blizzard" then return end -- moldura nativa controla o fundo
   if not (UI and UI.SetBackdropColor) then return end
   local s = DB and DB.settings
   local op = (s and s.opacity) or 0.92
@@ -759,35 +776,57 @@ UpdateMoney = function()
 end
 
 CreateUI = function()
-  UI = CreateFrame("Frame", "KrononBagsFrame", UIParent, "BackdropTemplate")
-  UI:SetSize(COLS * (BTN + PAD) - PAD + MARGIN * 2, 400)
+  local blizzard = (DB.settings.frameStyle == "blizzard")
+  UI = CreateFrame("Frame", "KrononBagsFrame", UIParent, blizzard and "ButtonFrameTemplate" or "BackdropTemplate")
   UI:SetPoint("CENTER")
   UI:SetFrameStrata("HIGH")
   UI:SetClampedToScreen(true)
   UI:SetMovable(true); UI:EnableMouse(true); UI:RegisterForDrag("LeftButton")
   UI:SetScript("OnDragStart", UI.StartMoving)
   UI:SetScript("OnDragStop", UI.StopMovingOrSizing)
-  if UI.SetBackdrop then
-    UI:SetBackdrop({
-      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-      tile = true, tileSize = 16, edgeSize = 16,
-      insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
-    UI:SetBackdropColor(0, 0, 0, (DB.settings and DB.settings.opacity) or 0.92)
+
+  local logoPath = "Interface\\AddOns\\KrononBags\\Media\\KrononLogo.tga"
+  local ctrlY, gearAnchorX
+
+  if blizzard then
+    -- moldura NATIVA (igual à bag combinada): portrait + barra de título + X + inset
+    UI.kbMargin, UI.kbTop, UI.kbBottom, ctrlY, gearAnchorX = 13, 60, 40, -32, -10
+    if UI.SetTitle then UI:SetTitle("KrononBags") end
+    local portrait = (UI.PortraitContainer and UI.PortraitContainer.portrait) or UI.portrait
+    if portrait then
+      portrait:SetTexture(logoPath)
+      portrait:SetTexCoord(-0.08, 1.08, -0.08, 1.08) -- preenche o círculo, centralizada, pontas sem cortar
+    end
+    if ButtonFrameTemplate_HideButtonBar then ButtonFrameTemplate_HideButtonBar(UI) end
+  else
+    -- estilo ESCURO (atual): backdrop preto + header próprio (logo + título + X)
+    UI.kbMargin, UI.kbTop, UI.kbBottom, ctrlY, gearAnchorX = MARGIN, 34, MARGIN + 22, -6, -28
+    if UI.SetBackdrop then
+      UI:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+      })
+    end
+    local logo = UI:CreateTexture(nil, "ARTWORK")
+    logo:SetSize(24, 24); logo:SetPoint("TOPLEFT", MARGIN - 2, -5)
+    logo:SetTexture(logoPath)
+    local title = UI:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("LEFT", logo, "RIGHT", 5, -1); title:SetText("|cfff0d98cKrononBags|r")
+    local divider = UI:CreateTexture(nil, "ARTWORK")
+    divider:SetColorTexture(0.45, 0.45, 0.5, 0.5); divider:SetHeight(1)
+    divider:SetPoint("TOPLEFT", UI, "TOPLEFT", MARGIN, -31)
+    divider:SetPoint("TOPRIGHT", UI, "TOPRIGHT", -MARGIN, -31)
+    local close = CreateFrame("Button", nil, UI, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", 2, 2)
   end
+  UI:SetSize(COLS * (BTN + PAD) - PAD + UI.kbMargin * 2, 400)
 
-  -- ---- header compacto estilo Blizzard: título ... [organizar] [busca] [engrenagem] [X] ----
-  local title = UI:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  title:SetPoint("TOPLEFT", 10, -9); title:SetText("|cfff0d98cKrononBags|r")
-
-  local close = CreateFrame("Button", nil, UI, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", 2, 2)
-
-  -- engrenagem (mantida exatamente como estava — "perfeita")
+  -- controles: organizar / busca / engrenagem (ambos os estilos), ancorados ao topo-direita
   local gear = CreateFrame("Button", nil, UI)
   gear:SetSize(22, 22)
-  gear:SetPoint("RIGHT", close, "LEFT", 0, 0)
+  gear:SetPoint("TOPRIGHT", UI, "TOPRIGHT", gearAnchorX, ctrlY)
   gear:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
   gear:SetHighlightTexture("Interface\\Buttons\\UI-OptionsButton", "ADD")
   gear:SetScript("OnClick", function() ToggleConfig() end)
@@ -814,11 +853,11 @@ CreateUI = function()
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   goldText = UI:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  goldText:SetPoint("BOTTOMRIGHT", -8, 7)
+  goldText:SetPoint("BOTTOMRIGHT", UI, "BOTTOMRIGHT", blizzard and -12 or -8, blizzard and 12 or 7)
 
   currencyText = UI:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   currencyText:SetJustifyH("LEFT")
-  currencyText:SetPoint("BOTTOMLEFT", 8, 7)
+  currencyText:SetPoint("BOTTOMLEFT", UI, "BOTTOMLEFT", blizzard and 12 or 8, blizzard and 12 or 7)
   currencyText:SetPoint("RIGHT", goldText, "LEFT", -10, 0)
 
   -- seção "Vazio": 2 slots grandes (geral + reagentes), clicáveis = alternar grade
@@ -866,7 +905,7 @@ end
 
 -- ---------------- Configurações (extensível) ----------------
 local catRows = {}
-local CAT_LIST_TOP = -422
+local CAT_LIST_TOP = -356
 local RefreshConfigCats
 RefreshConfigCats = function()
   if not CFG then return end
@@ -904,7 +943,7 @@ RefreshConfigCats = function()
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", 16, y); r:Show()
     y = y - 22
   end
-  CFG:SetHeight(math.max(380, -y + 16))
+  CFG:SetHeight(math.max(380, -y + 30)) -- +espaço pro rodapé de créditos
 end
 
 CreateConfig = function()
@@ -925,122 +964,100 @@ CreateConfig = function()
     CFG:SetBackdropColor(0, 0, 0, 0.95)
   end
 
+  local clogo = CFG:CreateTexture(nil, "ARTWORK")
+  clogo:SetSize(30, 30); clogo:SetPoint("TOPLEFT", 10, -8)
+  clogo:SetTexture("Interface\\AddOns\\KrononBags\\Media\\KrononLogo.tga")
+
   local title = CFG:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", 0, -12); title:SetText("|cfff0d98cKrononBags — Configurações|r")
 
   local close = CreateFrame("Button", nil, CFG, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", 2, 2)
 
-  -- Opção: opacidade do fundo
-  local opLabel = CFG:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  opLabel:SetPoint("TOPLEFT", 18, -50)
-  local function setOpLabel(v) opLabel:SetText(string.format("Opacidade do fundo: %d%%", math.floor(v * 100 + 0.5))) end
+  -- créditos (rodapé) — versão lida do .toc automaticamente
+  local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")) or ""
+  CFG.kbCredits = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  CFG.kbCredits:SetPoint("BOTTOM", CFG, "BOTTOM", 0, 9)
+  CFG.kbCredits:SetText("|cff9d9d9dKrononBags v" .. ver .. "  ·  feito por Kronon|r")
 
+  -- helpers de layout: seção (título + linha) e checkbox
+  local function section(text, y)
+    local h = CFG:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    h:SetPoint("TOPLEFT", 16, y); h:SetText("|cfff0d98c" .. text .. "|r")
+    local d = CFG:CreateTexture(nil, "ARTWORK")
+    d:SetColorTexture(0.4, 0.4, 0.45, 0.5); d:SetHeight(1)
+    d:SetPoint("TOPLEFT", 14, y - 15); d:SetPoint("TOPRIGHT", -14, y - 15)
+  end
+  local function check(name, x, y, label, getf, setf)
+    local c = CreateFrame("CheckButton", name, CFG, "UICheckButtonTemplate")
+    c:SetPoint("TOPLEFT", x, y)
+    local lbl = c.Text or _G[name .. "Text"]
+    if lbl then lbl:SetText(label) end
+    c:SetChecked(getf())
+    c:SetScript("OnClick", function(self) setf(self:GetChecked() and true or false) end)
+    return c
+  end
+  local LCOL, RCOL = 16, 205
+
+  -- ===== Aparência =====
+  section("Aparência", -44)
+  check("KrononBagsFrameStyleCheck", LCOL, -66, "Moldura Blizzard", function() return DB.settings.frameStyle == "blizzard" end, function(v)
+    DB.settings.frameStyle = v and "blizzard" or "dark"
+    print("|cfff0d98cKrononBags|r: dê |cffffff00/reload|r pra aplicar o novo visual.")
+  end)
+  check("KrononBagsBlizzColorsCheck", RCOL, -66, "Cores Blizzard (escuro)", function() return DB.settings.blizzardStyle end, function(v)
+    DB.settings.blizzardStyle = v; ApplyOpacity()
+  end)
+  check("KrononBagsShowIlvlCheck", LCOL, -94, "Mostrar item level", function() return DB.settings.showIlvl end, function(v)
+    DB.settings.showIlvl = v; Refresh()
+  end)
+  check("KrononBagsIlvlRarityCheck", RCOL, -94, "ilvl pela raridade", function() return DB.settings.ilvlUseRarity end, function(v)
+    DB.settings.ilvlUseRarity = v; Refresh()
+  end)
+
+  local opLabel = CFG:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  opLabel:SetPoint("TOPLEFT", 18, -124)
+  local function setOpLabel(v) opLabel:SetText(string.format("Opacidade do fundo: %d%%", math.floor(v * 100 + 0.5))) end
   local slider = CreateFrame("Slider", "KrononBagsOpacitySlider", CFG, "OptionsSliderTemplate")
-  slider:SetPoint("TOPLEFT", 18, -80)
-  slider:SetWidth(300)
-  slider:SetMinMaxValues(0.1, 1.0)
-  slider:SetValueStep(0.05)
-  slider:SetObeyStepOnDrag(true)
+  slider:SetPoint("TOPLEFT", 18, -144); slider:SetWidth(360)
+  slider:SetMinMaxValues(0.1, 1.0); slider:SetValueStep(0.05); slider:SetObeyStepOnDrag(true)
   local low  = slider.Low  or _G["KrononBagsOpacitySliderLow"];  if low  then low:SetText("10%")   end
   local high = slider.High or _G["KrononBagsOpacitySliderHigh"]; if high then high:SetText("100%") end
   local txt  = slider.Text or _G["KrononBagsOpacitySliderText"]; if txt  then txt:SetText("")       end
   slider:SetValue((DB.settings and DB.settings.opacity) or 0.92)
   setOpLabel((DB.settings and DB.settings.opacity) or 0.92)
-  slider:SetScript("OnValueChanged", function(_, v)
-    DB.settings.opacity = v
-    setOpLabel(v)
-    ApplyOpacity()
-  end)
+  slider:SetScript("OnValueChanged", function(_, v) DB.settings.opacity = v; setOpLabel(v); ApplyOpacity() end)
 
-  -- Opção: proteger/favoritar itens em categorias
-  local cb = CreateFrame("CheckButton", "KrononBagsAutoProtectCheck", CFG, "UICheckButtonTemplate")
-  cb:SetPoint("TOPLEFT", 16, -120)
-  local cbLabel = cb.Text or _G["KrononBagsAutoProtectCheckText"]
-  if cbLabel then cbLabel:SetText("Proteger/favoritar itens em categorias") end
-  cb:SetChecked(DB.settings.autoProtectCategorized)
-  cb:SetScript("OnClick", function(self)
-    DB.settings.autoProtectCategorized = self:GetChecked() and true or false
-    Refresh()
-  end)
-  local cbHint = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  cbHint:SetPoint("TOPLEFT", 18, -150)
-  cbHint:SetText("Itens em PvP/PvE ou categorias suas não vendem sem querer.")
-
-  -- Opção: tema de cor (Dark x Blizzard)
-  local cb2 = CreateFrame("CheckButton", "KrononBagsBlizzColorsCheck", CFG, "UICheckButtonTemplate")
-  cb2:SetPoint("TOPLEFT", 16, -176)
-  local cb2Label = cb2.Text or _G["KrononBagsBlizzColorsCheckText"]
-  if cb2Label then cb2Label:SetText("Cores estilo Blizzard (desmarcado = preto/dark)") end
-  cb2:SetChecked(DB.settings.blizzardStyle)
-  cb2:SetScript("OnClick", function(self)
-    DB.settings.blizzardStyle = self:GetChecked() and true or false
-    ApplyOpacity()
-  end)
-
-  -- Opção: número de colunas (itens por fileira)
   local colLabel = CFG:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  colLabel:SetPoint("TOPLEFT", 18, -212)
+  colLabel:SetPoint("TOPLEFT", 18, -176)
   local function setColLabel(v) colLabel:SetText(string.format("Colunas (itens por fileira): %d", v)) end
   local colSlider = CreateFrame("Slider", "KrononBagsColsSlider", CFG, "OptionsSliderTemplate")
-  colSlider:SetPoint("TOPLEFT", 18, -240)
-  colSlider:SetWidth(300)
-  colSlider:SetMinMaxValues(8, 20)
-  colSlider:SetValueStep(1)
-  colSlider:SetObeyStepOnDrag(true)
+  colSlider:SetPoint("TOPLEFT", 18, -196); colSlider:SetWidth(360)
+  colSlider:SetMinMaxValues(8, 20); colSlider:SetValueStep(1); colSlider:SetObeyStepOnDrag(true)
   local cLow  = colSlider.Low  or _G["KrononBagsColsSliderLow"];  if cLow  then cLow:SetText("8")   end
   local cHigh = colSlider.High or _G["KrononBagsColsSliderHigh"]; if cHigh then cHigh:SetText("20") end
   local cTxt  = colSlider.Text or _G["KrononBagsColsSliderText"]; if cTxt  then cTxt:SetText("")     end
   colSlider:SetValue((DB.settings and DB.settings.cols) or 14)
   setColLabel((DB.settings and DB.settings.cols) or 14)
-  colSlider:SetScript("OnValueChanged", function(_, v)
-    v = math.floor(v + 0.5)
-    DB.settings.cols = v
-    setColLabel(v)
-    Refresh()
+  colSlider:SetScript("OnValueChanged", function(_, v) v = math.floor(v + 0.5); DB.settings.cols = v; setColLabel(v); Refresh() end)
+
+  -- ===== Comportamento =====
+  section("Comportamento", -230)
+  check("KrononBagsAutoProtectCheck", LCOL, -252, "Proteger itens (não vender)", function() return DB.settings.autoProtectCategorized end, function(v)
+    DB.settings.autoProtectCategorized = v; Refresh()
+  end)
+  check("KrononBagsAutoOpenCheck", RCOL, -252, "Abrir no vendedor/banco", function() return DB.settings.autoOpen end, function(v)
+    DB.settings.autoOpen = v
   end)
 
-  -- Opção: abrir automaticamente no vendedor/banco/correio
-  local cb3 = CreateFrame("CheckButton", "KrononBagsAutoOpenCheck", CFG, "UICheckButtonTemplate")
-  cb3:SetPoint("TOPLEFT", 16, -266)
-  local cb3Label = cb3.Text or _G["KrononBagsAutoOpenCheckText"]
-  if cb3Label then cb3Label:SetText("Abrir automático no vendedor / banco / correio") end
-  cb3:SetChecked(DB.settings.autoOpen)
-  cb3:SetScript("OnClick", function(self)
-    DB.settings.autoOpen = self:GetChecked() and true or false
-  end)
-
-  -- Opção: mostrar item level no canto do ícone
-  local cb4 = CreateFrame("CheckButton", "KrononBagsShowIlvlCheck", CFG, "UICheckButtonTemplate")
-  cb4:SetPoint("TOPLEFT", 16, -292)
-  local cb4Label = cb4.Text or _G["KrononBagsShowIlvlCheckText"]
-  if cb4Label then cb4Label:SetText("Mostrar item level (ilvl) no canto do ícone") end
-  cb4:SetChecked(DB.settings.showIlvl)
-  cb4:SetScript("OnClick", function(self)
-    DB.settings.showIlvl = self:GetChecked() and true or false
-    Refresh()
-  end)
-
-  -- Opção: cor do ilvl (raridade x branco)
-  local cb5 = CreateFrame("CheckButton", "KrononBagsIlvlRarityCheck", CFG, "UICheckButtonTemplate")
-  cb5:SetPoint("TOPLEFT", 16, -318)
-  local cb5Label = cb5.Text or _G["KrononBagsIlvlRarityCheckText"]
-  if cb5Label then cb5Label:SetText("ilvl colorido pela raridade (desmarcado = branco)") end
-  cb5:SetChecked(DB.settings.ilvlUseRarity)
-  cb5:SetScript("OnClick", function(self)
-    DB.settings.ilvlUseRarity = self:GetChecked() and true or false
-    Refresh()
-  end)
-
-  -- Gerenciar categorias (criar custom + adicionar pré-pronta + reordenar + excluir)
-  local catHeader = CFG:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  catHeader:SetPoint("TOPLEFT", 16, -356); catHeader:SetText("|cfff0d98cCategorias|r")
+  -- ===== Categorias =====
+  section("Categorias", -288)
   local catHint = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  catHint:SetPoint("TOPLEFT", 18, -374)
-  catHint:SetText("A ordem aqui (de cima → baixo) é a ordem no inventário. Use ▲▼ pra mover.")
+  catHint:SetPoint("TOPLEFT", 18, -306)
+  catHint:SetText("Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.")
 
   local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", CFG, "InputBoxTemplate")
-  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -396); newCat:SetAutoFocus(false)
+  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -328); newCat:SetAutoFocus(false)
   local addBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
   addBtn:SetSize(60, 20); addBtn:SetText("Criar"); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
   local presetBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
