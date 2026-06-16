@@ -14,8 +14,9 @@ local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney
 
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- mochila + 4 bolsas + bolsa de reagentes
 local COLS = 14
-local BTN  = 37
-local PAD  = 4
+local BTN    = 37
+local PAD    = 4   -- espaço ENTRE itens
+local MARGIN = 10  -- distância da borda da janela
 local search = ""
 
 local pool = {}        -- pool de botões de item
@@ -403,13 +404,13 @@ end
 
 -- seção "Vazio": header + slot geral + slot reagentes (tamanho de item, clicáveis)
 local function DrawEmpty(yOff)
-  emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", PAD + 2, yOff)
+  emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", MARGIN, yOff)
   emptyHeader:SetText("|cfff0d98cVazio|r"); emptyHeader:Show()
   yOff = yOff - 18
-  freeBox:SetSize(BTN, BTN); freeBox:ClearAllPoints(); freeBox:SetPoint("TOPLEFT", PAD, yOff); freeBox:Show()
+  freeBox:SetSize(BTN, BTN); freeBox:ClearAllPoints(); freeBox:SetPoint("TOPLEFT", MARGIN, yOff); freeBox:Show()
   if (C_Container.GetContainerNumSlots(5) or 0) > 0 then
     reagentBox:SetSize(BTN, BTN); reagentBox:ClearAllPoints()
-    reagentBox:SetPoint("TOPLEFT", PAD + (BTN + PAD), yOff); reagentBox:Show()
+    reagentBox:SetPoint("TOPLEFT", MARGIN + (BTN + PAD), yOff); reagentBox:Show()
   else
     reagentBox:Hide()
   end
@@ -480,6 +481,12 @@ local function FillButton(b, bag, slot)
   b:SetParent(GetBagHolder(bag))
   b:SetID(slot)
   b.bag, b.slot = bag, slot
+  -- desliga o brilho de "item novo" NATIVO (tocava sozinho em slot vazio e em tudo após /reload);
+  -- usamos o nosso próprio b.kbNewGlow, controlado por IsNewItem só em itens de verdade.
+  if b.NewItemTexture then b.NewItemTexture:Hide() end
+  if b.BattlepayItemTexture then b.BattlepayItemTexture:Hide() end
+  if b.flashAnim and b.flashAnim:IsPlaying() then b.flashAnim:Stop() end
+  if b.newitemglowAnim and b.newitemglowAnim:IsPlaying() then b.newitemglowAnim:Stop() end
   local info = C_Container.GetContainerItemInfo(bag, slot)
   if info and info.itemID then
     b.itemID = info.itemID
@@ -513,7 +520,7 @@ end
 -- ---------------- Render: modo grade (todos os slots, estilo Blizzard) ----------------
 RenderGrid = function()
   local cols = (DB.settings and DB.settings.cols) or COLS
-  UI:SetWidth(cols * (BTN + PAD) + PAD * 2)
+  UI:SetWidth(cols * (BTN + PAD) - PAD + MARGIN * 2)
   for _, b in ipairs(pool) do b:Hide() end
   for _, h in ipairs(headerPool) do h:Hide() end
   for _, eb in ipairs(equipBtnPool) do eb:Hide() end
@@ -527,7 +534,7 @@ RenderGrid = function()
       local b = AcquireButton(idx)
       FillButton(b, bag, slot)
       b:SetSize(BTN, BTN); b:ClearAllPoints()
-      b:SetPoint("TOPLEFT", PAD + col * (BTN + PAD), yOff)
+      b:SetPoint("TOPLEFT", MARGIN + col * (BTN + PAD), yOff)
       b:Show()
       col = col + 1
       if col >= cols then col = 0; yOff = yOff - (BTN + PAD) end
@@ -536,7 +543,7 @@ RenderGrid = function()
   if col > 0 then yOff = yOff - (BTN + PAD) end
   yOff = DrawEmpty(yOff)
   UpdateMoney()
-  UI:SetHeight(math.max(-yOff + PAD + 22, 140))
+  UI:SetHeight(math.max(-yOff + MARGIN + 22, 140))
 end
 
 -- ---------------- Render ----------------
@@ -601,7 +608,7 @@ Refresh = function()
 
   -- 5) desenha
   local cols = (DB.settings and DB.settings.cols) or COLS
-  UI:SetWidth(cols * (BTN + PAD) + PAD * 2)
+  UI:SetWidth(cols * (BTN + PAD) - PAD + MARGIN * 2)
   local btnIdx, hdrIdx, ebIdx = 0, 0, 0
   local yOff = -34
   for _, cat in ipairs(order) do
@@ -628,7 +635,7 @@ Refresh = function()
       h.cat = cat
       local collapsed = DB.collapsed[cat]
       h:SetSize(cols * (BTN + PAD), 16)
-      h:ClearAllPoints(); h:SetPoint("TOPLEFT", PAD + 2, yOff)
+      h:ClearAllPoints(); h:SetPoint("TOPLEFT", MARGIN, yOff)
       local sign = collapsed and "Interface\\Buttons\\UI-PlusButton-Up" or "Interface\\Buttons\\UI-MinusButton-Up"
       h.label:SetText("|T" .. sign .. ":14:14:0:0|t |cfff0d98c" .. cat .. "|r  |cff999999(" .. #g .. ")|r")
       h:Show()
@@ -653,7 +660,7 @@ Refresh = function()
           FillButton(b, it.bag, it.slot)
           b:SetSize(BTN, BTN)
           b:ClearAllPoints()
-          b:SetPoint("TOPLEFT", PAD + col * (BTN + PAD), yOff)
+          b:SetPoint("TOPLEFT", MARGIN + col * (BTN + PAD), yOff)
           b:Show()
           col = col + 1
           if col >= cols then col = 0; yOff = yOff - (BTN + PAD) end
@@ -666,7 +673,7 @@ Refresh = function()
 
   yOff = DrawEmpty(yOff)
   UpdateMoney()
-  UI:SetHeight(math.max(-yOff + PAD + 22, 140))
+  UI:SetHeight(math.max(-yOff + MARGIN + 22, 140))
 end
 
 -- ---------------- Popup: nova categoria ----------------
@@ -753,7 +760,7 @@ end
 
 CreateUI = function()
   UI = CreateFrame("Frame", "KrononBagsFrame", UIParent, "BackdropTemplate")
-  UI:SetSize(COLS * (BTN + PAD) + PAD * 2, 400)
+  UI:SetSize(COLS * (BTN + PAD) - PAD + MARGIN * 2, 400)
   UI:SetPoint("CENTER")
   UI:SetFrameStrata("HIGH")
   UI:SetClampedToScreen(true)
