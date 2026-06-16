@@ -1,0 +1,11 @@
+# Config do BigWigs Packager — https://github.com/BigWigsMods/packager
+package-as: KrononBags
+
+# addon sem bibliotecas externas → não gera variante "nolib"
+enable-nolib-creation: no
+
+# arquivos/pastas que NÃO entram no zip publicado
+ignore:
+  - README.md
+  - .github
+  - "*.zip"

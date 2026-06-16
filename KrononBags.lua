@@ -978,7 +978,7 @@ CreateConfig = function()
   local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")) or ""
   CFG.kbCredits = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   CFG.kbCredits:SetPoint("BOTTOM", CFG, "BOTTOM", 0, 9)
-  CFG.kbCredits:SetText("|cff9d9d9dKrononBags v" .. ver .. "  ·  feito por Kronon|r")
+  CFG.kbCredits:SetText("|cff9d9d9dKrononBags v" .. ver .. "  ·  Kronon  ·  discord.gg/yFdQsFewN3|r")
 
   -- helpers de layout: seção (título + linha) e checkbox
   local function section(text, y)
