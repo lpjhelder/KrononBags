@@ -98,6 +98,7 @@ local function InitDB()
   KrononBagsDB.charPos     = KrononBagsDB.charPos or {}     -- [char-realm] = {point, relPoint, x, y}
   KrononBagsDB.charItems   = KrononBagsDB.charItems or {}   -- [char-realm] = {name, class, bags={}, bank={}} (contagem nos alts)
   KrononBagsDB.warband     = KrononBagsDB.warband or {}     -- [itemID] = qtd no banco da Brigada
+  KrononBagsDB.recem       = KrononBagsDB.recem or {}       -- [itemID] = true (recém-obtido, fica até clicar em Distribuir)
   KrononBagsDB.introducedPresets = KrononBagsDB.introducedPresets or {} -- presets já injetados 1x
   KrononBagsDB.settings    = KrononBagsDB.settings or {}
   if KrononBagsDB.settings.opacity == nil then KrononBagsDB.settings.opacity = 0.92 end
@@ -263,7 +264,7 @@ end
 
 -- filtros recebem (itemID, quality, bag, slot). "reagentbag"/"keystone"/"new" são especiais.
 local PRESET_FILTERS = {
-  new        = function(id, q, bag, slot) return slot and C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) or false end, -- recém-obtido
+  new        = function(id, q, bag, slot) return (DB and DB.recem and DB.recem[id]) and true or false end, -- recém-obtido (fica até clicar em Distribuir)
   favorites  = function(id, q, bag) return DB.favorites[id] and true or false end,
   keystone   = function(id, q, bag) return isKeystone(id) end,                                -- Pedra-chave
   reagentbag = function(id, q, bag) return bag == 5 end,                                       -- bolsa de reagentes (loc)
@@ -474,7 +475,7 @@ local function OpenCategoryMenu(h)
 end
 
 -- arrastar item e soltar no cabeçalho de uma categoria = atribui ali (virtual, sem mover o item).
--- Favoritos → favorita; Diversos/Recém-obtidos → tira da categoria (volta pro automático).
+-- Favoritos → favorita; Diversos → tira da categoria (volta pro automático); Recém-obtidos → marca como recém.
 local function AssignCursorToCategory(cat)
   if not cat or not CursorHasItem() then return end
   local kind, id, link = GetCursorInfo()
@@ -485,7 +486,9 @@ local function AssignCursorToCategory(cat)
   local entry = CatEntryByName(cat)
   if entry and entry.filter == "favorites" then
     DB.favorites[itemID] = true
-  elseif cat == "Diversos" or (entry and entry.filter == "new") then
+  elseif entry and entry.filter == "new" then
+    DB.recem[itemID] = true; DB.assignments[itemID] = nil -- joga de volta pra Recém-obtidos
+  elseif cat == "Diversos" then
     DB.assignments[itemID] = nil -- volta pro automático
   elseif entry then
     DB.assignments[itemID] = cat -- custom OU pré-pronta (força a categoria)
@@ -883,8 +886,8 @@ local function SearchTermPred(tok)
     consumivel = function(it) return classOf(it.itemID) == 0 end,
     ["consumível"] = function(it) return classOf(it.itemID) == 0 end,
     consumable = function(it) return classOf(it.itemID) == 0 end,
-    novo = function(it) return C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(it.bag, it.slot) or false end,
-    new = function(it) return C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(it.bag, it.slot) or false end,
+    novo = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
+    new = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
     favorito = function(it) return DB.favorites[it.itemID] and true or false end,
     fav = function(it) return DB.favorites[it.itemID] and true or false end,
   }
@@ -1015,6 +1018,18 @@ local function MergeStacks(g)
   return out
 end
 
+-- "Distribuir": esvazia Recém-obtidos — os itens caem nas categorias certas (e limpa qualquer glow remanescente)
+local function DistributeNew()
+  if DB and DB.recem then wipe(DB.recem) end
+  if C_NewItems and C_NewItems.RemoveNewItem then
+    for _, bag in ipairs(ActiveBags()) do
+      local slots = C_Container.GetContainerNumSlots(bag) or 0
+      for slot = 1, slots do C_NewItems.RemoveNewItem(bag, slot) end
+    end
+  end
+  Refresh()
+end
+
 -- ---------------- Render ----------------
 Refresh = function()
   if not UI or not UI:IsShown() or not DB then return end
@@ -1023,6 +1038,7 @@ Refresh = function()
   RebuildEquipSets()
   local bags = ActiveBags()
   EnsureItemsCached(bags)
+  if UI.distribBtn then UI.distribBtn:Hide() end -- esconde já (a grade não tem cabeçalho de seção)
   if DB.settings.gridView then return RenderGrid() end
 
   -- 1) coleta os itens
@@ -1037,6 +1053,8 @@ Refresh = function()
           icon = info.iconFileID, count = info.stackCount, quality = info.quality,
           name = C_Item.GetItemInfo(info.hyperlink) or "", ilvl = GetIlvl(info.hyperlink), bound = info.isBound,
         }
+        -- quando o jogo marca o item como novo, ele entra em "Recém-obtidos" e fica lá até clicar em Distribuir
+        if C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then DB.recem[info.itemID] = true end
         it.cat = ResolveCat(it) -- precisa do registro completo (regras usam name/ilvl/etc)
         items[#items + 1] = it
       end
@@ -1079,6 +1097,7 @@ Refresh = function()
   for _, b in ipairs(pool) do b:Hide() end
   for _, h in ipairs(headerPool) do h:Hide() end
   for _, eb in ipairs(equipBtnPool) do eb:Hide() end
+  if UI.distribBtn then UI.distribBtn:Hide() end
 
   -- 5) desenha (dentro do conteúdo rolável: x a partir de 0, yOff a partir de 0)
   local cols = (DB.settings and DB.settings.cols) or COLS
@@ -1133,6 +1152,27 @@ Refresh = function()
         eb:ClearAllPoints()
         eb:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
         eb:Show()
+      end
+      -- botão "Distribuir" no cabeçalho de Recém-obtidos: manda tudo pras categorias certas
+      if cat == "Recém-obtidos" then
+        if not UI.distribBtn then
+          local d = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate")
+          d:SetSize(72, 18); d:SetText("Distribuir")
+          d:SetScript("OnClick", DistributeNew)
+          d:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText("Distribuir recém-obtidos")
+            GameTooltip:AddLine("Esvazia esta seção: cada item vai pra sua categoria.", 0.7, 0.7, 0.7, true)
+            GameTooltip:Show()
+          end)
+          d:SetScript("OnLeave", function() GameTooltip:Hide() end)
+          UI.distribBtn = d
+        end
+        UI.distribBtn:SetParent(UI.content)
+        UI.distribBtn:SetFrameLevel(h:GetFrameLevel() + 5)
+        UI.distribBtn:ClearAllPoints()
+        UI.distribBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
+        UI.distribBtn:Show()
       end
       yOff = yOff - 18
 

@@ -13,7 +13,7 @@ Bag unificada para World of Warcraft retail (Midnight / 12.0.x), feita do zero c
 - **Busca avançada**: `ilvl>200`, `q:epico`, `tipo:armadura`, palavras (`boe`, `wb`, `missao`, `lixo`, `equip`…) e operadores `& | !` com parênteses.
 - Modo grade, seções recolhíveis e organizar automático. Posição da janela lembrada por personagem.
 - Altura máxima com **barra de rolagem** (roda do mouse ou barra) — não estoura a tela mesmo com banco/inventário cheios. Alça no canto inferior direito redimensiona colunas e altura.
-- Seção "Recém-obtidos" no topo. Clique-direito no cabeçalho de uma categoria: recolher/expandir todas, favoritar a categoria, guardar tudo no banco.
+- Seção "Recém-obtidos" no topo: os itens novos ficam ali (o brilho some ao passar o mouse, mas o item permanece) até você clicar em **Distribuir** no cabeçalho, que manda tudo pras categorias certas. Clique-direito no cabeçalho de uma categoria: recolher/expandir todas, favoritar a categoria, guardar tudo no banco.
 - **Export/Import de categorias** (Layout Oficial da Guilda) na config. **Contagem de itens nos alts** no tooltip. **Prontidão de Raide/M+** (`/kb pronto`).
 - Carga assíncrona dos itens (ilvl/vínculo corretos mesmo logo após login, com cache frio).
 - Dois visuais na config: Escuro ou estilo Blizzard.

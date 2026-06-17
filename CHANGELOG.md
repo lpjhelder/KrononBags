@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.17.0
+- **"Recém-obtidos" agora segura os itens.** Antes o item saía da seção assim que você passava o mouse. Agora ele **fica** em Recém-obtidos (o brilho some quando você olha, mas o item permanece) até você clicar no botão **Distribuir**, no cabeçalho da seção — aí cada item vai pra sua categoria certa de uma vez. Dá pra arrastar um item pro cabeçalho "Recém-obtidos" pra recolocá-lo lá. A lista de recém-obtidos é lembrada entre sessões.
+
 ## 0.16.0
 - **Categorias dinâmicas por regra.** Numa categoria sua, clique em **Regra** (na config) e defina uma busca (ex: `ilvl>200 & boe`, `tipo:armadura`, `q:epico`) — a categoria se preenche e atualiza sozinha. Mesma sintaxe da busca.
 - **Ordenação configurável** dentro da categoria: Item level, Qualidade, Nome, Tipo ou Recentes (config → "Ordenar por").
