@@ -8,9 +8,9 @@ Bag unificada para World of Warcraft retail (Midnight / 12.0.x), feita do zero c
 - Categorias ordenáveis: prontas (Favoritos, Pedra-chave, Equipamento, Consumíveis, Reagentes, Materiais, Missão, Lixo) + categorias suas. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo (ou pra Favoritos).
 - **Categorias dinâmicas por regra** (ex: `ilvl>200 & boe`), **ordenação** configurável (ilvl/qualidade/nome/tipo/recentes) e **empilhar** itens iguais.
 - Agrupa PvP/PvE pelos Conjuntos de Equipamento do jogo, com botão "Equipar".
-- No ícone: item level, selo de vínculo (BoE/Warband), destaque de item novo, cooldown, borda de missão, **seta de upgrade (Pawn)** e **estrela de qualidade de reagente (T1-T3)**.
+- No ícone: item level, **borda colorida por raridade**, selo de vínculo (BoE/Warband), destaque de item novo, cooldown, borda de missão, **seta de upgrade (Pawn)** e **estrela de qualidade de reagente (T1-T3)**.
 - Favoritar pela estrela (protege de venda). Rodapé com ouro, currencies, slots livres e valor do lixo. **Botão "Vender lixo"** no vendedor.
-- **Busca avançada**: `ilvl>200`, `q:epico`, `tipo:armadura`, palavras (`boe`, `wb`, `missao`, `lixo`, `equip`…) e operadores `& | !` com parênteses.
+- **Busca avançada**: `ilvl>200`, `q:epico`, `tipo:armadura`, palavras (`boe`, `wb`, `missao`, `lixo`, `equip`…) e operadores `& | !` com parênteses. Modo "realçar" (escurece o resto) ou "esconder".
 - Modo grade, seções recolhíveis e organizar automático. Posição da janela lembrada por personagem.
 - Altura máxima com **barra de rolagem** (roda do mouse ou barra) — não estoura a tela mesmo com banco/inventário cheios. Alça no canto inferior direito redimensiona colunas e altura.
 - Seção "Recém-obtidos" no topo: os itens novos ficam ali (o brilho some ao passar o mouse, mas o item permanece) até você clicar em **Distribuir** no cabeçalho, que manda tudo pras categorias certas. Clique-direito no cabeçalho de uma categoria: recolher/expandir todas, favoritar a categoria, guardar tudo no banco.

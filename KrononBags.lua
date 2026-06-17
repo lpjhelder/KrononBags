@@ -116,6 +116,8 @@ local function InitDB()
   if KrononBagsDB.settings.replaceBags == nil then KrononBagsDB.settings.replaceBags = true end -- tecla B / botão da bolsa abrem o KrononBags
   if KrononBagsDB.settings.sortMode == nil then KrononBagsDB.settings.sortMode = "ilvl" end -- ordem dentro da categoria: ilvl/quality/name/type/recent
   if KrononBagsDB.settings.stackItems == nil then KrononBagsDB.settings.stackItems = false end -- empilhar itens iguais num ícone só
+  if KrononBagsDB.settings.qualityBorder == nil then KrononBagsDB.settings.qualityBorder = true end -- borda colorida por raridade no ícone
+  if KrononBagsDB.settings.searchHighlight == nil then KrononBagsDB.settings.searchHighlight = true end -- na busca, escurece o resto em vez de esconder
   -- favoritar e proteger agora são UMA coisa só: migra protegidos antigos
   for id in pairs(KrononBagsDB.protected) do KrononBagsDB.favorites[id] = true end
   wipe(KrononBagsDB.protected)
@@ -552,6 +554,10 @@ AcquireButton = function(i)
     b.kbBind = b:CreateFontString(nil, "OVERLAY")
     b.kbBind:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
     b.kbBind:SetPoint("BOTTOMLEFT", 2, 2); b.kbBind:SetTextColor(0.4, 1, 0.4); b.kbBind:Hide()
+    -- borda colorida por raridade (sublevel -1: fica abaixo da borda de missão/novo)
+    b.kbBorder = b:CreateTexture(nil, "OVERLAY", nil, -1)
+    b.kbBorder:SetPoint("TOPLEFT", -1, 1); b.kbBorder:SetPoint("BOTTOMRIGHT", 1, -1)
+    b.kbBorder:SetTexture("Interface\\Common\\WhiteIconFrame"); b.kbBorder:Hide()
     b.kbNewGlow = b:CreateTexture(nil, "OVERLAY")
     b.kbNewGlow:SetPoint("TOPLEFT", -2, 2); b.kbNewGlow:SetPoint("BOTTOMRIGHT", 2, -2)
     b.kbNewGlow:SetTexture("Interface\\Common\\WhiteIconFrame")
@@ -706,6 +712,15 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
   -- item de missão: borda dourada própria
   local qinfo = C_Container.GetContainerItemQuestInfo(bag, slot)
   if qinfo and (qinfo.isQuestItem or qinfo.questID) then b.kbQuest:Show() else b.kbQuest:Hide() end
+  -- borda colorida por raridade: incomum+ (cores) e lixo cinza; comum/branco fica sem borda (evita poluição)
+  if b.kbBorder then
+    if DB.settings.qualityBorder and quality and (quality >= 2 or quality == 0) then
+      local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+      if c then b.kbBorder:SetVertexColor(c.r, c.g, c.b, 1); b.kbBorder:Show() else b.kbBorder:Hide() end
+    else
+      b.kbBorder:Hide()
+    end
+  end
   -- item novo
   if C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then b.kbNewGlow:Show() else b.kbNewGlow:Hide() end
   -- seta verde de upgrade (integração opcional com o Pawn)
@@ -738,6 +753,7 @@ end
 
 local function ClearBadges(b)
   b.kbIlvl:Hide(); b.kbBind:Hide(); b.kbNewGlow:Hide(); b.kbQuest:Hide()
+  if b.kbBorder then b.kbBorder:Hide() end
   if b.kbUpgrade then b.kbUpgrade:Hide() end
   if b.UpgradeIcon then b.UpgradeIcon:Hide() end
   if b.kbQual then b.kbQual:Hide() end
@@ -759,6 +775,7 @@ local function FillButton(b, bag, slot)
   b:SetParent(GetBagHolder(bag))
   b:SetID(slot)
   b.bag, b.slot = bag, slot
+  b:SetAlpha(1) -- reset (a busca-realce pode ter deixado escurecido num render anterior)
   b.kbStacked = nil -- limpa flag de pilha visual (re-setado no render se for empilhado)
   -- desliga o brilho de "item novo" NATIVO (tocava sozinho em slot vazio e em tudo após /reload);
   -- usamos o nosso próprio b.kbNewGlow, controlado por IsNewItem só em itens de verdade.
@@ -1069,11 +1086,17 @@ Refresh = function()
   -- 2) busca avançada (operadores & | ! + palavras-chave; fallback p/ nome)
   if search ~= "" then
     local matcher = SearchMatcher(search)
+    local highlight = DB.settings.searchHighlight -- realça (escurece o resto) em vez de esconder
     local filtered = {}
     for _, it in ipairs(items) do
       local hit
       if matcher then hit = matcher(it) else hit = it.name ~= "" and it.name:lower():find(search, 1, true) end
-      if hit then filtered[#filtered + 1] = it end
+      if highlight then
+        it.dim = not hit          -- mantém todos os itens; só marca os que não batem
+        filtered[#filtered + 1] = it
+      elseif hit then
+        filtered[#filtered + 1] = it
+      end
     end
     items = filtered
   end
@@ -1188,6 +1211,7 @@ Refresh = function()
           local b = AcquireButton(btnIdx)
           FillButton(b, it.bag, it.slot)
           if it.stacked then SetItemButtonCount(b, it.count); b.kbStacked = true end -- contagem somada do empilhamento
+          if it.dim then b:SetAlpha(0.25) end -- busca-realce: itens que não batem ficam apagados
           b:SetSize(BTN, BTN)
           b:ClearAllPoints()
           b:SetPoint("TOPLEFT", col * (BTN + PAD), yOff)
@@ -1628,7 +1652,7 @@ end
 
 -- ---------------- Configurações (extensível) ----------------
 local catRows = {}
-local CAT_LIST_TOP = -458
+local CAT_LIST_TOP = -486
 RefreshConfigCats = function()
   if not CFG then return end
   for _, r in ipairs(catRows) do r:Hide() end
@@ -1677,12 +1701,12 @@ RefreshConfigCats = function()
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", 16, y); r:Show()
     y = y - 22
   end
-  CFG:SetHeight(math.max(494, -y + 30)) -- +espaço pro rodapé de créditos
+  CFG:SetHeight(math.max(522, -y + 30)) -- +espaço pro rodapé de créditos
 end
 
 CreateConfig = function()
   CFG = CreateFrame("Frame", "KrononBagsConfig", UIParent, "BackdropTemplate")
-  CFG:SetSize(400, 494)
+  CFG:SetSize(400, 522)
   CFG:SetPoint("CENTER")
   CFG:SetFrameStrata("DIALOG")
   CFG:SetMovable(true); CFG:EnableMouse(true); CFG:RegisterForDrag("LeftButton")
@@ -1797,10 +1821,16 @@ CreateConfig = function()
   check("KrononBagsStackCheck", RCOL, -308, "Empilhar itens iguais", function() return DB.settings.stackItems end, function(v)
     DB.settings.stackItems = v; Refresh()
   end)
+  check("KrononBagsQualBorderCheck", LCOL, -334, "Borda colorida (raridade)", function() return DB.settings.qualityBorder end, function(v)
+    DB.settings.qualityBorder = v; Refresh()
+  end)
+  check("KrononBagsSearchHLCheck", RCOL, -334, "Realçar busca", function() return DB.settings.searchHighlight end, function(v)
+    DB.settings.searchHighlight = v; Refresh()
+  end)
   -- seletor de ordenação dentro da categoria
   local SORT_NAMES = { ilvl = "Item level", quality = "Qualidade", name = "Nome", type = "Tipo", recent = "Recentes" }
   local sortBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -334)
+  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -362)
   local function updSortBtn() sortBtn:SetText("Ordenar por: " .. (SORT_NAMES[DB.settings.sortMode] or "Item level")) end
   updSortBtn()
   sortBtn:SetScript("OnClick", function(self)
@@ -1814,13 +1844,13 @@ CreateConfig = function()
   end)
 
   -- ===== Categorias =====
-  section("Categorias", -366)
+  section("Categorias", -394)
   local catHint = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  catHint:SetPoint("TOPLEFT", 18, -384)
+  catHint:SetPoint("TOPLEFT", 18, -412)
   catHint:SetText("Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.")
 
   local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", CFG, "InputBoxTemplate")
-  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -406); newCat:SetAutoFocus(false)
+  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -434); newCat:SetAutoFocus(false)
   local addBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
   addBtn:SetSize(60, 20); addBtn:SetText("Criar"); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
   local presetBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
@@ -1851,7 +1881,7 @@ CreateConfig = function()
 
   -- Exportar / Importar (Layout Oficial da Guilda)
   local exportBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  exportBtn:SetSize(110, 20); exportBtn:SetText("Exportar"); exportBtn:SetPoint("TOPLEFT", 22, -432)
+  exportBtn:SetSize(110, 20); exportBtn:SetText("Exportar"); exportBtn:SetPoint("TOPLEFT", 22, -460)
   exportBtn:SetScript("OnClick", function()
     KB_exportStr = ExportCategories(); StaticPopup_Show("KRONONBAGS_EXPORT")
   end)

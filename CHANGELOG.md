@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0
+- **Borda colorida por raridade** no ícone: incomum/raro/épico/lendário ganham borda na cor da raridade, lixo fica com borda cinza (comum/branco fica sem borda, pra não poluir). Leitura visual bem mais rápida. Liga/desliga em `/kb config`.
+- **Realçar busca.** Ao buscar, em vez de esconder o que não bate, o KrononBags **escurece** os itens que não batem e mantém os que batem acesos — você não perde a noção de onde as coisas estão. Pode voltar pro modo "esconder" na config.
+
 ## 0.17.0
 - **"Recém-obtidos" agora segura os itens.** Antes o item saía da seção assim que você passava o mouse. Agora ele **fica** em Recém-obtidos (o brilho some quando você olha, mas o item permanece) até você clicar no botão **Distribuir**, no cabeçalho da seção — aí cada item vai pra sua categoria certa de uma vez. Dá pra arrastar um item pro cabeçalho "Recém-obtidos" pra recolocá-lo lá. A lista de recém-obtidos é lembrada entre sessões.
 
