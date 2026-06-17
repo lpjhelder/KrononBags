@@ -1021,11 +1021,16 @@ end
 -- "Distribuir": esvazia Recém-obtidos — os itens caem nas categorias certas (e limpa qualquer glow remanescente)
 local function DistributeNew()
   if DB and DB.recem then wipe(DB.recem) end
-  if C_NewItems and C_NewItems.RemoveNewItem then
-    for _, bag in ipairs(ActiveBags()) do
+  if C_NewItems and C_NewItems.RemoveNewItem and C_Container then
+    local done = {}
+    local function clear(bag)
+      if done[bag] then return end
+      done[bag] = true
       local slots = C_Container.GetContainerNumSlots(bag) or 0
       for slot = 1, slots do C_NewItems.RemoveNewItem(bag, slot) end
     end
+    for bag = 0, 5 do clear(bag) end                    -- mochila + bolsas + bolsa de reagentes (onde o "novo" vive)
+    for _, bag in ipairs(ActiveBags()) do clear(bag) end -- + a aba ativa (banco/Brigada), por garantia
   end
   Refresh()
 end
