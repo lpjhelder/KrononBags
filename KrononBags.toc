@@ -2,7 +2,7 @@
 ## Title: KrononBags
 ## Notes: Bag unificada da guilda Kronon â€” botÃµes nativos (usar/equipar/abrir/vender), categorias ordenÃ¡veis, abas recolhÃ­veis, ilvl no Ã­cone, selo BoE/Warband, item novo, cooldown, valor do lixo, auto-abrir e organizar automÃ¡tico.
 ## Author: Kronon
-## Version: 0.18.0
+## Version: 0.19.0
 ## SavedVariables: KrononBagsDB
 ## X-Curse-Project-ID: 1577314
 ## IconTexture: Interface\AddOns\KrononBags\Media\KrononLogo.tga

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.19.0
+- **Banco consultável de qualquer lugar.** Agora dá pra ver o que você tem guardado no **Banco** e no **Banco da Brigada** sem estar no banco — o KrononBags salva um retrato do conteúdo toda vez que você abre o banco. As abas Banco/Brigada ficam disponíveis na janela mesmo longe do banco, mostrando o último estado salvo (com a hora da captura). É **só consulta**: pra mover/sacar é preciso ir até o banco (o jogo não deixa de longe). Comando novo: `/kb banco`.
+
 ## 0.18.0
 - **Borda colorida por raridade** no ícone: incomum/raro/épico/lendário ganham borda na cor da raridade, lixo fica com borda cinza (comum/branco fica sem borda, pra não poluir). Leitura visual bem mais rápida. Liga/desliga em `/kb config`.
 - **Realçar busca.** Ao buscar, em vez de esconder o que não bate, o KrononBags **escurece** os itens que não batem e mantém os que batem acesos — você não perde a noção de onde as coisas estão. Pode voltar pro modo "esconder" na config.

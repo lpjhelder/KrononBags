@@ -54,6 +54,25 @@ local function CharKey()
   return (UnitName("player") or "?") .. "-" .. (GetRealmName() or "?")
 end
 
+-- modo "visualização de cache": aba de banco/Brigada aberta SEM estar no banco de verdade
+local function CachedMode()
+  return (mode == "bank" or mode == "warband") and not atBank
+end
+-- snapshot salvo da aba ativa: itens (array), slots livres, hora da captura
+local function CurrentSnap()
+  if not DB then return nil end
+  if mode == "warband" then return DB.warbandSnap, DB.warbandFree, DB.warbandTime end
+  local ci = DB.charItems and DB.charItems[CharKey()]
+  if ci then return ci.bankSnap, ci.bankFree, ci.bankTime end
+  return nil
+end
+-- existe snapshot pra essa aba? (pra decidir se mostra a aba de longe)
+local function HasCharBankSnap()
+  local ci = DB and DB.charItems and DB.charItems[CharKey()]
+  return ci and ci.bankSnap and #ci.bankSnap > 0
+end
+local function HasWarbandSnap() return DB and DB.warbandSnap and #DB.warbandSnap > 0 end
+
 local pool = {}        -- pool de botões de item
 local headerPool = {}  -- pool de cabeçalhos de seção
 
@@ -367,9 +386,11 @@ OpenItemMenu = function(self)
   MenuUtil.CreateContextMenu(self, function(owner, root)
     root:CreateTitle(self.itemName ~= "" and self.itemName or "Item")
     -- usar/equipar é via CLIQUE DIREITO (ação segura); não dá pra fazer pelo menu (UseContainerItem é protegida)
-    root:CreateButton("Mover (pegar item)", function()
-      C_Container.PickupContainerItem(self.bag, self.slot)
-    end)
+    if self.bag and self.slot then -- item em cache não tem slot vivo: não dá pra pegar
+      root:CreateButton("Mover (pegar item)", function()
+        C_Container.PickupContainerItem(self.bag, self.slot)
+      end)
+    end
 
     local move = root:CreateButton("Mover para categoria")
     local anyCustom, anyPreset = false, false
@@ -502,6 +523,18 @@ end
 
 -- ---------------- Handlers de botão ----------------
 OnEnter = function(self)
+  -- item em CACHE (visualização do banco de longe): tooltip pelo link salvo, sem ação
+  if self.cached then
+    if not self.cachedLink then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetHyperlink(self.cachedLink)
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("📦 Guardado no banco (visualização)", 0.6, 0.8, 1)
+    GameTooltip:AddLine("Vá até o banco pra mover/sacar.", 0.7, 0.7, 0.7)
+    if self.kbUpdateStar then self.kbUpdateStar() end
+    GameTooltip:Show()
+    return
+  end
   if not self.bag or not self.slot then return end
   -- ao olhar o item, ele deixa de ser "novo" (igual à bag da Blizzard)
   if C_NewItems and C_NewItems.RemoveNewItem then C_NewItems.RemoveNewItem(self.bag, self.slot) end
@@ -631,6 +664,14 @@ end
 
 -- seção "Vazio": header + slot geral + slot reagentes (dentro do conteúdo rolável, x a partir de 0)
 local function DrawEmpty(yOff)
+  -- no modo cache não há slots vivos: mostra só a contagem salva de slots livres como texto
+  if CachedMode() then
+    local _, free = CurrentSnap()
+    emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", 0, yOff)
+    emptyHeader:SetText("|cff808080" .. (free or 0) .. " slot(s) livre(s) no banco|r"); emptyHeader:Show()
+    freeBox:Hide(); reagentBox:Hide()
+    return yOff - 22
+  end
   emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", 0, yOff)
   emptyHeader:SetText("|cfff0d98cVazio|r"); emptyHeader:Show()
   yOff = yOff - 18
@@ -649,7 +690,8 @@ end
 local function FinishLayout(contentH)
   local M = UI.kbMargin or MARGIN
   local BOT = UI.kbBottom or (MARGIN + 22)
-  local TOP = (UI.kbTop or 34) + (atBank and 22 or 0)
+  local tabsVisible = atBank or HasCharBankSnap() or HasWarbandSnap() -- barra de abas ocupa o topo
+  local TOP = (UI.kbTop or 34) + (tabsVisible and 22 or 0)
   local cols = (DB.settings and DB.settings.cols) or COLS
   local contentW = cols * (BTN + PAD) - PAD
   local maxH = (DB.settings and DB.settings.maxHeight) or 520
@@ -678,7 +720,7 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
   local equipLoc = select(4, C_Item.GetItemInfoInstant(itemID))
   if DB.settings.showIlvl and equipLoc and equipLoc ~= "" then
     local lvl = ilvl
-    if (not lvl or lvl <= 1) and ItemLocation then
+    if (not lvl or lvl <= 1) and ItemLocation and bag and slot then
       local loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
       if loc and C_Item.DoesItemExist and C_Item.DoesItemExist(loc) and C_Item.GetCurrentItemLevel then
         lvl = C_Item.GetCurrentItemLevel(loc)
@@ -709,8 +751,8 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
     elseif bindType == 9 then tag = "WuE" end  -- Brigada até equipar
   end
   if tag then b.kbBind:SetText(tag); b.kbBind:Show() else b.kbBind:Hide() end
-  -- item de missão: borda dourada própria
-  local qinfo = C_Container.GetContainerItemQuestInfo(bag, slot)
+  -- item de missão: borda dourada própria (só com slot vivo)
+  local qinfo = (bag and slot) and C_Container.GetContainerItemQuestInfo(bag, slot)
   if qinfo and (qinfo.isQuestItem or qinfo.questID) then b.kbQuest:Show() else b.kbQuest:Hide() end
   -- borda colorida por raridade: incomum+ (cores) e lixo cinza; comum/branco fica sem borda (evita poluição)
   if b.kbBorder then
@@ -721,14 +763,14 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
       b.kbBorder:Hide()
     end
   end
-  -- item novo
-  if C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then b.kbNewGlow:Show() else b.kbNewGlow:Hide() end
-  -- seta verde de upgrade (integração opcional com o Pawn)
+  -- item novo (só com slot vivo)
+  if bag and slot and C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then b.kbNewGlow:Show() else b.kbNewGlow:Hide() end
+  -- seta verde de upgrade (integração opcional com o Pawn) — precisa de slot vivo
   -- usamos SEMPRE nossa própria textura: a região nativa b.UpgradeIcon existe no 12.0
   -- mas ficou SEM textura (API removida em 10.0.2), então mostrá-la não desenha nada.
   do
     local up = false
-    if _G.PawnIsContainerItemAnUpgrade then
+    if bag and slot and _G.PawnIsContainerItemAnUpgrade then
       local ok, res = pcall(_G.PawnIsContainerItemAnUpgrade, bag, slot)
       up = (ok and res) and true or false
     end
@@ -775,6 +817,7 @@ local function FillButton(b, bag, slot)
   b:SetParent(GetBagHolder(bag))
   b:SetID(slot)
   b.bag, b.slot = bag, slot
+  b.cached, b.cachedLink = nil, nil -- modo vivo (não é visualização de cache)
   b:SetAlpha(1) -- reset (a busca-realce pode ter deixado escurecido num render anterior)
   b.kbStacked = nil -- limpa flag de pilha visual (re-setado no render se for empilhado)
   -- desliga o brilho de "item novo" NATIVO (tocava sozinho em slot vazio e em tudo após /reload);
@@ -813,12 +856,40 @@ local function FillButton(b, bag, slot)
   end
 end
 
+-- preenche o botão a partir do CACHE (visualização do banco de longe): só display + tooltip,
+-- SEM amarrar a slot vivo e SEM cliques de ação (o item não está acessível fora do banco).
+local function FillButtonCached(b, it)
+  -- holder com ID -1 (bag inválida): mesmo se um clique escapar, a ação nativa não acha container nenhum
+  if not UI.cacheHolder then
+    UI.cacheHolder = CreateFrame("Frame", nil, UI.content)
+    UI.cacheHolder:SetID(-1); UI.cacheHolder:SetAllPoints(UI.content)
+  end
+  b:SetParent(UI.cacheHolder)
+  b:SetID(-1)
+  b.bag, b.slot = nil, nil
+  b.cached, b.cachedLink = true, it.link
+  b:SetAlpha(1)
+  b.kbStacked = nil
+  if b.NewItemTexture then b.NewItemTexture:Hide() end
+  if b.BattlepayItemTexture then b.BattlepayItemTexture:Hide() end
+  b.itemID = it.itemID
+  b.itemName = it.name or ""
+  b:SetItemButtonTexture(it.icon)
+  SetItemButtonCount(b, it.count or 1)
+  b:SetItemButtonQuality(it.quality, nil, true, it.bound)
+  if b.Cooldown then CooldownFrame_Set(b.Cooldown, 0, 0, 0) end
+  if b.kbUpdateStar then b.kbUpdateStar() end
+  DecorateBadges(b, nil, nil, it.itemID, it.quality, it.ilvl, it.bound)
+  b:RegisterForClicks() -- sem ação segura (slot não está acessível de longe)
+end
+
 -- ---------------- Render: modo grade (todos os slots, estilo Blizzard) ----------------
 RenderGrid = function()
   local cols = (DB.settings and DB.settings.cols) or COLS
   for _, b in ipairs(pool) do b:Hide() end
   for _, h in ipairs(headerPool) do h:Hide() end
   for _, eb in ipairs(equipBtnPool) do eb:Hide() end
+  if UI.cacheBanner then UI.cacheBanner:Hide() end
 
   local idx, col = 0, 0
   local yOff = 0 -- topo do conteúdo rolável
@@ -1058,27 +1129,44 @@ Refresh = function()
   -- em combate não dá pra reposicionar/alterar botões seguros: adia pro fim do combate
   if InCombatLockdown() then UI.refreshPending = true; return end
   RebuildEquipSets()
+  if UI.tabs then UpdateTabs() end -- garante abas Banco/Brigada visíveis de longe quando há snapshot
   local bags = ActiveBags()
   EnsureItemsCached(bags)
   if UI.distribBtn then UI.distribBtn:Hide() end -- esconde já (a grade não tem cabeçalho de seção)
-  if DB.settings.gridView then return RenderGrid() end
+  local cached = CachedMode()
+  if DB.settings.gridView and not cached then return RenderGrid() end -- cache sempre usa a visão por categorias
 
-  -- 1) coleta os itens
+  -- 1) coleta os itens (do banco AO VIVO ou do SNAPSHOT salvo, se consultando de longe)
   local items = {}
-  for _, bag in ipairs(bags) do
-    local slots = C_Container.GetContainerNumSlots(bag) or 0
-    for slot = 1, slots do
-      local info = C_Container.GetContainerItemInfo(bag, slot)
-      if info and info.itemID then
+  if cached then
+    local snap = CurrentSnap()
+    if snap then
+      for _, s in ipairs(snap) do
         local it = {
-          bag = bag, slot = slot, itemID = info.itemID, link = info.hyperlink,
-          icon = info.iconFileID, count = info.stackCount, quality = info.quality,
-          name = C_Item.GetItemInfo(info.hyperlink) or "", ilvl = GetIlvl(info.hyperlink), bound = info.isBound,
+          cached = true, itemID = s.id, link = s.link, icon = s.icon,
+          count = s.count, quality = s.q, bound = s.bound,
+          name = (s.link and C_Item.GetItemInfo(s.link)) or "", ilvl = GetIlvl(s.link),
         }
-        -- quando o jogo marca o item como novo, ele entra em "Recém-obtidos" e fica lá até clicar em Distribuir
-        if C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then DB.recem[info.itemID] = true end
-        it.cat = ResolveCat(it) -- precisa do registro completo (regras usam name/ilvl/etc)
+        it.cat = ResolveCat(it)
         items[#items + 1] = it
+      end
+    end
+  else
+    for _, bag in ipairs(bags) do
+      local slots = C_Container.GetContainerNumSlots(bag) or 0
+      for slot = 1, slots do
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if info and info.itemID then
+          local it = {
+            bag = bag, slot = slot, itemID = info.itemID, link = info.hyperlink,
+            icon = info.iconFileID, count = info.stackCount, quality = info.quality,
+            name = C_Item.GetItemInfo(info.hyperlink) or "", ilvl = GetIlvl(info.hyperlink), bound = info.isBound,
+          }
+          -- quando o jogo marca o item como novo, ele entra em "Recém-obtidos" e fica lá até clicar em Distribuir
+          if C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(bag, slot) then DB.recem[info.itemID] = true end
+          it.cat = ResolveCat(it) -- precisa do registro completo (regras usam name/ilvl/etc)
+          items[#items + 1] = it
+        end
       end
     end
   end
@@ -1132,6 +1220,19 @@ Refresh = function()
   local contentW = cols * (BTN + PAD) - PAD
   local btnIdx, hdrIdx, ebIdx = 0, 0, 0
   local yOff = 0
+  -- banner de visualização (consulta do banco de longe, read-only)
+  if cached then
+    local _, _, snapTime = CurrentSnap()
+    local when = ""
+    if snapTime and date then local ok, s = pcall(date, "%d/%m %H:%M", snapTime); if ok and s then when = " · salvo " .. s end end
+    UI.cacheBanner:ClearAllPoints(); UI.cacheBanner:SetPoint("TOPLEFT", 0, yOff)
+    UI.cacheBanner:SetWidth(contentW)
+    UI.cacheBanner:SetText("|cff66b3ff📦 Visualização — você não está no banco" .. when .. "|r")
+    UI.cacheBanner:Show()
+    yOff = yOff - 22
+  else
+    UI.cacheBanner:Hide()
+  end
   for _, cat in ipairs(order) do
     local g = groups[cat]
     if g and #g > 0 then
@@ -1209,7 +1310,7 @@ Refresh = function()
         for _, it in ipairs(g) do
           btnIdx = btnIdx + 1
           local b = AcquireButton(btnIdx)
-          FillButton(b, it.bag, it.slot)
+          if it.cached then FillButtonCached(b, it) else FillButton(b, it.bag, it.slot) end
           if it.stacked then SetItemButtonCount(b, it.count); b.kbStacked = true end -- contagem somada do empilhamento
           if it.dim then b:SetAlpha(0.25) end -- busca-realce: itens que não batem ficam apagados
           b:SetSize(BTN, BTN)
@@ -1329,7 +1430,9 @@ UpdateMoney = function()
   goldText:SetText(GetMoneyString(GetMoney(), true))
   if freeNum then
     local free = 0
-    if mode == "bags" then
+    if CachedMode() then
+      local _, f = CurrentSnap(); free = f or 0 -- slots livres do snapshot salvo
+    elseif mode == "bags" then
       for bag = 0, 4 do free = free + (C_Container.GetContainerNumFreeSlots(bag) or 0) end -- reagentes contam à parte
     else
       for _, bag in ipairs(ActiveBags()) do free = free + (C_Container.GetContainerNumFreeSlots(bag) or 0) end
@@ -1373,11 +1476,18 @@ end
 -- mostra/esconde e destaca as abas (Mochila/Banco/Brigada) + botão de depositar
 UpdateTabs = function()
   if not (UI and UI.tabs) then return end
-  if UI.tabBar then UI.tabBar:SetShown(atBank) end
+  -- abas Banco/Brigada também aparecem de LONGE quando há snapshot salvo (consulta read-only)
+  local showBank = atBank or HasCharBankSnap()
+  local showWb   = (atBank and WarbandAvailable()) or HasWarbandSnap()
+  local showBar  = atBank or showBank or showWb
+  if UI.tabBar then UI.tabBar:SetShown(showBar) end
   for id, t in pairs(UI.tabs) do
-    if id == "warband" then t:SetShown(atBank and WarbandAvailable()) end
+    if id == "bags" then t:SetShown(true)
+    elseif id == "bank" then t:SetShown(showBank)
+    elseif id == "warband" then t:SetShown(showWb) end
     if id == mode then t:SetButtonState("PUSHED", true) else t:SetButtonState("NORMAL") end
   end
+  -- depositar só vale no banco de verdade
   if UI.depositBtn then UI.depositBtn:SetShown(atBank and (mode == "bank" or mode == "warband")) end
   if UI.sellJunkBtn then UI.sellJunkBtn:SetShown((MerchantFrame and MerchantFrame:IsShown()) and mode == "bags") end
 end
@@ -1540,6 +1650,8 @@ CreateUI = function()
   end)
 
   emptyHeader = UI.content:CreateFontString(nil, "OVERLAY", "GameFontNormal"); emptyHeader:Hide()
+  -- banner de visualização do banco em cache (mostrado no topo do conteúdo quando consultando de longe)
+  UI.cacheBanner = UI.content:CreateFontString(nil, "OVERLAY", "GameFontNormal"); UI.cacheBanner:SetJustifyH("LEFT"); UI.cacheBanner:Hide()
 
   freeBox = CreateFrame("Button", nil, UI.content)
   freeBox.bg = freeBox:CreateTexture(nil, "BACKGROUND"); freeBox.bg:SetAllPoints(); freeBox.bg:SetAtlas("bags-item-slot64")
@@ -1617,7 +1729,7 @@ CreateUI = function()
   grip:SetScript("OnMouseUp", function()
     UI:StopMovingOrSizing()
     DB.settings.cols = kbColsForWidth(UI:GetWidth())
-    local TOP = (UI.kbTop or 34) + (atBank and 22 or 0)
+    local TOP = (UI.kbTop or 34) + ((atBank or HasCharBankSnap() or HasWarbandSnap()) and 22 or 0)
     local BOT = UI.kbBottom or (MARGIN + 22)
     DB.settings.maxHeight = math.max(120, math.floor(UI:GetHeight() - TOP - BOT)) -- altura visível arrastada
     Refresh() -- recalcula largura/altura/scroll pro novo tamanho
@@ -2044,13 +2156,37 @@ local function CaptureBags()
   DB.charItems[k].class = select(2, UnitClass("player"))
   DB.charItems[k].bags = ScanCounts(BAGS)
 end
+-- snapshot rico (display por slot ocupado) pra consultar o banco de longe + slots livres
+local function SnapList(bagList)
+  local out, free = {}, 0
+  for _, bag in ipairs(bagList) do
+    local slots = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, slots do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if info and info.itemID then
+        out[#out + 1] = { id = info.itemID, link = info.hyperlink, icon = info.iconFileID,
+                          count = info.stackCount or 1, q = info.quality, bound = info.isBound }
+      else
+        free = free + 1
+      end
+    end
+  end
+  return out, free
+end
 local function CaptureBank()
   if not DB then return end
   local k = CharKey()
   DB.charItems[k] = DB.charItems[k] or {}
-  DB.charItems[k].bank = ScanCounts(PurchasedTabs(BANK_CHAR))
+  DB.charItems[k].bank = ScanCounts(PurchasedTabs(BANK_CHAR)) -- contagem (tooltip dos alts)
+  local items, free = SnapList(PurchasedTabs(BANK_CHAR))      -- snapshot rico (visualização)
+  DB.charItems[k].bankSnap, DB.charItems[k].bankFree = items, free
+  DB.charItems[k].bankTime = (time and time()) or nil
   local wb = PurchasedTabs(BANK_ACCT)
-  if #wb > 0 then DB.warband = ScanCounts(wb) end
+  if #wb > 0 then
+    DB.warband = ScanCounts(wb)
+    local wi, wf = SnapList(wb)
+    DB.warbandSnap, DB.warbandFree, DB.warbandTime = wi, wf, (time and time()) or nil
+  end
 end
 local function AddCountsToTooltip(tooltip, itemID)
   if not (DB and DB.settings and DB.settings.altCounts and itemID) then return end
@@ -2118,6 +2254,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
       AutoShow() -- banco nativo cuida do banco; só abrimos a mochila
     end
   elseif event == "BANKFRAME_CLOSED" then
+    if DB then CaptureBank() end -- captura o estado final do banco ANTES de sair (pra consulta de longe)
     atBank = false; mode = "bags"
     if UI then UpdateTabs() end
     AutoHide(); if UI and UI:IsShown() then Refresh() end
@@ -2127,9 +2264,8 @@ f:SetScript("OnEvent", function(_, event, arg1)
     AutoHide()
   else -- BAG_UPDATE_DELAYED, EQUIPMENT_SETS_CHANGED, BAG_NEW_ITEMS_UPDATED
     Refresh(); RefreshReady()
-    if DB and DB.settings and DB.settings.altCounts then -- mantém snapshot dos alts fresco (só se ligado)
-      CaptureBags(); if atBank then CaptureBank() end
-    end
+    if DB and atBank then CaptureBank() end -- snapshot do banco fresco (base da consulta de longe), sempre que no banco
+    if DB and DB.settings and DB.settings.altCounts then CaptureBags() end -- contagem da mochila nos alts (se ligado)
   end
 end)
 
@@ -2146,6 +2282,13 @@ SlashCmdList["KRONONBAGS"] = function(msg)
     Refresh()
   elseif msg == "organizar" or msg == "sort" then
     if not InCombatLockdown() and C_Container and C_Container.SortBags then C_Container.SortBags() end
+  elseif msg == "banco" or msg == "bank" then
+    if not UI then CreateUI() end
+    if not UI:IsShown() then UI:Show() end
+    if atBank or HasCharBankSnap() then mode = "bank"
+    elseif HasWarbandSnap() then mode = "warband"
+    else print("|cfff0d98cKrononBags|r: abra o banco uma vez pra poder consultá-lo de longe.") end
+    UpdateTabs(); Refresh()
   elseif msg == "pronto" or msg == "prontidao" or msg == "prontidão" or msg == "readiness" then
     ToggleReady()
   else

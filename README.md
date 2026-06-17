@@ -5,6 +5,7 @@ Bag unificada para World of Warcraft retail (Midnight / 12.0.x), feita do zero c
 ## Recursos
 - Bolsa unificada com botões nativos (usar / equipar / abrir / vender).
 - **Banco e Banco da Brigada (warband)**: abas Mochila / Banco / Brigada na mesma janela, substituindo o banco nativo. Botão de depositar automático.
+- **Banco consultável de qualquer lugar**: o conteúdo do Banco e da Brigada é salvo quando você abre o banco e fica consultável de longe (só leitura), com a hora do último retrato. Comando `/kb banco`.
 - Categorias ordenáveis: prontas (Favoritos, Pedra-chave, Equipamento, Consumíveis, Reagentes, Materiais, Missão, Lixo) + categorias suas. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo (ou pra Favoritos).
 - **Categorias dinâmicas por regra** (ex: `ilvl>200 & boe`), **ordenação** configurável (ilvl/qualidade/nome/tipo/recentes) e **empilhar** itens iguais.
 - Agrupa PvP/PvE pelos Conjuntos de Equipamento do jogo, com botão "Equipar".
@@ -26,6 +27,7 @@ Substitui a bag do jogo: a tecla B, os ícones das bolsas e qualquer atalho de b
 - `/kb grade` — alterna a visão em grade.
 - `/kb organizar` — organiza automático.
 - `/kb pronto` — painel de Prontidão de Raide/M+.
+- `/kb banco` — consulta o banco/Brigada salvos (de qualquer lugar).
 
 ## Publicação
 Tag no git (`git tag vX.Y.Z && git push --tags`) → GitHub Actions empacota e publica no CurseForge automaticamente (BigWigs Packager).
