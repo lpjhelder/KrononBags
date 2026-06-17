@@ -4,16 +4,28 @@ Bag unificada para World of Warcraft retail (Midnight / 12.0.x), feita do zero c
 
 ## Recursos
 - Bolsa unificada com botões nativos (usar / equipar / abrir / vender).
-- Categorias ordenáveis: prontas (Favoritos, Pedra-chave, Equipamento, Consumíveis, Reagentes, Materiais, Missão, Lixo) + categorias suas.
+- **Banco e Banco da Brigada (warband)**: abas Mochila / Banco / Brigada na mesma janela, substituindo o banco nativo. Botão de depositar automático.
+- Categorias ordenáveis: prontas (Favoritos, Pedra-chave, Equipamento, Consumíveis, Reagentes, Materiais, Missão, Lixo) + categorias suas. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo (ou pra Favoritos).
+- **Categorias dinâmicas por regra** (ex: `ilvl>200 & boe`), **ordenação** configurável (ilvl/qualidade/nome/tipo/recentes) e **empilhar** itens iguais.
 - Agrupa PvP/PvE pelos Conjuntos de Equipamento do jogo, com botão "Equipar".
-- No ícone: item level, selo de vínculo (BoE/Warband), destaque de item novo, cooldown e borda de missão.
-- Favoritar pela estrela (protege de venda). Rodapé com ouro, currencies, slots livres e valor do lixo.
-- Modo grade, seções recolhíveis, busca e organizar automático.
+- No ícone: item level, selo de vínculo (BoE/Warband), destaque de item novo, cooldown, borda de missão, **seta de upgrade (Pawn)** e **estrela de qualidade de reagente (T1-T3)**.
+- Favoritar pela estrela (protege de venda). Rodapé com ouro, currencies, slots livres e valor do lixo. **Botão "Vender lixo"** no vendedor.
+- **Busca avançada**: `ilvl>200`, `q:epico`, `tipo:armadura`, palavras (`boe`, `wb`, `missao`, `lixo`, `equip`…) e operadores `& | !` com parênteses.
+- Modo grade, seções recolhíveis e organizar automático. Posição da janela lembrada por personagem.
+- Altura máxima com **barra de rolagem** (roda do mouse ou barra) — não estoura a tela mesmo com banco/inventário cheios. Alça no canto inferior direito redimensiona colunas e altura.
+- Seção "Recém-obtidos" no topo. Clique-direito no cabeçalho de uma categoria: recolher/expandir todas, favoritar a categoria, guardar tudo no banco.
+- **Export/Import de categorias** (Layout Oficial da Guilda) na config. **Contagem de itens nos alts** no tooltip. **Prontidão de Raide/M+** (`/kb pronto`).
+- Carga assíncrona dos itens (ilvl/vínculo corretos mesmo logo após login, com cache frio).
 - Dois visuais na config: Escuro ou estilo Blizzard.
+
+Substitui a bag do jogo: a tecla B, os ícones das bolsas e qualquer atalho de bag abrem o KrononBags (desligável na config).
 
 ## Comandos
 - `/kb` — abre/fecha a bag.
 - `/kb config` — configurações.
+- `/kb grade` — alterna a visão em grade.
+- `/kb organizar` — organiza automático.
+- `/kb pronto` — painel de Prontidão de Raide/M+.
 
 ## Publicação
 Tag no git (`git tag vX.Y.Z && git push --tags`) → GitHub Actions empacota e publica no CurseForge automaticamente (BigWigs Packager).
