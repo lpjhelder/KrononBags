@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.0
+- **Transferir pela busca**: no vendedor vende (com confirmação) e no banco deposita tudo que bate com a busca atual, num clique.
+- **Categoria "Abríveis"** com botão **"Abrir tudo"**: agrupa recipientes de loot e abre todos de uma vez (pulando os trancados).
+
 ## 0.22.0
 - **Abas em ícone** (Mochila/Banco/Brigada viraram ícones com o nome no tooltip), **botão de ajuda "?"** com um painel explicando categorias, busca, favoritos, banco, organizar e controle, e **botão de limpar busca**.
 

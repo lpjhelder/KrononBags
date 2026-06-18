@@ -41,6 +41,14 @@ local EN = {
   BTN_CANCEL = "Cancel", BTN_SAVE = "Save", BTN_CLOSE = "Close", BTN_IMPORT = "Import",
   BTN_EXPORT = "Export", BTN_DELETE = "Delete", BTN_RULE = "Rule", BTN_PRESET = "Preset…",
   BTN_SELL_JUNK = "Sell Junk", BTN_DEPOSIT = "Deposit Items",
+  -- v0.23.0: transferir pela busca + categoria Abríveis
+  CAT_OPENABLE = "Openable",
+  BTN_TRANSFER = "Transfer", BTN_OPEN_ALL = "Open all",
+  TIP_TRANSFER = "Move all items matching the search — sell at a vendor, deposit at the bank.",
+  TIP_OPEN_ALL = "Open all loot containers (skips locked ones).",
+  MSG_TRANSFER_SOLD = "Sold %d item(s) matching the search.",
+  MSG_TRANSFER_DEPOSITED = "Deposited %d item(s) matching the search.",
+  CONFIRM_TRANSFER_SELL = "Sell %d item(s) matching the search?",
   -- abas
   TAB_BAGS = "Backpack", TAB_BANK = "Bank", TAB_WARBAND = "Warband",
   -- menu de item
@@ -151,6 +159,13 @@ local PT = {
   BTN_CANCEL = "Cancelar", BTN_SAVE = "Salvar", BTN_CLOSE = "Fechar", BTN_IMPORT = "Importar",
   BTN_EXPORT = "Exportar", BTN_DELETE = "Excluir", BTN_RULE = "Regra", BTN_PRESET = "Pré-pronta…",
   BTN_SELL_JUNK = "Vender lixo", BTN_DEPOSIT = "Depositar itens",
+  CAT_OPENABLE = "Abríveis",
+  BTN_TRANSFER = "Transferir", BTN_OPEN_ALL = "Abrir tudo",
+  TIP_TRANSFER = "Move tudo que bate com a busca — vende no vendedor, deposita no banco.",
+  TIP_OPEN_ALL = "Abre todos os recipientes de loot (pula os trancados).",
+  MSG_TRANSFER_SOLD = "Vendido(s) %d item(ns) que batem com a busca.",
+  MSG_TRANSFER_DEPOSITED = "Depositado(s) %d item(ns) que batem com a busca.",
+  CONFIRM_TRANSFER_SELL = "Vender %d item(ns) que batem com a busca?",
   TAB_BAGS = "Mochila", TAB_BANK = "Banco", TAB_WARBAND = "Brigada",
   MENU_PICKUP = "Mover (pegar item)", MENU_MOVE_TO_CAT = "Mover para categoria",
   MENU_CREATE_CAT_HINT = "(crie uma categoria na config)", MENU_NEW_CAT = "Nova categoria…",
@@ -244,6 +259,13 @@ local ES = {
   BTN_CANCEL = "Cancelar", BTN_SAVE = "Guardar", BTN_CLOSE = "Cerrar", BTN_IMPORT = "Importar",
   BTN_EXPORT = "Exportar", BTN_DELETE = "Eliminar", BTN_RULE = "Regla", BTN_PRESET = "Predefinida…",
   BTN_SELL_JUNK = "Vender basura", BTN_DEPOSIT = "Depositar objetos",
+  CAT_OPENABLE = "Para abrir",
+  BTN_TRANSFER = "Transferir", BTN_OPEN_ALL = "Abrir todo",
+  TIP_TRANSFER = "Mueve todo lo que coincide con la búsqueda — vende en el vendedor, deposita en el banco.",
+  TIP_OPEN_ALL = "Abre todos los contenedores de botín (omite los bloqueados).",
+  MSG_TRANSFER_SOLD = "Vendido(s) %d objeto(s) que coinciden con la búsqueda.",
+  MSG_TRANSFER_DEPOSITED = "Depositado(s) %d objeto(s) que coinciden con la búsqueda.",
+  CONFIRM_TRANSFER_SELL = "¿Vender %d objeto(s) que coinciden con la búsqueda?",
   TAB_BAGS = "Mochila", TAB_BANK = "Banco", TAB_WARBAND = "Banda de guerra",
   MENU_PICKUP = "Mover (recoger objeto)", MENU_MOVE_TO_CAT = "Mover a categoría",
   MENU_CREATE_CAT_HINT = "(crea una categoría en los ajustes)", MENU_NEW_CAT = "Nueva categoría…",
@@ -339,6 +361,7 @@ local CAT_DISPLAY_KEY = {
   ["Recém-obtidos"] = "CAT_NEW", ["Favoritos"] = "CAT_FAVORITES", ["Pedra-chave"] = "CAT_KEYSTONE",
   ["Equipamento"] = "CAT_EQUIP", ["Consumíveis"] = "CAT_CONSUMABLE", ["Reagentes"] = "CAT_REAGENT",
   ["Materiais"] = "CAT_TRADE", ["Missão"] = "CAT_QUEST", ["Lixo"] = "CAT_JUNK", ["Diversos"] = "CAT_MISC",
+  ["Abríveis"] = "CAT_OPENABLE",
 }
 local function CatDisplay(name)
   if name == nil then return nil end
@@ -412,6 +435,7 @@ local KB_PRESETS = {
   { name = "Reagentes",   filter = "reagentbag" },
   { name = "Materiais",   filter = "trade" },
   { name = "Missão",      filter = "quest" },
+  { name = "Abríveis",    filter = "openable" },
   { name = "Lixo",        filter = "junk" },
 }
 
@@ -621,6 +645,7 @@ local PRESET_FILTERS = {
   consumable = function(id, q, bag) return classOf(id) == 0 end,                               -- consumível
   trade      = function(id, q, bag) local c = classOf(id); return c == 7 or c == 8 or c == 3 or c == 5 end, -- mats/gema/reagente
   quest      = function(id, q, bag) return classOf(id) == 12 end,                              -- missão
+  openable   = function(id, q, bag, slot) if not (bag and slot) then return false end local info = C_Container.GetContainerItemInfo(bag, slot); return (info and info.hasLoot) and true or false end, -- recipiente de loot (hasLoot)
   junk       = function(id, q, bag) return q == 0 end,                                         -- lixo
 }
 
@@ -1479,6 +1504,117 @@ local function DistributeNew()
   Refresh()
 end
 
+-- ---------------- Transferir pela busca + Abrir tudo ----------------
+-- item TRANCADO (precisa de chave): scan do tooltip procurando a linha == global LOCKED
+-- (PT "Trancado" / EN "Locked"). Item trancado NÃO conta como abrível em "abrir tudo".
+local function IsBagSlotLocked(bag, slot)
+  if not (C_TooltipInfo and C_TooltipInfo.GetBagItem) then return false end
+  local data = C_TooltipInfo.GetBagItem(bag, slot)
+  if not (data and data.lines) then return false end
+  for _, line in ipairs(data.lines) do
+    if TooltipUtil and TooltipUtil.SurfaceArgs then TooltipUtil.SurfaceArgs(line) end
+    if line.leftText and line.leftText == LOCKED then return true end
+  end
+  return false
+end
+
+-- coleta os itens (vivos) das bolsas ativas que batem com a busca atual.
+-- Reconstrói o MESMO registro it que o Refresh monta e usa o MESMO matcher,
+-- então a regra de "bate na busca" é idêntica à do filtro da grade.
+local function CollectSearchMatches()
+  local out = {}
+  if search == "" then return out end
+  local matcher = SearchMatcher(search)
+  for _, bag in ipairs(ActiveBags()) do
+    local slots = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, slots do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if info and info.itemID then
+        local it = {
+          bag = bag, slot = slot, itemID = info.itemID, link = info.hyperlink,
+          icon = info.iconFileID, count = info.stackCount, quality = info.quality,
+          name = C_Item.GetItemInfo(info.hyperlink) or "", ilvl = GetIlvl(info.hyperlink), bound = info.isBound,
+        }
+        local hit
+        if matcher then hit = matcher(it) else hit = it.name ~= "" and it.name:lower():find(search, 1, true) end
+        if hit then out[#out + 1] = it end
+      end
+    end
+  end
+  return out
+end
+
+-- vende (loop UseContainerItem) a lista já filtrada — chamado só no OnAccept do popup
+local KB_transferSellList
+local function SellMatches(list)
+  if InCombatLockdown() then print(KB_PREFIX .. L.MSG_NO_EQUIP_COMBAT); return end
+  if not (MerchantFrame and MerchantFrame:IsShown()) then return end
+  local n = 0
+  for _, it in ipairs(list or {}) do
+    if it.bag and it.slot then
+      -- revalida o slot na hora de vender: as bolsas podem ter sido reorganizadas (auto-sort
+      -- dispara em BAG_UPDATE) entre abrir o popup e confirmar. Só vende se o slot ainda contém
+      -- o MESMO item e ele NÃO está protegido (rede de segurança contra vender item trocado/favorito).
+      local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
+      if info and info.itemID == it.itemID and not IsProtected(it.itemID) then
+        C_Container.UseContainerItem(it.bag, it.slot); n = n + 1
+      end
+    end
+  end
+  print(KB_PREFIX .. string.format(L.MSG_TRANSFER_SOLD, n))
+  if UI and UI:IsShown() then Refresh() end
+end
+
+-- botão "Transferir": vende no vendedor (com confirmação) ou deposita no banco (direto)
+local function TransferBySearch()
+  if InCombatLockdown() then print(KB_PREFIX .. L.MSG_NO_EQUIP_COMBAT); return end
+  if search == "" then return end
+  local atMerchant = MerchantFrame and MerchantFrame:IsShown()
+  local matches = CollectSearchMatches()
+  if atMerchant then
+    local sellable = {}
+    for _, it in ipairs(matches) do
+      if it.bag and it.slot and not IsProtected(it.itemID) then sellable[#sellable + 1] = it end
+    end
+    if #sellable == 0 then return end
+    KB_transferSellList = sellable
+    StaticPopup_Show("KRONONBAGS_TRANSFER_SELL", #sellable)
+  elseif atBank then
+    local n = 0
+    for _, it in ipairs(matches) do
+      if it.bag and it.slot then
+        local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
+        if info and info.itemID == it.itemID then C_Container.UseContainerItem(it.bag, it.slot); n = n + 1 end
+      end
+    end
+    print(KB_PREFIX .. string.format(L.MSG_TRANSFER_DEPOSITED, n))
+    if UI and UI:IsShown() then Refresh() end
+  end
+end
+
+-- abrir tudo: abre 1 recipiente de loot por vez (assíncrono). Acha o 1º hasLoot
+-- não-trancado, abre, e marca UI.openingAll; o handler de BAG_UPDATE_DELAYED chama
+-- de novo até não sobrar nenhum.
+local function OpenAllOpenables()
+  if not UI then return end
+  if InCombatLockdown() then UI.openingAll = false; return end
+  -- CRÍTICO: com o vendedor aberto, UseContainerItem VENDE em vez de abrir. Nunca "abrir tudo"
+  -- no vendedor, senão venderia todos os recipientes em cadeia (via BAG_UPDATE_DELAYED).
+  if MerchantFrame and MerchantFrame:IsShown() then UI.openingAll = false; return end
+  for _, bag in ipairs(ActiveBags()) do
+    local slots = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, slots do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if info and info.hasLoot and not IsBagSlotLocked(bag, slot) then
+        UI.openingAll = true
+        C_Container.UseContainerItem(bag, slot)
+        return
+      end
+    end
+  end
+  UI.openingAll = false -- não há mais nada pra abrir
+end
+
 -- ---------------- Render ----------------
 Refresh = function()
   if not UI or not UI:IsShown() or not DB then return end
@@ -1489,6 +1625,7 @@ Refresh = function()
   local bags = ActiveBags()
   EnsureItemsCached(bags)
   if UI.distribBtn then UI.distribBtn:Hide() end -- esconde já (a grade não tem cabeçalho de seção)
+  if UI.openAllBtn then UI.openAllBtn:Hide() end
   local cached = CachedMode()
   if DB.settings.gridView and not cached then return RenderGrid() end -- cache sempre usa a visão por categorias
 
@@ -1570,6 +1707,7 @@ Refresh = function()
   for _, h in ipairs(headerPool) do h:Hide() end
   for _, eb in ipairs(equipBtnPool) do eb:Hide() end
   if UI.distribBtn then UI.distribBtn:Hide() end
+  if UI.openAllBtn then UI.openAllBtn:Hide() end
 
   -- 5) desenha (dentro do conteúdo rolável: x a partir de 0, yOff a partir de 0)
   local cols = (DB.settings and DB.settings.cols) or COLS
@@ -1663,6 +1801,29 @@ Refresh = function()
         UI.distribBtn:ClearAllPoints()
         UI.distribBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
         UI.distribBtn:Show()
+      end
+      -- botão "Abrir tudo" no cabeçalho de Abríveis: abre todos os recipientes de loot (pula trancados).
+      -- escondido no vendedor (lá UseContainerItem venderia em vez de abrir); fica só no mouse fora do vendedor.
+      if cat == "Abríveis" and not (MerchantFrame and MerchantFrame:IsShown()) then
+        if not UI.openAllBtn then
+          local o = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate")
+          o:SetAttribute("nodeignore", true) -- "Abrir tudo" fora da navegação por controle (linha do cabeçalho; só mouse)
+          o:SetSize(72, 18); o:SetText(L.BTN_OPEN_ALL)
+          o:SetScript("OnClick", function() OpenAllOpenables() end)
+          o:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(L.BTN_OPEN_ALL)
+            GameTooltip:AddLine(L.TIP_OPEN_ALL, 0.7, 0.7, 0.7, true)
+            GameTooltip:Show()
+          end)
+          o:SetScript("OnLeave", function() GameTooltip:Hide() end)
+          UI.openAllBtn = o
+        end
+        UI.openAllBtn:SetParent(UI.content)
+        UI.openAllBtn:SetFrameLevel(h:GetFrameLevel() + 5)
+        UI.openAllBtn:ClearAllPoints()
+        UI.openAllBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
+        UI.openAllBtn:Show()
       end
       yOff = yOff - 18
 
@@ -1772,6 +1933,14 @@ StaticPopupDialogs["KRONONBAGS_IMPORT"] = {
   EditBoxOnEscapePressed = function(self) local d = self:GetParent(); if d then d:Hide() end end,
   timeout = 0, whileDead = true, hideOnEscape = true,
 }
+StaticPopupDialogs["KRONONBAGS_TRANSFER_SELL"] = {
+  text = L.CONFIRM_TRANSFER_SELL,
+  button1 = YES,
+  button2 = NO,
+  OnAccept = function() SellMatches(KB_transferSellList); KB_transferSellList = nil end,
+  OnCancel = function() KB_transferSellList = nil end,
+  timeout = 0, whileDead = true, hideOnEscape = true,
+}
 
 -- ---------------- Janela ----------------
 ApplyOpacity = function()
@@ -1851,6 +2020,11 @@ UpdateTabs = function()
   -- depositar só vale no banco de verdade
   if UI.depositBtn then UI.depositBtn:SetShown(atBank and (mode == "bank" or mode == "warband")) end
   if UI.sellJunkBtn then UI.sellJunkBtn:SetShown((MerchantFrame and MerchantFrame:IsShown()) and mode == "bags") end
+  -- "Transferir": só com busca ativa E (vendedor aberto OU no banco)
+  if UI.transferBtn then
+    local merchant = MerchantFrame and MerchantFrame:IsShown()
+    UI.transferBtn:SetShown(search ~= "" and (merchant or atBank))
+  end
 end
 
 CreateUI = function()
@@ -2023,6 +2197,21 @@ CreateUI = function()
   end)
   sellJunk:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.sellJunkBtn = sellJunk; sellJunk:Hide()
+
+  -- botão "Transferir" (só com busca ativa, no vendedor ou no banco): vende/deposita o que bate
+  local transferBtn = CreateFrame("Button", nil, UI, "UIPanelButtonTemplate")
+  transferBtn:SetSize(86, 20)
+  transferBtn:SetPoint("RIGHT", sellJunk, "LEFT", -6, 0)
+  transferBtn:SetText(L.BTN_TRANSFER)
+  transferBtn:SetScript("OnClick", TransferBySearch)
+  transferBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText(L.BTN_TRANSFER)
+    GameTooltip:AddLine(L.TIP_TRANSFER, 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  transferBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.transferBtn = transferBtn; transferBtn:Hide()
 
   goldText = UI:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   goldText:SetPoint("BOTTOMRIGHT", UI, "BOTTOMRIGHT", blizzard and -24 or -20, blizzard and 12 or 7) -- folga p/ a alça
@@ -2739,6 +2928,9 @@ f:SetScript("OnEvent", function(_, event, arg1)
   elseif event == "MAIL_CLOSED" then
     AutoHide()
   else -- BAG_UPDATE_DELAYED, EQUIPMENT_SETS_CHANGED, BAG_NEW_ITEMS_UPDATED
+    -- "Abrir tudo" é assíncrono: depois que um recipiente abre, BAG_UPDATE_DELAYED dispara
+    -- e a gente abre o próximo, até não sobrar nenhum (OpenAllOpenables zera openingAll).
+    if event == "BAG_UPDATE_DELAYED" and UI and UI.openingAll then OpenAllOpenables() end
     Refresh(); RefreshReady()
     if DB and atBank then CaptureBank() end -- snapshot do banco fresco (base da consulta de longe), sempre que no banco
     if DB and DB.settings and DB.settings.altCounts then CaptureBags() end -- contagem da mochila nos alts (se ligado)
