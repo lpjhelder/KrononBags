@@ -117,6 +117,7 @@ local EN = {
   -- config: opções
   OPT_BLIZZ_FRAME = "Blizzard frame", OPT_BLIZZ_COLORS = "Blizzard colors (dark)",
   OPT_SHOW_ILVL = "Show item level", OPT_ILVL_RARITY = "Color item level by rarity",
+  OPT_GEAR_TRACK = "Show upgrade track",
   OPT_PROTECT = "Protect items (don't sell)", OPT_AUTOOPEN = "Open at vendor/bank",
   OPT_BANK_REPLACE = "Replace bank / Warband", OPT_ALT_COUNTS = "Alt counts (tooltip)",
   OPT_REPLACE_BAGS = "Replace the game's bags (B key)", OPT_STACK = "Stack identical items",
@@ -127,6 +128,7 @@ local EN = {
   TIP_OPT_BLIZZ_FRAME = "Use WoW's native frame instead of the dark KrononBags look.",
   TIP_OPT_BLIZZ_COLORS = "Use Blizzard's default color scheme.",
   TIP_OPT_SHOW_ILVL = "Show item level on gear in the icon corner.",
+  TIP_OPT_GEAR_TRACK = "Show the gear upgrade track on the icon (e.g. Hero 4/6).",
   TIP_OPT_ILVL_RARITY = "On: item level in the rarity color. Off: item level in white.",
   TIP_OPT_QUAL_BORDER = "Colored border on the icon by rarity (junk = gray; common = no border).",
   TIP_OPT_AUTOOPEN = "Open KrononBags automatically at a vendor or bank.",
@@ -258,6 +260,7 @@ local PT = {
   SEC_ICONS = "Ícones", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Sobre",
   OPT_BLIZZ_FRAME = "Moldura Blizzard", OPT_BLIZZ_COLORS = "Cores Blizzard (escuro)",
   OPT_SHOW_ILVL = "Mostrar item level", OPT_ILVL_RARITY = "Colorir item level pela raridade",
+  OPT_GEAR_TRACK = "Mostrar trilha de upgrade",
   OPT_PROTECT = "Proteger itens (não vender)", OPT_AUTOOPEN = "Abrir no vendedor/banco",
   OPT_BANK_REPLACE = "Substituir banco / Brigada", OPT_ALT_COUNTS = "Contagem nos alts (tooltip)",
   OPT_REPLACE_BAGS = "Substituir a bag do jogo (tecla B)", OPT_STACK = "Empilhar itens iguais",
@@ -267,6 +270,7 @@ local PT = {
   TIP_OPT_BLIZZ_FRAME = "Usa a moldura nativa do WoW em vez do visual escuro do KrononBags.",
   TIP_OPT_BLIZZ_COLORS = "Usa o esquema de cores padrão da Blizzard.",
   TIP_OPT_SHOW_ILVL = "Mostra o item level no canto do ícone do equipamento.",
+  TIP_OPT_GEAR_TRACK = "Mostra a trilha de upgrade do equipamento no ícone (ex: Herói 4/6).",
   TIP_OPT_ILVL_RARITY = "Ligado: item level na cor da raridade. Desligado: item level em branco.",
   TIP_OPT_QUAL_BORDER = "Borda colorida no ícone pela raridade (lixo = cinza; comum = sem borda).",
   TIP_OPT_AUTOOPEN = "Abre o KrononBags sozinho ao falar com vendedor ou abrir o banco.",
@@ -392,6 +396,7 @@ local ES = {
   SEC_ICONS = "Iconos", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Acerca de",
   OPT_BLIZZ_FRAME = "Marco Blizzard", OPT_BLIZZ_COLORS = "Colores Blizzard (oscuro)",
   OPT_SHOW_ILVL = "Mostrar nivel de objeto", OPT_ILVL_RARITY = "Colorear nivel de objeto por rareza",
+  OPT_GEAR_TRACK = "Mostrar nivel de mejora",
   OPT_PROTECT = "Proteger objetos (no vender)", OPT_AUTOOPEN = "Abrir en vendedor/banco",
   OPT_BANK_REPLACE = "Reemplazar banco / Banda de guerra", OPT_ALT_COUNTS = "Cantidad en alters (tooltip)",
   OPT_REPLACE_BAGS = "Reemplazar las bolsas del juego (tecla B)", OPT_STACK = "Apilar objetos iguales",
@@ -401,6 +406,7 @@ local ES = {
   TIP_OPT_BLIZZ_FRAME = "Usa el marco nativo de WoW en lugar del aspecto oscuro de KrononBags.",
   TIP_OPT_BLIZZ_COLORS = "Usa el esquema de colores predeterminado de Blizzard.",
   TIP_OPT_SHOW_ILVL = "Muestra el nivel de objeto en la esquina del icono del equipo.",
+  TIP_OPT_GEAR_TRACK = "Muestra el nivel de mejora del equipo en el icono (p. ej. Héroe 4/6).",
   TIP_OPT_ILVL_RARITY = "Activado: nivel de objeto en el color de rareza. Desactivado: en blanco.",
   TIP_OPT_QUAL_BORDER = "Borde de color en el icono por rareza (basura = gris; común = sin borde).",
   TIP_OPT_AUTOOPEN = "Abre KrononBags automáticamente en un vendedor o banco.",
@@ -581,6 +587,7 @@ local function InitDB()
   if KrononBagsDB.settings.gridView == nil then KrononBagsDB.settings.gridView = false end
   if KrononBagsDB.settings.autoOpen == nil then KrononBagsDB.settings.autoOpen = true end
   if KrononBagsDB.settings.showIlvl == nil then KrononBagsDB.settings.showIlvl = true end
+  if KrononBagsDB.settings.showGearTrack == nil then KrononBagsDB.settings.showGearTrack = true end -- trilha de upgrade (ex: H4/6) no ícone
   if KrononBagsDB.settings.ilvlUseRarity == nil then KrononBagsDB.settings.ilvlUseRarity = true end
   if KrononBagsDB.settings.frameStyle == nil then KrononBagsDB.settings.frameStyle = "dark" end -- "dark" (atual) | "blizzard" (moldura nativa)
   if KrononBagsDB.settings.bankReplace == nil then KrononBagsDB.settings.bankReplace = true end -- substituir o banco/Brigada nativo pelo KrononBags
@@ -837,6 +844,40 @@ GetIlvl = function(link)
   return 0
 end
 
+-- ---------------- Trilha de upgrade (Gear Track) ----------------
+-- Sem API limpa: a linha vem da global string ITEM_UPGRADE_TOOLTIP_FORMAT_STRING
+-- (enUS = "Upgrade Level: %s %d/%d"). Pré-compila UMA vez o pattern Lua.
+local KB_TRACK_PAT
+do
+  local s = ITEM_UPGRADE_TOOLTIP_FORMAT_STRING
+  if s then
+    s = s:gsub("([%.%-%(%)%[%]%+%*%?%^%$%%])", "%%%1") -- escapa magic chars (inclui % virando %%)
+    s = s:gsub("%%%%s", "(.+)"):gsub("%%%%d", "(%%d+)")
+    KB_TRACK_PAT = s -- ex: "Upgrade Level: (.+) (%d+)/(%d+)"
+  end
+end
+
+-- devolve nome-da-trilha, atual, máx; ou nil se o item não tiver a linha
+local function GetGearTrack(bag, slot)
+  if bag and slot and KB_TRACK_PAT and C_TooltipInfo and C_TooltipInfo.GetBagItem then
+    local data = C_TooltipInfo.GetBagItem(bag, slot)
+    if data and data.lines then
+      for _, line in ipairs(data.lines) do
+        if TooltipUtil and TooltipUtil.SurfaceArgs then TooltipUtil.SurfaceArgs(line) end
+        if line.leftText then
+          local track, cur, max = line.leftText:match(KB_TRACK_PAT)
+          if track then return track, tonumber(cur), tonumber(max) end
+        end
+      end
+    end
+  end
+  return nil
+end
+
+-- ---------------- Masque (skin opcional dos ícones) ----------------
+local KB_Masque = LibStub and LibStub("Masque", true)
+local KB_MasqueGroup = KB_Masque and KB_Masque:Group("KrononBags", "Bags") or nil
+
 -- ---------------- Menu de clique esquerdo ----------------
 OpenItemMenu = function(self)
   local itemID = self.itemID
@@ -1045,6 +1086,10 @@ AcquireButton = function(i)
     b.kbIlvl = b:CreateFontString(nil, "OVERLAY")
     b.kbIlvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
     b.kbIlvl:SetPoint("TOPRIGHT", -2, -2); b.kbIlvl:Hide()
+    -- trilha de upgrade (ex: H4/6) no rodapé do ícone
+    b.kbTrack = b:CreateFontString(nil, "OVERLAY")
+    b.kbTrack:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+    b.kbTrack:SetPoint("BOTTOM", 0, 1); b.kbTrack:Hide()
     b.kbBind = b:CreateFontString(nil, "OVERLAY")
     b.kbBind:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
     b.kbBind:SetPoint("BOTTOMLEFT", 2, 2); b.kbBind:SetTextColor(0.4, 1, 0.4); b.kbBind:Hide()
@@ -1113,6 +1158,9 @@ AcquireButton = function(i)
     star:SetScript("OnLeave", function() GameTooltip:Hide(); updateStar() end)
     b:SetScript("OnEnter", function(self) OnEnter(self); if self.kbUpdateStar then self.kbUpdateStar() end end)
     b:SetScript("OnLeave", function(self) GameTooltip:Hide(); if self.kbUpdateStar then self.kbUpdateStar() end end)
+    -- Masque (opcional): pinta as regiões do ItemButton. Regions=nil + Type "Item"
+    -- → o Masque auto-detecta as regiões do ContainerFrameItemButtonTemplate.
+    if KB_MasqueGroup then KB_MasqueGroup:AddButton(b, nil, "Item") end
     pool[i] = b
   end
   return b
@@ -1218,6 +1266,22 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
   else
     b.kbIlvl:Hide()
   end
+  -- trilha de upgrade (ex: H4/6) no rodapé — só equipável, com slot vivo, se ligado
+  if b.kbTrack then
+    if DB.settings.showGearTrack and equipLoc and equipLoc ~= "" then
+      local track, cur, max = GetGearTrack(bag, slot)
+      if track and cur and max then
+        b.kbTrack:SetText(track:sub(1, 1):upper() .. cur .. "/" .. max)
+        if cur == max then b.kbTrack:SetTextColor(1, 0.82, 0) -- dourado: trilha completa
+        else b.kbTrack:SetTextColor(1, 1, 1) end              -- branco
+        b.kbTrack:Show()
+      else
+        b.kbTrack:Hide()
+      end
+    else
+      b.kbTrack:Hide()
+    end
+  end
   -- selo de vínculo (só se ainda NÃO estiver vinculado ao personagem)
   local tag
   if not isBound then
@@ -1272,6 +1336,7 @@ end
 
 local function ClearBadges(b)
   b.kbIlvl:Hide(); b.kbBind:Hide(); b.kbNewGlow:Hide(); b.kbQuest:Hide()
+  if b.kbTrack then b.kbTrack:Hide() end
   if b.kbBorder then b.kbBorder:Hide() end
   if b.kbUpgrade then b.kbUpgrade:Hide() end
   if b.UpgradeIcon then b.UpgradeIcon:Hide() end
@@ -2811,6 +2876,9 @@ CreateConfig = function()
   check("KrononBagsQualBorderCheck", LCOL, -258, L.OPT_QUAL_BORDER, function() return DB.settings.qualityBorder end, function(v)
     DB.settings.qualityBorder = v; Refresh()
   end, "TIP_OPT_QUAL_BORDER")
+  check("KrononBagsGearTrackCheck", RCOL, -258, L.OPT_GEAR_TRACK, function() return DB.settings.showGearTrack end, function(v)
+    DB.settings.showGearTrack = v; Refresh()
+  end, "TIP_OPT_GEAR_TRACK")
 
   -- ===== Comportamento =====
   section(L.SEC_BEHAVIOR, -294)
