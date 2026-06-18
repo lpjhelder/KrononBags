@@ -21,6 +21,301 @@ local PAD    = 4   -- espaço ENTRE itens
 local MARGIN = 10  -- distância da borda da janela
 local search = ""
 
+-- ---------------- Idiomas (i18n) ----------------
+-- Detecção automática pelo idioma do cliente. EN é a base (todas as chaves);
+-- ptBR e esES sobrescrevem. Fallback do metatable: chave inexistente devolve a
+-- própria chave (nunca quebra a UI).
+local KB_PREFIX = "|cfff0d98cKrononBags|r: "
+local LOCALE = (GetLocale and GetLocale()) or "enUS"
+local L = setmetatable({}, { __index = function(_, k) return k end })
+
+local EN = {
+  -- categorias (rótulo de exibição; o nome interno continua pt-BR)
+  CAT_NEW = "Newly acquired", CAT_FAVORITES = "Favorites", CAT_KEYSTONE = "Keystone",
+  CAT_EQUIP = "Gear", CAT_CONSUMABLE = "Consumables", CAT_REAGENT = "Reagents",
+  CAT_TRADE = "Trade Goods", CAT_QUEST = "Quest", CAT_JUNK = "Junk", CAT_MISC = "Miscellaneous",
+  -- genéricos
+  ITEM = "Item", CATEGORY = "Category",
+  -- botões
+  BTN_EQUIP = "Equip", BTN_DISTRIBUTE = "Distribute", BTN_CREATE = "Create",
+  BTN_CANCEL = "Cancel", BTN_SAVE = "Save", BTN_CLOSE = "Close", BTN_IMPORT = "Import",
+  BTN_EXPORT = "Export", BTN_DELETE = "Delete", BTN_RULE = "Rule", BTN_PRESET = "Preset…",
+  BTN_SELL_JUNK = "Sell Junk", BTN_DEPOSIT = "Deposit Items",
+  -- abas
+  TAB_BAGS = "Backpack", TAB_BANK = "Bank", TAB_WARBAND = "Warband",
+  -- menu de item
+  MENU_PICKUP = "Move (pick up item)", MENU_MOVE_TO_CAT = "Move to category",
+  MENU_CREATE_CAT_HINT = "(create a category in the settings)", MENU_NEW_CAT = "New category…",
+  MENU_REMOVE_FROM_CAT = "Remove from category",
+  MENU_FAVORITE = "Favorite (protect from selling)", MENU_UNFAVORITE = "Unfavorite (allow selling)",
+  -- menu de categoria
+  MENU_EXPAND_THIS = "Expand this", MENU_COLLAPSE_THIS = "Collapse this",
+  MENU_COLLAPSE_ALL = "Collapse all", MENU_EXPAND_ALL = "Expand all",
+  MENU_FAV_ALL = "Favorite all (protect from selling)", MENU_UNFAV_ALL = "Unfavorite all",
+  MENU_DEPOSIT_ALL = "Deposit all to bank",
+  -- tooltips de item / estrela
+  TIP_CACHED_STORED = "📦 Stored in the bank (preview)",
+  TIP_CACHED_GOTOBANK = "Go to the bank to move/withdraw.",
+  TIP_RIGHT_ACTIONS = "Right: use / equip / open / sell",
+  TIP_LEFT_PICKUP = "Left: pick up / drag",
+  TIP_STAR = "Star: click = favorite  |  right = menu",
+  TIP_STACKED = "Visual stack — use/sell affects 1 stack",
+  TIP_STAR_AUTOFAV = "Automatic favorite — it's in an Equipment Set (protected from selling)",
+  TIP_STAR_ACTIONS = "Left: favorite (protect from selling)\nRight: menu (move to category)",
+  -- tooltips de cabeçalho de categoria
+  TIP_DROP_HERE = "Drop here: put item in this category",
+  TIP_LEFT_EXPAND = "Left: expand", TIP_LEFT_COLLAPSE = "Left: collapse",
+  TIP_HEADER_ACTIONS = "Right: actions  ·  drag an item here to categorize",
+  TIP_DISTRIBUTE_TITLE = "Distribute newly acquired",
+  TIP_DISTRIBUTE_BODY = "Empties this section: each item goes to its category.",
+  -- tooltips dos controles da janela
+  TIP_CONFIG = "Settings", TIP_SEARCH_TITLE = "Advanced search",
+  TIP_SEARCH_L1 = "name  ·  ilvl>200  ·  ilvl:200-300  ·  q:epic  ·  type:armor",
+  TIP_SEARCH_L2 = "words: boe, wb, bound, quest, junk, equip, consumable, new, favorite",
+  TIP_SEARCH_L3 = "operators:  & (and)   | (or)   ! (not)   ( )",
+  TIP_AUTOSORT = "Auto-sort",
+  TIP_SELLJUNK_TITLE = "Sell all gray items (junk)",
+  TIP_SELLJUNK_BODY = "Uses the game's native selling. Careful: favorited gray items are sold too.",
+  TIP_VIEW_CATS = "View by categories", TIP_VIEW_GRID = "View all slots (grid)",
+  TIP_DEPOSIT = "Automatically deposits the items marked for deposit in this bank",
+  TIP_GRIP = "Drag to change columns and height",
+  -- vazio / banner de cache
+  EMPTY = "Empty", EMPTY_BANK_FREE = "%d free slot(s) in the bank", JUNK_LABEL = "Junk",
+  CACHE_BANNER = "📦 Preview — you are not at the bank", CACHE_SAVED = " · saved %s",
+  -- popups
+  POPUP_NEWCAT = "New category name:",
+  POPUP_RULE = "Category rule (search that fills it automatically).\nE.g.: ilvl>200 & boe   |   type:armor   |   q:epic\nLeave empty to make it a manual category.",
+  POPUP_EXPORT = "Copy the code (Ctrl+C) and share it:",
+  POPUP_IMPORT = "Paste the category code (merges with yours):",
+  -- mensagens de chat (sem o prefixo, que é concatenado)
+  MSG_BANK_FULL = "bank full.",
+  MSG_EQUIPSET_AUTOFAV = "Equipment Set item — automatically favorited/protected (remove it from the set to release).",
+  MSG_NO_EQUIP_COMBAT = "can't swap equipment in combat.",
+  MSG_CATS_IMPORTED = "categories imported.",
+  MSG_IMPORT_FAILED = "import failed (%s).",
+  MSG_SELLJUNK_UNAVAIL = "sell junk function is unavailable in this version.",
+  MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
+  MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
+  MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
+  MSG_REPAIR_GUILD = "repaired with guild funds (%s).",
+  MSG_REPAIR_SELF = "repaired for %s.",
+  MSG_REPAIR_NOGOLD = "not enough gold to repair (%s).",
+  MSG_OPEN_BANK_ONCE = "open the bank once to be able to check it from afar.",
+  -- erros de import
+  IMP_ERR_EMPTY = "empty", IMP_ERR_FORMAT = "invalid format", IMP_ERR_NOCATS = "no categories",
+  -- config: seções
+  SEC_APPEARANCE = "Appearance", SEC_BEHAVIOR = "Behavior", SEC_CATEGORIES = "Categories",
+  -- config: opções
+  OPT_BLIZZ_FRAME = "Blizzard frame", OPT_BLIZZ_COLORS = "Blizzard colors (dark)",
+  OPT_SHOW_ILVL = "Show item level", OPT_ILVL_RARITY = "ilvl by rarity",
+  OPT_PROTECT = "Protect items (don't sell)", OPT_AUTOOPEN = "Open at vendor/bank",
+  OPT_BANK_REPLACE = "Replace bank / Warband", OPT_ALT_COUNTS = "Alt counts (tooltip)",
+  OPT_REPLACE_BAGS = "Replace the game's bags (B key)", OPT_STACK = "Stack identical items",
+  OPT_QUAL_BORDER = "Colored border (rarity)", OPT_SEARCH_HL = "Highlight search",
+  OPT_AUTOSELL = "Auto-sell junk", OPT_AUTOREPAIR = "Auto-repair",
+  OPT_OPACITY = "Background opacity: %d%%", OPT_COLS = "Columns (items per row): %d",
+  -- config: ordenação
+  SORT_ILVL = "Item level", SORT_QUALITY = "Quality", SORT_NAME = "Name",
+  SORT_TYPE = "Type", SORT_RECENT = "Recent", SORT_BY = "Sort by: ", SORT_MENU_TITLE = "Sort items by",
+  -- config: categorias
+  CAT_HINT = "Order (top → bottom) = order in the inventory. ▲▼ moves, Delete removes.",
+  TAG_PRESET = "(preset)", TAG_RULE = "(rule)", TAG_CUSTOM = "(yours)",
+  PRESET_MENU_TITLE = "Add preset category", PRESET_ALL_ADDED = "(all already added)",
+  CONFIG_TITLE = "KrononBags — Settings",
+  -- painel de prontidão
+  READY_TITLE = "Readiness", READY_HINT = "Supplies counted in the backpack",
+  READY_DURABILITY = "Durability", READY_FLASK = "Flask", READY_POTION = "Potion",
+  READY_FOOD = "Food", READY_HEALTHSTONE = "Healthstone", READY_RUNE = "Rune/enchant",
+  READY_KEYSTONE = "M+ Keystone", READY_MISSING = "missing", READY_NONE = "none",
+  -- tooltip de contagem nos alts
+  WARBAND_LABEL = "Warband",
+}
+
+local PT = {
+  CAT_NEW = "Recém-obtidos", CAT_FAVORITES = "Favoritos", CAT_KEYSTONE = "Pedra-chave",
+  CAT_EQUIP = "Equipamento", CAT_CONSUMABLE = "Consumíveis", CAT_REAGENT = "Reagentes",
+  CAT_TRADE = "Materiais", CAT_QUEST = "Missão", CAT_JUNK = "Lixo", CAT_MISC = "Diversos",
+  ITEM = "Item", CATEGORY = "Categoria",
+  BTN_EQUIP = "Equipar", BTN_DISTRIBUTE = "Distribuir", BTN_CREATE = "Criar",
+  BTN_CANCEL = "Cancelar", BTN_SAVE = "Salvar", BTN_CLOSE = "Fechar", BTN_IMPORT = "Importar",
+  BTN_EXPORT = "Exportar", BTN_DELETE = "Excluir", BTN_RULE = "Regra", BTN_PRESET = "Pré-pronta…",
+  BTN_SELL_JUNK = "Vender lixo", BTN_DEPOSIT = "Depositar itens",
+  TAB_BAGS = "Mochila", TAB_BANK = "Banco", TAB_WARBAND = "Brigada",
+  MENU_PICKUP = "Mover (pegar item)", MENU_MOVE_TO_CAT = "Mover para categoria",
+  MENU_CREATE_CAT_HINT = "(crie uma categoria na config)", MENU_NEW_CAT = "Nova categoria…",
+  MENU_REMOVE_FROM_CAT = "Tirar da categoria",
+  MENU_FAVORITE = "Favoritar (protege de venda)", MENU_UNFAVORITE = "Desfavoritar (libera venda)",
+  MENU_EXPAND_THIS = "Expandir esta", MENU_COLLAPSE_THIS = "Recolher esta",
+  MENU_COLLAPSE_ALL = "Recolher todas", MENU_EXPAND_ALL = "Expandir todas",
+  MENU_FAV_ALL = "Favoritar todos (protege de venda)", MENU_UNFAV_ALL = "Desfavoritar todos",
+  MENU_DEPOSIT_ALL = "Guardar tudo no banco",
+  TIP_CACHED_STORED = "📦 Guardado no banco (visualização)",
+  TIP_CACHED_GOTOBANK = "Vá até o banco pra mover/sacar.",
+  TIP_RIGHT_ACTIONS = "Direito: usar / equipar / abrir / vender",
+  TIP_LEFT_PICKUP = "Esquerdo: pegar / arrastar",
+  TIP_STAR = "Estrela: clique = favoritar  |  direito = menu",
+  TIP_STACKED = "Pilha visual — usar/vender afeta 1 stack",
+  TIP_STAR_AUTOFAV = "Favorito automático — está num Conjunto de Equipamento (protegido de venda)",
+  TIP_STAR_ACTIONS = "Esquerdo: favoritar (protege de venda)\nDireito: menu (mover p/ categoria)",
+  TIP_DROP_HERE = "Soltar aqui: jogar item nesta categoria",
+  TIP_LEFT_EXPAND = "Esquerdo: expandir", TIP_LEFT_COLLAPSE = "Esquerdo: recolher",
+  TIP_HEADER_ACTIONS = "Direito: ações  ·  arraste um item aqui pra categorizar",
+  TIP_DISTRIBUTE_TITLE = "Distribuir recém-obtidos",
+  TIP_DISTRIBUTE_BODY = "Esvazia esta seção: cada item vai pra sua categoria.",
+  TIP_CONFIG = "Configurações", TIP_SEARCH_TITLE = "Busca avançada",
+  TIP_SEARCH_L1 = "nome  ·  ilvl>200  ·  ilvl:200-300  ·  q:epico  ·  tipo:armadura",
+  TIP_SEARCH_L2 = "palavras: boe, wb, vinculado, missao, lixo, equip, consumivel, novo, favorito",
+  TIP_SEARCH_L3 = "operadores:  & (e)   | (ou)   ! (não)   ( )",
+  TIP_AUTOSORT = "Organizar automático",
+  TIP_SELLJUNK_TITLE = "Vende todos os itens cinza (lixo)",
+  TIP_SELLJUNK_BODY = "Usa a venda nativa do jogo. Cuidado: cinza favoritado também é vendido.",
+  TIP_VIEW_CATS = "Ver por categorias", TIP_VIEW_GRID = "Ver todos os slots (grade)",
+  TIP_DEPOSIT = "Guarda automaticamente os itens marcados pra depósito neste banco",
+  TIP_GRIP = "Arraste pra mudar colunas e altura",
+  EMPTY = "Vazio", EMPTY_BANK_FREE = "%d slot(s) livre(s) no banco", JUNK_LABEL = "Lixo",
+  CACHE_BANNER = "📦 Visualização — você não está no banco", CACHE_SAVED = " · salvo %s",
+  POPUP_NEWCAT = "Nome da nova categoria:",
+  POPUP_RULE = "Regra da categoria (busca que preenche sozinha).\nEx: ilvl>200 & boe   |   tipo:armadura   |   q:epico\nDeixe vazio pra virar categoria manual.",
+  POPUP_EXPORT = "Copie o código (Ctrl+C) e compartilhe:",
+  POPUP_IMPORT = "Cole o código de categorias (mescla com as suas):",
+  MSG_BANK_FULL = "banco cheio.",
+  MSG_EQUIPSET_AUTOFAV = "item de Conjunto de Equipamento — favorito/protegido automaticamente (tire-o do conjunto pra liberar).",
+  MSG_NO_EQUIP_COMBAT = "não dá pra trocar equipamento em combate.",
+  MSG_CATS_IMPORTED = "categorias importadas.",
+  MSG_IMPORT_FAILED = "import falhou (%s).",
+  MSG_SELLJUNK_UNAVAIL = "função de vender lixo indisponível nesta versão.",
+  MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
+  MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
+  MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
+  MSG_REPAIR_GUILD = "reparado com fundos da guilda (%s).",
+  MSG_REPAIR_SELF = "reparado por %s.",
+  MSG_REPAIR_NOGOLD = "ouro insuficiente pra reparar (%s).",
+  MSG_OPEN_BANK_ONCE = "abra o banco uma vez pra poder consultá-lo de longe.",
+  IMP_ERR_EMPTY = "vazio", IMP_ERR_FORMAT = "formato inválido", IMP_ERR_NOCATS = "sem categorias",
+  SEC_APPEARANCE = "Aparência", SEC_BEHAVIOR = "Comportamento", SEC_CATEGORIES = "Categorias",
+  OPT_BLIZZ_FRAME = "Moldura Blizzard", OPT_BLIZZ_COLORS = "Cores Blizzard (escuro)",
+  OPT_SHOW_ILVL = "Mostrar item level", OPT_ILVL_RARITY = "ilvl pela raridade",
+  OPT_PROTECT = "Proteger itens (não vender)", OPT_AUTOOPEN = "Abrir no vendedor/banco",
+  OPT_BANK_REPLACE = "Substituir banco / Brigada", OPT_ALT_COUNTS = "Contagem nos alts (tooltip)",
+  OPT_REPLACE_BAGS = "Substituir a bag do jogo (tecla B)", OPT_STACK = "Empilhar itens iguais",
+  OPT_QUAL_BORDER = "Borda colorida (raridade)", OPT_SEARCH_HL = "Realçar busca",
+  OPT_AUTOSELL = "Auto-vender lixo", OPT_AUTOREPAIR = "Auto-reparar",
+  OPT_OPACITY = "Opacidade do fundo: %d%%", OPT_COLS = "Colunas (itens por fileira): %d",
+  SORT_ILVL = "Item level", SORT_QUALITY = "Qualidade", SORT_NAME = "Nome",
+  SORT_TYPE = "Tipo", SORT_RECENT = "Recentes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar itens por",
+  CAT_HINT = "Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.",
+  TAG_PRESET = "(pré-pronta)", TAG_RULE = "(regra)", TAG_CUSTOM = "(sua)",
+  PRESET_MENU_TITLE = "Adicionar categoria pré-pronta", PRESET_ALL_ADDED = "(todas já adicionadas)",
+  CONFIG_TITLE = "KrononBags — Configurações",
+  READY_TITLE = "Prontidão", READY_HINT = "Suprimentos contados na mochila",
+  READY_DURABILITY = "Durabilidade", READY_FLASK = "Frasco", READY_POTION = "Poção",
+  READY_FOOD = "Comida", READY_HEALTHSTONE = "Pedra de Vida", READY_RUNE = "Runa/encantamento",
+  READY_KEYSTONE = "Pedra-chave M+", READY_MISSING = "falta", READY_NONE = "nenhuma",
+  WARBAND_LABEL = "Brigada",
+}
+
+local ES = {
+  CAT_NEW = "Recién obtenidos", CAT_FAVORITES = "Favoritos", CAT_KEYSTONE = "Piedra angular",
+  CAT_EQUIP = "Equipo", CAT_CONSUMABLE = "Consumibles", CAT_REAGENT = "Componentes",
+  CAT_TRADE = "Materiales", CAT_QUEST = "Misión", CAT_JUNK = "Basura", CAT_MISC = "Varios",
+  ITEM = "Objeto", CATEGORY = "Categoría",
+  BTN_EQUIP = "Equipar", BTN_DISTRIBUTE = "Distribuir", BTN_CREATE = "Crear",
+  BTN_CANCEL = "Cancelar", BTN_SAVE = "Guardar", BTN_CLOSE = "Cerrar", BTN_IMPORT = "Importar",
+  BTN_EXPORT = "Exportar", BTN_DELETE = "Eliminar", BTN_RULE = "Regla", BTN_PRESET = "Predefinida…",
+  BTN_SELL_JUNK = "Vender basura", BTN_DEPOSIT = "Depositar objetos",
+  TAB_BAGS = "Mochila", TAB_BANK = "Banco", TAB_WARBAND = "Banda de guerra",
+  MENU_PICKUP = "Mover (recoger objeto)", MENU_MOVE_TO_CAT = "Mover a categoría",
+  MENU_CREATE_CAT_HINT = "(crea una categoría en los ajustes)", MENU_NEW_CAT = "Nueva categoría…",
+  MENU_REMOVE_FROM_CAT = "Quitar de la categoría",
+  MENU_FAVORITE = "Marcar favorito (protege de venta)", MENU_UNFAVORITE = "Quitar favorito (permite venta)",
+  MENU_EXPAND_THIS = "Expandir esta", MENU_COLLAPSE_THIS = "Contraer esta",
+  MENU_COLLAPSE_ALL = "Contraer todas", MENU_EXPAND_ALL = "Expandir todas",
+  MENU_FAV_ALL = "Marcar todos favoritos (protege de venta)", MENU_UNFAV_ALL = "Quitar todos los favoritos",
+  MENU_DEPOSIT_ALL = "Depositar todo en el banco",
+  TIP_CACHED_STORED = "📦 Guardado en el banco (vista previa)",
+  TIP_CACHED_GOTOBANK = "Ve al banco para mover/retirar.",
+  TIP_RIGHT_ACTIONS = "Derecho: usar / equipar / abrir / vender",
+  TIP_LEFT_PICKUP = "Izquierdo: recoger / arrastrar",
+  TIP_STAR = "Estrella: clic = favorito  |  derecho = menú",
+  TIP_STACKED = "Pila visual — usar/vender afecta 1 grupo",
+  TIP_STAR_AUTOFAV = "Favorito automático — está en un Conjunto de equipo (protegido de venta)",
+  TIP_STAR_ACTIONS = "Izquierdo: favorito (protege de venta)\nDerecho: menú (mover a categoría)",
+  TIP_DROP_HERE = "Suelta aquí: poner objeto en esta categoría",
+  TIP_LEFT_EXPAND = "Izquierdo: expandir", TIP_LEFT_COLLAPSE = "Izquierdo: contraer",
+  TIP_HEADER_ACTIONS = "Derecho: acciones  ·  arrastra un objeto aquí para categorizar",
+  TIP_DISTRIBUTE_TITLE = "Distribuir recién obtenidos",
+  TIP_DISTRIBUTE_BODY = "Vacía esta sección: cada objeto va a su categoría.",
+  TIP_CONFIG = "Ajustes", TIP_SEARCH_TITLE = "Búsqueda avanzada",
+  TIP_SEARCH_L1 = "nombre  ·  ilvl>200  ·  ilvl:200-300  ·  q:epic  ·  tipo:armadura",
+  TIP_SEARCH_L2 = "palabras: boe, wb, bound, quest, junk, equip, consumable, new, fav",
+  TIP_SEARCH_L3 = "operadores:  & (y)   | (o)   ! (no)   ( )",
+  TIP_AUTOSORT = "Organizar automático",
+  TIP_SELLJUNK_TITLE = "Vende todos los objetos grises (basura)",
+  TIP_SELLJUNK_BODY = "Usa la venta nativa del juego. Cuidado: los grises favoritos también se venden.",
+  TIP_VIEW_CATS = "Ver por categorías", TIP_VIEW_GRID = "Ver todas las casillas (cuadrícula)",
+  TIP_DEPOSIT = "Deposita automáticamente los objetos marcados para depósito en este banco",
+  TIP_GRIP = "Arrastra para cambiar columnas y altura",
+  EMPTY = "Vacío", EMPTY_BANK_FREE = "%d casilla(s) libre(s) en el banco", JUNK_LABEL = "Basura",
+  CACHE_BANNER = "📦 Vista previa — no estás en el banco", CACHE_SAVED = " · guardado %s",
+  POPUP_NEWCAT = "Nombre de la nueva categoría:",
+  POPUP_RULE = "Regla de la categoría (búsqueda que la llena sola).\nEj: ilvl>200 & boe   |   tipo:armadura   |   q:epic\nDéjalo vacío para que sea una categoría manual.",
+  POPUP_EXPORT = "Copia el código (Ctrl+C) y compártelo:",
+  POPUP_IMPORT = "Pega el código de categorías (se fusiona con las tuyas):",
+  MSG_BANK_FULL = "banco lleno.",
+  MSG_EQUIPSET_AUTOFAV = "objeto de Conjunto de equipo — favorito/protegido automáticamente (quítalo del conjunto para liberarlo).",
+  MSG_NO_EQUIP_COMBAT = "no se puede cambiar de equipo en combate.",
+  MSG_CATS_IMPORTED = "categorías importadas.",
+  MSG_IMPORT_FAILED = "la importación falló (%s).",
+  MSG_SELLJUNK_UNAVAIL = "la función de vender basura no está disponible en esta versión.",
+  MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
+  MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
+  MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
+  MSG_REPAIR_GUILD = "reparado con fondos del clan (%s).",
+  MSG_REPAIR_SELF = "reparado por %s.",
+  MSG_REPAIR_NOGOLD = "oro insuficiente para reparar (%s).",
+  MSG_OPEN_BANK_ONCE = "abre el banco una vez para poder consultarlo desde lejos.",
+  IMP_ERR_EMPTY = "vacío", IMP_ERR_FORMAT = "formato inválido", IMP_ERR_NOCATS = "sin categorías",
+  SEC_APPEARANCE = "Apariencia", SEC_BEHAVIOR = "Comportamiento", SEC_CATEGORIES = "Categorías",
+  OPT_BLIZZ_FRAME = "Marco Blizzard", OPT_BLIZZ_COLORS = "Colores Blizzard (oscuro)",
+  OPT_SHOW_ILVL = "Mostrar nivel de objeto", OPT_ILVL_RARITY = "ilvl por rareza",
+  OPT_PROTECT = "Proteger objetos (no vender)", OPT_AUTOOPEN = "Abrir en vendedor/banco",
+  OPT_BANK_REPLACE = "Reemplazar banco / Banda de guerra", OPT_ALT_COUNTS = "Cantidad en alters (tooltip)",
+  OPT_REPLACE_BAGS = "Reemplazar las bolsas del juego (tecla B)", OPT_STACK = "Apilar objetos iguales",
+  OPT_QUAL_BORDER = "Borde de color (rareza)", OPT_SEARCH_HL = "Resaltar búsqueda",
+  OPT_AUTOSELL = "Auto-vender basura", OPT_AUTOREPAIR = "Auto-reparar",
+  OPT_OPACITY = "Opacidad del fondo: %d%%", OPT_COLS = "Columnas (objetos por fila): %d",
+  SORT_ILVL = "Nivel de objeto", SORT_QUALITY = "Calidad", SORT_NAME = "Nombre",
+  SORT_TYPE = "Tipo", SORT_RECENT = "Recientes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar objetos por",
+  CAT_HINT = "Orden (arriba → abajo) = orden en el inventario. ▲▼ mueve, Eliminar quita.",
+  TAG_PRESET = "(predefinida)", TAG_RULE = "(regla)", TAG_CUSTOM = "(tuya)",
+  PRESET_MENU_TITLE = "Añadir categoría predefinida", PRESET_ALL_ADDED = "(todas ya añadidas)",
+  CONFIG_TITLE = "KrononBags — Ajustes",
+  READY_TITLE = "Preparación", READY_HINT = "Suministros contados en la mochila",
+  READY_DURABILITY = "Durabilidad", READY_FLASK = "Frasco", READY_POTION = "Poción",
+  READY_FOOD = "Comida", READY_HEALTHSTONE = "Piedra de salud", READY_RUNE = "Runa/encantamiento",
+  READY_KEYSTONE = "Piedra angular M+", READY_MISSING = "falta", READY_NONE = "ninguna",
+  WARBAND_LABEL = "Banda de guerra",
+}
+
+for k, v in pairs(EN) do L[k] = v end
+if LOCALE == "ptBR" then for k, v in pairs(PT) do L[k] = v end
+elseif LOCALE == "esES" or LOCALE == "esMX" then for k, v in pairs(ES) do L[k] = v end end
+
+-- Mapa nome-interno-da-categoria → chave de tradução. Nomes internos (pt-BR) são
+-- CHAVES de dados (DB.assignments/collapsed, comparações, ResolveCat) e NÃO mudam;
+-- só o RÓTULO exibido é traduzido. Categoria custom (fora do mapa) mostra o próprio nome.
+local CAT_DISPLAY_KEY = {
+  ["Recém-obtidos"] = "CAT_NEW", ["Favoritos"] = "CAT_FAVORITES", ["Pedra-chave"] = "CAT_KEYSTONE",
+  ["Equipamento"] = "CAT_EQUIP", ["Consumíveis"] = "CAT_CONSUMABLE", ["Reagentes"] = "CAT_REAGENT",
+  ["Materiais"] = "CAT_TRADE", ["Missão"] = "CAT_QUEST", ["Lixo"] = "CAT_JUNK", ["Diversos"] = "CAT_MISC",
+}
+local function CatDisplay(name)
+  if name == nil then return nil end
+  local key = CAT_DISPLAY_KEY[name]
+  if key then return L[key] end
+  return name
+end
+
 -- ---------------- Bancos (12.0): banco do personagem e da Brigada ----------------
 -- BagIDs: mochila 0, bolsas 1-4, reagentes 5, banco do personagem 6-11,
 -- banco da Brigada (warband) 12-16. As abas compradas vêm de C_Bank.
@@ -237,10 +532,10 @@ end
 
 -- replace=true substitui tudo; senão mescla (não destrói o que você já tem)
 local function ImportCategories(str, replace)
-  if type(str) ~= "string" or str == "" then return false, "vazio" end
+  if type(str) ~= "string" or str == "" then return false, L.IMP_ERR_EMPTY end
   local recs = {}
   for r in (str .. ";"):gmatch("(.-);") do recs[#recs + 1] = r end
-  if recs[1] ~= "KBCAT1" then return false, "formato inválido" end
+  if recs[1] ~= "KBCAT1" then return false, L.IMP_ERR_FORMAT end
   local newList, newAssign = {}, {}
   for i = 2, #recs do
     local kind, a, b = recs[i]:match("^(%a)>(.-)>(.*)$")
@@ -250,7 +545,7 @@ local function ImportCategories(str, replace)
       local id = tonumber(a); if id then newAssign[id] = kbUnesc(b) end
     end
   end
-  if #newList == 0 then return false, "sem categorias" end
+  if #newList == 0 then return false, L.IMP_ERR_NOCATS end
   if replace then
     DB.catList, DB.assignments = newList, newAssign
   else
@@ -387,21 +682,21 @@ OpenItemMenu = function(self)
   local itemID = self.itemID
   if not itemID or not MenuUtil then return end
   MenuUtil.CreateContextMenu(self, function(owner, root)
-    root:CreateTitle(self.itemName ~= "" and self.itemName or "Item")
+    root:CreateTitle(self.itemName ~= "" and self.itemName or L.ITEM)
     -- usar/equipar é via CLIQUE DIREITO (ação segura); não dá pra fazer pelo menu (UseContainerItem é protegida)
     if self.bag and self.slot then -- item em cache não tem slot vivo: não dá pra pegar
-      root:CreateButton("Mover (pegar item)", function()
+      root:CreateButton(L.MENU_PICKUP, function()
         C_Container.PickupContainerItem(self.bag, self.slot)
       end)
     end
 
-    local move = root:CreateButton("Mover para categoria")
+    local move = root:CreateButton(L.MENU_MOVE_TO_CAT)
     local anyCustom, anyPreset = false, false
     -- 1) categorias suas (custom)
     for _, c in ipairs(DB.catList) do
       if c.filter == nil then
         anyCustom = true
-        move:CreateButton(c.name, function() DB.assignments[itemID] = c.name; Refresh() end)
+        move:CreateButton(CatDisplay(c.name), function() DB.assignments[itemID] = c.name; Refresh() end)
       end
     end
     -- 2) categorias pré-prontas (jogar o item nelas força — override do filtro)
@@ -409,23 +704,23 @@ OpenItemMenu = function(self)
       if c.filter ~= nil then
         if not anyPreset and anyCustom then move:CreateDivider() end
         anyPreset = true
-        move:CreateButton(c.name, function() DB.assignments[itemID] = c.name; Refresh() end)
+        move:CreateButton(CatDisplay(c.name), function() DB.assignments[itemID] = c.name; Refresh() end)
       end
     end
     if not anyCustom and not anyPreset then
-      move:CreateButton("|cff999999(crie uma categoria na config)|r", function() end)
+      move:CreateButton("|cff999999" .. L.MENU_CREATE_CAT_HINT .. "|r", function() end)
     end
     move:CreateDivider()
-    move:CreateButton("Nova categoria…", function()
+    move:CreateButton(L.MENU_NEW_CAT, function()
       StaticPopup_Show("KRONONBAGS_NEWCAT", nil, nil, itemID)
     end)
 
     if DB.assignments[itemID] then
-      root:CreateButton("Tirar da categoria", function() DB.assignments[itemID] = nil; Refresh() end)
+      root:CreateButton(L.MENU_REMOVE_FROM_CAT, function() DB.assignments[itemID] = nil; Refresh() end)
     end
 
     root:CreateDivider()
-    root:CreateButton(DB.favorites[itemID] and "Desfavoritar (libera venda)" or "Favoritar (protege de venda)", function()
+    root:CreateButton(DB.favorites[itemID] and L.MENU_UNFAVORITE or L.MENU_FAVORITE, function()
       DB.favorites[itemID] = (not DB.favorites[itemID]) or nil; Refresh()
     end)
   end)
@@ -452,7 +747,7 @@ local function DepositCategoryToBank(items)
     local it = queue[i]; i = i + 1
     if not it then C_Timer.After(0.2, function() if UI and UI:IsShown() then Refresh() end end); return end
     local dst = table.remove(free, 1)
-    if not dst then print("|cfff0d98cKrononBags|r: banco cheio."); return end
+    if not dst then print(KB_PREFIX .. L.MSG_BANK_FULL); return end
     if CursorHasItem() then ClearCursor() end
     C_Container.PickupContainerItem(it.bag, it.slot)
     if CursorHasItem() then
@@ -470,8 +765,8 @@ local function OpenCategoryMenu(h)
   if not (h and MenuUtil) then return end
   local cat, items = h.cat, h.catItems
   MenuUtil.CreateContextMenu(h, function(owner, root)
-    root:CreateTitle(cat or "Categoria")
-    root:CreateButton(DB.collapsed[cat] and "Expandir esta" or "Recolher esta", function()
+    root:CreateTitle(CatDisplay(cat) or L.CATEGORY)
+    root:CreateButton(DB.collapsed[cat] and L.MENU_EXPAND_THIS or L.MENU_COLLAPSE_THIS, function()
       DB.collapsed[cat] = (not DB.collapsed[cat]) or nil; Refresh()
     end)
     local function setAll(v)
@@ -480,21 +775,21 @@ local function OpenCategoryMenu(h)
       DB.collapsed["Diversos"] = v; DB.collapsed["Recém-obtidos"] = v
       Refresh()
     end
-    root:CreateButton("Recolher todas", function() setAll(true) end)
-    root:CreateButton("Expandir todas", function() setAll(nil) end)
+    root:CreateButton(L.MENU_COLLAPSE_ALL, function() setAll(true) end)
+    root:CreateButton(L.MENU_EXPAND_ALL, function() setAll(nil) end)
     if items and #items > 0 then
       root:CreateDivider()
-      root:CreateButton("Favoritar todos (protege de venda)", function()
+      root:CreateButton(L.MENU_FAV_ALL, function()
         for _, it in ipairs(items) do if it.itemID then DB.favorites[it.itemID] = true end end
         Refresh()
       end)
-      root:CreateButton("Desfavoritar todos", function()
+      root:CreateButton(L.MENU_UNFAV_ALL, function()
         for _, it in ipairs(items) do if it.itemID then DB.favorites[it.itemID] = nil end end
         Refresh()
       end)
       if atBank and mode == "bags" then
         root:CreateDivider()
-        root:CreateButton("Guardar tudo no banco", function() DepositCategoryToBank(items) end)
+        root:CreateButton(L.MENU_DEPOSIT_ALL, function() DepositCategoryToBank(items) end)
       end
     end
   end)
@@ -532,8 +827,8 @@ OnEnter = function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetHyperlink(self.cachedLink)
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("📦 Guardado no banco (visualização)", 0.6, 0.8, 1)
-    GameTooltip:AddLine("Vá até o banco pra mover/sacar.", 0.7, 0.7, 0.7)
+    GameTooltip:AddLine(L.TIP_CACHED_STORED, 0.6, 0.8, 1)
+    GameTooltip:AddLine(L.TIP_CACHED_GOTOBANK, 0.7, 0.7, 0.7)
     if self.kbUpdateStar then self.kbUpdateStar() end
     GameTooltip:Show()
     return
@@ -546,10 +841,10 @@ OnEnter = function(self)
   GameTooltip:SetBagItem(self.bag, self.slot)
   if self.itemID then
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Direito: usar / equipar / abrir / vender", 0.5, 1, 0.5)
-    GameTooltip:AddLine("Esquerdo: pegar / arrastar", 0.5, 1, 0.5)
-    GameTooltip:AddLine("Estrela: clique = favoritar  |  direito = menu", 0.5, 1, 0.5)
-    if self.kbStacked then GameTooltip:AddLine("Pilha visual — usar/vender afeta 1 stack", 1, 0.6, 0.3) end
+    GameTooltip:AddLine(L.TIP_RIGHT_ACTIONS, 0.5, 1, 0.5)
+    GameTooltip:AddLine(L.TIP_LEFT_PICKUP, 0.5, 1, 0.5)
+    GameTooltip:AddLine(L.TIP_STAR, 0.5, 1, 0.5)
+    if self.kbStacked then GameTooltip:AddLine(L.TIP_STACKED, 1, 0.6, 0.3) end
   end
   GameTooltip:Show()
 end
@@ -583,6 +878,9 @@ AcquireButton = function(i)
   if not b then
     b = CreateFrame("ItemButton", "KrononBagsItem" .. i, UI, "ContainerFrameItemButtonTemplate")
     b:SetSize(BTN, BTN)
+    -- ConsolePort calcula o vizinho pelo CENTRO do hit rect; insets ≠ 0 (que alguns
+    -- templates trazem) deslocam esse centro e desalinham a grade. Zerar = centro exato.
+    b:SetHitRectInsets(0, 0, 0, 0)
     -- selos próprios (nomes únicos kb* pra não colidir com campos do template nativo)
     b.kbIlvl = b:CreateFontString(nil, "OVERLAY")
     b.kbIlvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
@@ -639,16 +937,16 @@ AcquireButton = function(i)
       if not id then return end
       if mb == "RightButton" then OpenItemMenu(b)
       elseif equipSetByItem[id] then
-        print("|cfff0d98cKrononBags|r: item de Conjunto de Equipamento — favorito/protegido automaticamente (tire-o do conjunto pra liberar).")
+        print(KB_PREFIX .. L.MSG_EQUIPSET_AUTOFAV)
       else ToggleFavorite(id) end
     end)
     star:SetScript("OnEnter", function(s)
       updateStar()
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
       if b.itemID and equipSetByItem[b.itemID] then
-        GameTooltip:SetText("Favorito automático — está num Conjunto de Equipamento (protegido de venda)")
+        GameTooltip:SetText(L.TIP_STAR_AUTOFAV)
       else
-        GameTooltip:SetText("Esquerdo: favoritar (protege de venda)\nDireito: menu (mover p/ categoria)")
+        GameTooltip:SetText(L.TIP_STAR_ACTIONS)
       end
       GameTooltip:Show()
     end)
@@ -671,7 +969,7 @@ local function AcquireEquipButton(i)
     local fs = eb:GetFontString(); if fs then fs:SetTextScale(0.85) end
     eb:SetScript("OnClick", function(self)
       if InCombatLockdown() then
-        print("|cfff0d98cKrononBags|r: não dá pra trocar equipamento em combate.")
+        print(KB_PREFIX .. L.MSG_NO_EQUIP_COMBAT)
         return
       end
       if self.setID and C_EquipmentSet then C_EquipmentSet.UseEquipmentSet(self.setID) end
@@ -687,12 +985,12 @@ local function DrawEmpty(yOff)
   if CachedMode() then
     local _, free = CurrentSnap()
     emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", 0, yOff)
-    emptyHeader:SetText("|cff808080" .. (free or 0) .. " slot(s) livre(s) no banco|r"); emptyHeader:Show()
+    emptyHeader:SetText("|cff808080" .. string.format(L.EMPTY_BANK_FREE, free or 0) .. "|r"); emptyHeader:Show()
     freeBox:Hide(); reagentBox:Hide()
     return yOff - 22
   end
   emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", 0, yOff)
-  emptyHeader:SetText("|cfff0d98cVazio|r"); emptyHeader:Show()
+  emptyHeader:SetText("|cfff0d98c" .. L.EMPTY .. "|r"); emptyHeader:Show()
   yOff = yOff - 18
   freeBox:SetSize(BTN, BTN); freeBox:ClearAllPoints(); freeBox:SetPoint("TOPLEFT", 0, yOff); freeBox:Show()
   if mode == "bags" and (C_Container.GetContainerNumSlots(5) or 0) > 0 then
@@ -833,8 +1131,15 @@ end
 -- preenche o botão NATIVO: amarra bag/slot (clique seguro), display nativo + selos próprios.
 -- Proteção: favorito no vendedor não vende (tiramos o registro do clique-direito daquele botão).
 local function FillButton(b, bag, slot)
-  b:SetParent(GetBagHolder(bag))
+  -- PAI ÚNICO pra todos os botões vivos. O cursor do ConsolePort varre só os "irmãos"
+  -- do mesmo pai (ScanLocal(GetParent())); com um holder por bolsa ele não atravessava
+  -- pras outras bolsas e pulava seções. Com um pai só, a grade fica contígua.
+  -- A bolsa vai por botão via SetBagID (guardada em self.bagID; GetBagID só usa o pai como
+  -- fallback). É exatamente o que as Bolsas Combinadas nativas fazem — clique seguro de
+  -- usar/equipar/vender (C_Container.UseContainerItem(GetBagID(), GetID())) continua certo, sem taint.
+  b:SetParent(UI.content)
   b:SetID(slot)
+  if b.SetBagID then b:SetBagID(bag) else b.bagID = bag end
   b.bag, b.slot = bag, slot
   b.cached, b.cachedLink = nil, nil -- modo vivo (não é visualização de cache)
   b:SetAlpha(1) -- reset (a busca-realce pode ter deixado escurecido num render anterior)
@@ -885,6 +1190,7 @@ local function FillButtonCached(b, it)
   end
   b:SetParent(UI.cacheHolder)
   b:SetID(-1)
+  if b.SetBagID then b:SetBagID(-1) else b.bagID = -1 end -- limpa a bolsa viva anterior: cacheado nunca aponta pra um container real
   b.bag, b.slot = nil, nil
   b.cached, b.cachedLink = true, it.link
   b:SetAlpha(1)
@@ -1243,10 +1549,10 @@ Refresh = function()
   if cached then
     local _, _, snapTime = CurrentSnap()
     local when = ""
-    if snapTime and date then local ok, s = pcall(date, "%d/%m %H:%M", snapTime); if ok and s then when = " · salvo " .. s end end
+    if snapTime and date then local ok, s = pcall(date, "%d/%m %H:%M", snapTime); if ok and s then when = string.format(L.CACHE_SAVED, s) end end
     UI.cacheBanner:ClearAllPoints(); UI.cacheBanner:SetPoint("TOPLEFT", 0, yOff)
     UI.cacheBanner:SetWidth(contentW)
-    UI.cacheBanner:SetText("|cff66b3ff📦 Visualização — você não está no banco" .. when .. "|r")
+    UI.cacheBanner:SetText("|cff66b3ff" .. L.CACHE_BANNER .. when .. "|r")
     UI.cacheBanner:Show()
     yOff = yOff - 22
   else
@@ -1276,10 +1582,10 @@ Refresh = function()
         h:SetScript("OnEnter", function(self)
           GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
           if CursorHasItem() then
-            GameTooltip:SetText("Soltar aqui: jogar item nesta categoria")
+            GameTooltip:SetText(L.TIP_DROP_HERE)
           else
-            GameTooltip:SetText(DB.collapsed[self.cat] and "Esquerdo: expandir" or "Esquerdo: recolher")
-            GameTooltip:AddLine("Direito: ações  ·  arraste um item aqui pra categorizar", 0.5, 1, 0.5)
+            GameTooltip:SetText(DB.collapsed[self.cat] and L.TIP_LEFT_EXPAND or L.TIP_LEFT_COLLAPSE)
+            GameTooltip:AddLine(L.TIP_HEADER_ACTIONS, 0.5, 1, 0.5)
           end
           GameTooltip:Show()
         end)
@@ -1292,14 +1598,14 @@ Refresh = function()
       h:SetSize(contentW, 16)
       h:ClearAllPoints(); h:SetPoint("TOPLEFT", 0, yOff)
       local sign = collapsed and "Interface\\Buttons\\UI-PlusButton-Up" or "Interface\\Buttons\\UI-MinusButton-Up"
-      h.label:SetText("|T" .. sign .. ":14:14:0:0|t |cfff0d98c" .. cat .. "|r  |cff999999(" .. #g .. ")|r")
+      h.label:SetText("|T" .. sign .. ":14:14:0:0|t |cfff0d98c" .. CatDisplay(cat) .. "|r  |cff999999(" .. #g .. ")|r")
       h:Show()
       local setID = equipSetIDByName[cat]
       if setID then
         ebIdx = ebIdx + 1
         local eb = AcquireEquipButton(ebIdx)
         eb.setID = setID
-        eb:SetText("Equipar")
+        eb:SetText(L.BTN_EQUIP)
         eb:SetFrameLevel(h:GetFrameLevel() + 5)
         eb:ClearAllPoints()
         eb:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
@@ -1310,12 +1616,12 @@ Refresh = function()
         if not UI.distribBtn then
           local d = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate")
           d:SetAttribute("nodeignore", true) -- "Distribuir" fora da navegação por controle (linha do cabeçalho; só mouse)
-          d:SetSize(72, 18); d:SetText("Distribuir")
+          d:SetSize(72, 18); d:SetText(L.BTN_DISTRIBUTE)
           d:SetScript("OnClick", DistributeNew)
           d:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText("Distribuir recém-obtidos")
-            GameTooltip:AddLine("Esvazia esta seção: cada item vai pra sua categoria.", 0.7, 0.7, 0.7, true)
+            GameTooltip:SetText(L.TIP_DISTRIBUTE_TITLE)
+            GameTooltip:AddLine(L.TIP_DISTRIBUTE_BODY, 0.7, 0.7, 0.7, true)
             GameTooltip:Show()
           end)
           d:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1364,9 +1670,9 @@ local function KB_CreateCategory(editBox, itemID)
 end
 
 StaticPopupDialogs["KRONONBAGS_NEWCAT"] = {
-  text = "Nome da nova categoria:",
-  button1 = "Criar",
-  button2 = "Cancelar",
+  text = L.POPUP_NEWCAT,
+  button1 = L.BTN_CREATE,
+  button2 = L.BTN_CANCEL,
   hasEditBox = true,
   OnAccept = function(self, itemID)
     KB_CreateCategory(self.editBox or self.EditBox, itemID)
@@ -1387,9 +1693,9 @@ StaticPopupDialogs["KRONONBAGS_NEWCAT"] = {
 local KB_exportStr = ""
 local KB_ruleTargetEntry
 StaticPopupDialogs["KRONONBAGS_RULE"] = {
-  text = "Regra da categoria (busca que preenche sozinha).\nEx: ilvl>200 & boe   |   tipo:armadura   |   q:epico\nDeixe vazio pra virar categoria manual.",
-  button1 = "Salvar",
-  button2 = "Cancelar",
+  text = L.POPUP_RULE,
+  button1 = L.BTN_SAVE,
+  button2 = L.BTN_CANCEL,
   hasEditBox = true,
   editBoxWidth = 260,
   OnShow = function(self)
@@ -1408,8 +1714,8 @@ StaticPopupDialogs["KRONONBAGS_RULE"] = {
   timeout = 0, whileDead = true, hideOnEscape = true,
 }
 StaticPopupDialogs["KRONONBAGS_EXPORT"] = {
-  text = "Copie o código (Ctrl+C) e compartilhe:",
-  button1 = "Fechar",
+  text = L.POPUP_EXPORT,
+  button1 = L.BTN_CLOSE,
   hasEditBox = true,
   editBoxWidth = 260,
   OnShow = function(self)
@@ -1421,16 +1727,16 @@ StaticPopupDialogs["KRONONBAGS_EXPORT"] = {
   timeout = 0, whileDead = true, hideOnEscape = true,
 }
 StaticPopupDialogs["KRONONBAGS_IMPORT"] = {
-  text = "Cole o código de categorias (mescla com as suas):",
-  button1 = "Importar",
-  button2 = "Cancelar",
+  text = L.POPUP_IMPORT,
+  button1 = L.BTN_IMPORT,
+  button2 = L.BTN_CANCEL,
   hasEditBox = true,
   editBoxWidth = 260,
   OnAccept = function(self)
     local eb = self.editBox or self.EditBox
     local ok, err = ImportCategories(eb and eb:GetText(), false)
-    if ok then print("|cfff0d98cKrononBags|r: categorias importadas.")
-    else print("|cfff0d98cKrononBags|r: import falhou (" .. tostring(err) .. ").") end
+    if ok then print(KB_PREFIX .. L.MSG_CATS_IMPORTED)
+    else print(KB_PREFIX .. string.format(L.MSG_IMPORT_FAILED, tostring(err))) end
   end,
   EditBoxOnEscapePressed = function(self) local d = self:GetParent(); if d then d:Hide() end end,
   timeout = 0, whileDead = true, hideOnEscape = true,
@@ -1483,7 +1789,7 @@ UpdateMoney = function()
         end
       end
     end
-    if junk > 0 then parts[#parts + 1] = "|cff808080Lixo|r " .. GetCoinTextureString(junk) end
+    if junk > 0 then parts[#parts + 1] = "|cff808080" .. L.JUNK_LABEL .. "|r " .. GetCoinTextureString(junk) end
     -- currencies acompanhadas
     if C_CurrencyInfo and C_CurrencyInfo.GetBackpackCurrencyInfo then
       for i = 1, 10 do
@@ -1575,7 +1881,7 @@ CreateUI = function()
   gear:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
   gear:SetHighlightTexture("Interface\\Buttons\\UI-OptionsButton", "ADD")
   gear:SetScript("OnClick", function() ToggleConfig() end)
-  gear:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText("Configurações"); GameTooltip:Show() end)
+  gear:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_CONFIG); GameTooltip:Show() end)
   gear:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   local sb = CreateFrame("EditBox", nil, UI, "InputBoxTemplate")
@@ -1584,10 +1890,10 @@ CreateUI = function()
   sb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   sb:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
-    GameTooltip:SetText("Busca avançada")
-    GameTooltip:AddLine("nome  ·  ilvl>200  ·  ilvl:200-300  ·  q:epico  ·  tipo:armadura", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("palavras: boe, wb, vinculado, missao, lixo, equip, consumivel, novo, favorito", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("operadores:  & (e)   | (ou)   ! (não)   ( )", 0.5, 1, 0.5)
+    GameTooltip:SetText(L.TIP_SEARCH_TITLE)
+    GameTooltip:AddLine(L.TIP_SEARCH_L1, 0.8, 0.8, 0.8)
+    GameTooltip:AddLine(L.TIP_SEARCH_L2, 0.8, 0.8, 0.8)
+    GameTooltip:AddLine(L.TIP_SEARCH_L3, 0.5, 1, 0.5)
     GameTooltip:Show()
   end)
   sb:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1603,26 +1909,26 @@ CreateUI = function()
     if InCombatLockdown() then return end
     if C_Container and C_Container.SortBags then C_Container.SortBags() end
   end)
-  sortBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText("Organizar automático"); GameTooltip:Show() end)
+  sortBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_AUTOSORT); GameTooltip:Show() end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   -- botão "Vender lixo" (só aparece no vendedor, modo Mochila); API nativa, sem taint
   local sellJunk = CreateFrame("Button", nil, UI, "UIPanelButtonTemplate")
   sellJunk:SetSize(86, 20)
   sellJunk:SetPoint("RIGHT", sortBtn, "LEFT", -6, 0)
-  sellJunk:SetText("Vender lixo")
+  sellJunk:SetText(L.BTN_SELL_JUNK)
   sellJunk:SetScript("OnClick", function()
     if InCombatLockdown() then return end
     if C_MerchantFrame and C_MerchantFrame.SellAllJunkItems then
       C_MerchantFrame.SellAllJunkItems()
     else
-      print("|cfff0d98cKrononBags|r: função de vender lixo indisponível nesta versão.")
+      print(KB_PREFIX .. L.MSG_SELLJUNK_UNAVAIL)
     end
   end)
   sellJunk:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText("Vende todos os itens cinza (lixo)")
-    GameTooltip:AddLine("Usa a venda nativa do jogo. Cuidado: cinza favoritado também é vendido.", 0.8, 0.8, 0.8, true)
+    GameTooltip:SetText(L.TIP_SELLJUNK_TITLE)
+    GameTooltip:AddLine(L.TIP_SELLJUNK_BODY, 0.8, 0.8, 0.8, true)
     GameTooltip:Show()
   end)
   sellJunk:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1643,7 +1949,7 @@ CreateUI = function()
   end
   local function gridTip(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(DB.settings.gridView and "Ver por categorias" or "Ver todos os slots (grade)")
+    GameTooltip:SetText(DB.settings.gridView and L.TIP_VIEW_CATS or L.TIP_VIEW_GRID)
     GameTooltip:Show()
   end
 
@@ -1701,7 +2007,7 @@ CreateUI = function()
   tabBar:SetSize(10, 20)
   tabBar:SetPoint("TOPLEFT", UI, "TOPLEFT", UI.kbMargin, -(UI.kbTop - 2))
   UI.tabBar = tabBar; UI.tabs = {}
-  local tdefs = { { id = "bags", t = "Mochila" }, { id = "bank", t = "Banco" }, { id = "warband", t = "Brigada" } }
+  local tdefs = { { id = "bags", t = L.TAB_BAGS }, { id = "bank", t = L.TAB_BANK }, { id = "warband", t = L.TAB_WARBAND } }
   local tx = 0
   for _, d in ipairs(tdefs) do
     local tb = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
@@ -1711,7 +2017,7 @@ CreateUI = function()
     UI.tabs[d.id] = tb
   end
   local dep = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
-  dep:SetSize(120, 18); dep:SetText("Depositar itens"); dep:SetPoint("LEFT", tx + 8, 0)
+  dep:SetSize(120, 18); dep:SetText(L.BTN_DEPOSIT); dep:SetPoint("LEFT", tx + 8, 0)
   dep:SetScript("OnClick", function()
     if InCombatLockdown() then return end
     local bt = (mode == "warband") and BANK_ACCT or BANK_CHAR
@@ -1719,7 +2025,7 @@ CreateUI = function()
   end)
   dep:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText("Guarda automaticamente os itens marcados pra depósito neste banco")
+    GameTooltip:SetText(L.TIP_DEPOSIT)
     GameTooltip:Show()
   end)
   dep:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1760,7 +2066,7 @@ CreateUI = function()
     Refresh() -- recalcula largura/altura/scroll pro novo tamanho
   end)
   grip:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText("Arraste pra mudar colunas e altura"); GameTooltip:Show()
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_GRIP); GameTooltip:Show()
   end)
   grip:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.grip = grip
@@ -1822,16 +2128,16 @@ RefreshConfigCats = function()
       r.label = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
       r.label:SetPoint("LEFT", r.down, "RIGHT", 8, 0)
       r.del = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
-      r.del:SetSize(56, 18); r.del:SetText("Excluir"); r.del:SetPoint("RIGHT", -6, 0)
+      r.del:SetSize(56, 18); r.del:SetText(L.BTN_DELETE); r.del:SetPoint("RIGHT", -6, 0)
       r.rule = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
-      r.rule:SetSize(52, 18); r.rule:SetText("Regra"); r.rule:SetPoint("RIGHT", r.del, "LEFT", -4, 0)
+      r.rule:SetSize(52, 18); r.rule:SetText(L.BTN_RULE); r.rule:SetPoint("RIGHT", r.del, "LEFT", -4, 0)
       catRows[i] = r
     end
     local tag
-    if c.filter then tag = "|cff80c0ff(pré-pronta)|r"
-    elseif c.rule and c.rule ~= "" then tag = "|cffffd000(regra)|r"
-    else tag = "|cff80ff80(sua)|r" end
-    r.label:SetText(c.name .. "  " .. tag)
+    if c.filter then tag = "|cff80c0ff" .. L.TAG_PRESET .. "|r"
+    elseif c.rule and c.rule ~= "" then tag = "|cffffd000" .. L.TAG_RULE .. "|r"
+    else tag = "|cff80ff80" .. L.TAG_CUSTOM .. "|r" end
+    r.label:SetText(CatDisplay(c.name) .. "  " .. tag)
     r.up:SetEnabled(i > 1);  r.up:SetAlpha(i > 1 and 1 or 0.3)
     r.down:SetEnabled(i < n); r.down:SetAlpha(i < n and 1 or 0.3)
     r.up:SetScript("OnClick", function() MoveCategory(i, -1); RefreshConfigCats(); Refresh() end)
@@ -1873,7 +2179,7 @@ CreateConfig = function()
   clogo:SetTexture("Interface\\AddOns\\KrononBags\\Media\\KrononLogo.tga")
 
   local title = CFG:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  title:SetPoint("TOP", 0, -12); title:SetText("|cfff0d98cKrononBags — Configurações|r")
+  title:SetPoint("TOP", 0, -12); title:SetText("|cfff0d98c" .. L.CONFIG_TITLE .. "|r")
 
   local close = CreateFrame("Button", nil, CFG, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", 2, 2)
@@ -1904,24 +2210,24 @@ CreateConfig = function()
   local LCOL, RCOL = 16, 205
 
   -- ===== Aparência =====
-  section("Aparência", -44)
-  check("KrononBagsFrameStyleCheck", LCOL, -66, "Moldura Blizzard", function() return DB.settings.frameStyle == "blizzard" end, function(v)
+  section(L.SEC_APPEARANCE, -44)
+  check("KrononBagsFrameStyleCheck", LCOL, -66, L.OPT_BLIZZ_FRAME, function() return DB.settings.frameStyle == "blizzard" end, function(v)
     DB.settings.frameStyle = v and "blizzard" or "dark"
-    print("|cfff0d98cKrononBags|r: dê |cffffff00/reload|r pra aplicar o novo visual.")
+    print(KB_PREFIX .. L.MSG_RELOAD_VISUAL)
   end)
-  check("KrononBagsBlizzColorsCheck", RCOL, -66, "Cores Blizzard (escuro)", function() return DB.settings.blizzardStyle end, function(v)
+  check("KrononBagsBlizzColorsCheck", RCOL, -66, L.OPT_BLIZZ_COLORS, function() return DB.settings.blizzardStyle end, function(v)
     DB.settings.blizzardStyle = v; ApplyOpacity()
   end)
-  check("KrononBagsShowIlvlCheck", LCOL, -94, "Mostrar item level", function() return DB.settings.showIlvl end, function(v)
+  check("KrononBagsShowIlvlCheck", LCOL, -94, L.OPT_SHOW_ILVL, function() return DB.settings.showIlvl end, function(v)
     DB.settings.showIlvl = v; Refresh()
   end)
-  check("KrononBagsIlvlRarityCheck", RCOL, -94, "ilvl pela raridade", function() return DB.settings.ilvlUseRarity end, function(v)
+  check("KrononBagsIlvlRarityCheck", RCOL, -94, L.OPT_ILVL_RARITY, function() return DB.settings.ilvlUseRarity end, function(v)
     DB.settings.ilvlUseRarity = v; Refresh()
   end)
 
   local opLabel = CFG:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   opLabel:SetPoint("TOPLEFT", 18, -124)
-  local function setOpLabel(v) opLabel:SetText(string.format("Opacidade do fundo: %d%%", math.floor(v * 100 + 0.5))) end
+  local function setOpLabel(v) opLabel:SetText(string.format(L.OPT_OPACITY, math.floor(v * 100 + 0.5))) end
   local slider = CreateFrame("Slider", "KrononBagsOpacitySlider", CFG, "OptionsSliderTemplate")
   slider:SetPoint("TOPLEFT", 18, -144); slider:SetWidth(360)
   slider:SetMinMaxValues(0.1, 1.0); slider:SetValueStep(0.05); slider:SetObeyStepOnDrag(true)
@@ -1934,7 +2240,7 @@ CreateConfig = function()
 
   local colLabel = CFG:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   colLabel:SetPoint("TOPLEFT", 18, -176)
-  local function setColLabel(v) colLabel:SetText(string.format("Colunas (itens por fileira): %d", v)) end
+  local function setColLabel(v) colLabel:SetText(string.format(L.OPT_COLS, v)) end
   local colSlider = CreateFrame("Slider", "KrononBagsColsSlider", CFG, "OptionsSliderTemplate")
   colSlider:SetPoint("TOPLEFT", 18, -196); colSlider:SetWidth(360)
   colSlider:SetMinMaxValues(COLS_MIN, COLS_MAX); colSlider:SetValueStep(1); colSlider:SetObeyStepOnDrag(true)
@@ -1946,49 +2252,49 @@ CreateConfig = function()
   colSlider:SetScript("OnValueChanged", function(_, v) v = math.floor(v + 0.5); DB.settings.cols = v; setColLabel(v); Refresh() end)
 
   -- ===== Comportamento =====
-  section("Comportamento", -230)
-  check("KrononBagsAutoProtectCheck", LCOL, -252, "Proteger itens (não vender)", function() return DB.settings.autoProtectCategorized end, function(v)
+  section(L.SEC_BEHAVIOR, -230)
+  check("KrononBagsAutoProtectCheck", LCOL, -252, L.OPT_PROTECT, function() return DB.settings.autoProtectCategorized end, function(v)
     DB.settings.autoProtectCategorized = v; Refresh()
   end)
-  check("KrononBagsAutoOpenCheck", RCOL, -252, "Abrir no vendedor/banco", function() return DB.settings.autoOpen end, function(v)
+  check("KrononBagsAutoOpenCheck", RCOL, -252, L.OPT_AUTOOPEN, function() return DB.settings.autoOpen end, function(v)
     DB.settings.autoOpen = v
   end)
-  check("KrononBagsBankReplaceCheck", LCOL, -280, "Substituir banco / Brigada", function() return DB.settings.bankReplace end, function(v)
+  check("KrononBagsBankReplaceCheck", LCOL, -280, L.OPT_BANK_REPLACE, function() return DB.settings.bankReplace end, function(v)
     DB.settings.bankReplace = v
-    print("|cfff0d98cKrononBags|r: dê |cffffff00/reload|r pra aplicar a troca de banco.")
+    print(KB_PREFIX .. L.MSG_RELOAD_BANK)
   end)
-  check("KrononBagsAltCountsCheck", RCOL, -280, "Contagem nos alts (tooltip)", function() return DB.settings.altCounts end, function(v)
+  check("KrononBagsAltCountsCheck", RCOL, -280, L.OPT_ALT_COUNTS, function() return DB.settings.altCounts end, function(v)
     DB.settings.altCounts = v
   end)
-  check("KrononBagsReplaceBagsCheck", LCOL, -308, "Substituir a bag do jogo (tecla B)", function() return DB.settings.replaceBags end, function(v)
+  check("KrononBagsReplaceBagsCheck", LCOL, -308, L.OPT_REPLACE_BAGS, function() return DB.settings.replaceBags end, function(v)
     DB.settings.replaceBags = v
-    print("|cfff0d98cKrononBags|r: dê |cffffff00/reload|r pra aplicar a troca da bag.")
+    print(KB_PREFIX .. L.MSG_RELOAD_BAG)
   end)
-  check("KrononBagsStackCheck", RCOL, -308, "Empilhar itens iguais", function() return DB.settings.stackItems end, function(v)
+  check("KrononBagsStackCheck", RCOL, -308, L.OPT_STACK, function() return DB.settings.stackItems end, function(v)
     DB.settings.stackItems = v; Refresh()
   end)
-  check("KrononBagsQualBorderCheck", LCOL, -334, "Borda colorida (raridade)", function() return DB.settings.qualityBorder end, function(v)
+  check("KrononBagsQualBorderCheck", LCOL, -334, L.OPT_QUAL_BORDER, function() return DB.settings.qualityBorder end, function(v)
     DB.settings.qualityBorder = v; Refresh()
   end)
-  check("KrononBagsSearchHLCheck", RCOL, -334, "Realçar busca", function() return DB.settings.searchHighlight end, function(v)
+  check("KrononBagsSearchHLCheck", RCOL, -334, L.OPT_SEARCH_HL, function() return DB.settings.searchHighlight end, function(v)
     DB.settings.searchHighlight = v; Refresh()
   end)
-  check("KrononBagsAutoSellCheck", LCOL, -362, "Auto-vender lixo", function() return DB.settings.autoSellJunk end, function(v)
+  check("KrononBagsAutoSellCheck", LCOL, -362, L.OPT_AUTOSELL, function() return DB.settings.autoSellJunk end, function(v)
     DB.settings.autoSellJunk = v
   end)
-  check("KrononBagsAutoRepairCheck", RCOL, -362, "Auto-reparar", function() return DB.settings.autoRepair end, function(v)
+  check("KrononBagsAutoRepairCheck", RCOL, -362, L.OPT_AUTOREPAIR, function() return DB.settings.autoRepair end, function(v)
     DB.settings.autoRepair = v
   end)
   -- seletor de ordenação dentro da categoria
-  local SORT_NAMES = { ilvl = "Item level", quality = "Qualidade", name = "Nome", type = "Tipo", recent = "Recentes" }
+  local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
   local sortBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
   sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -390)
-  local function updSortBtn() sortBtn:SetText("Ordenar por: " .. (SORT_NAMES[DB.settings.sortMode] or "Item level")) end
+  local function updSortBtn() sortBtn:SetText(L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL)) end
   updSortBtn()
   sortBtn:SetScript("OnClick", function(self)
     if not MenuUtil then return end
     MenuUtil.CreateContextMenu(self, function(owner, root)
-      root:CreateTitle("Ordenar itens por")
+      root:CreateTitle(L.SORT_MENU_TITLE)
       for _, k in ipairs({ "ilvl", "quality", "name", "type", "recent" }) do
         root:CreateButton(SORT_NAMES[k], function() DB.settings.sortMode = k; updSortBtn(); Refresh() end)
       end
@@ -1996,17 +2302,17 @@ CreateConfig = function()
   end)
 
   -- ===== Categorias =====
-  section("Categorias", -422)
+  section(L.SEC_CATEGORIES, -422)
   local catHint = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   catHint:SetPoint("TOPLEFT", 18, -440)
-  catHint:SetText("Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.")
+  catHint:SetText(L.CAT_HINT)
 
   local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", CFG, "InputBoxTemplate")
   newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -462); newCat:SetAutoFocus(false)
   local addBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  addBtn:SetSize(60, 20); addBtn:SetText("Criar"); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
+  addBtn:SetSize(60, 20); addBtn:SetText(L.BTN_CREATE); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
   local presetBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  presetBtn:SetSize(96, 20); presetBtn:SetText("Pré-pronta…"); presetBtn:SetPoint("LEFT", addBtn, "RIGHT", 8, 0)
+  presetBtn:SetSize(96, 20); presetBtn:SetText(L.BTN_PRESET); presetBtn:SetPoint("LEFT", addBtn, "RIGHT", 8, 0)
   local function doAdd()
     AddCategory(newCat:GetText()); newCat:SetText(""); newCat:ClearFocus()
     RefreshConfigCats(); Refresh()
@@ -2017,28 +2323,28 @@ CreateConfig = function()
   presetBtn:SetScript("OnClick", function(self)
     if not MenuUtil then return end
     MenuUtil.CreateContextMenu(self, function(owner, root)
-      root:CreateTitle("Adicionar categoria pré-pronta")
+      root:CreateTitle(L.PRESET_MENU_TITLE)
       local any = false
       for _, p in ipairs(AVAILABLE_PRESETS) do
         local exists = false
         for _, c in ipairs(DB.catList) do if c.filter == p.filter then exists = true break end end
         if not exists then
           any = true
-          root:CreateButton(p.name, function() AddPreset(p); RefreshConfigCats(); Refresh() end)
+          root:CreateButton(CatDisplay(p.name), function() AddPreset(p); RefreshConfigCats(); Refresh() end)
         end
       end
-      if not any then root:CreateButton("|cff999999(todas já adicionadas)|r", function() end) end
+      if not any then root:CreateButton("|cff999999" .. L.PRESET_ALL_ADDED .. "|r", function() end) end
     end)
   end)
 
   -- Exportar / Importar (Layout Oficial da Guilda)
   local exportBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  exportBtn:SetSize(110, 20); exportBtn:SetText("Exportar"); exportBtn:SetPoint("TOPLEFT", 22, -488)
+  exportBtn:SetSize(110, 20); exportBtn:SetText(L.BTN_EXPORT); exportBtn:SetPoint("TOPLEFT", 22, -488)
   exportBtn:SetScript("OnClick", function()
     KB_exportStr = ExportCategories(); StaticPopup_Show("KRONONBAGS_EXPORT")
   end)
   local importBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  importBtn:SetSize(110, 20); importBtn:SetText("Importar"); importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0)
+  importBtn:SetSize(110, 20); importBtn:SetText(L.BTN_IMPORT); importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0)
   importBtn:SetScript("OnClick", function() StaticPopup_Show("KRONONBAGS_IMPORT") end)
 
   CFG:Hide()
@@ -2096,14 +2402,14 @@ local function RefreshReady()
     return string.format("%s%s|r  %s%s|r", "|cfff0d98c", label, color(ok), value)
   end
   local rows = {}
-  if dur then rows[#rows + 1] = line("Durabilidade", math.floor(dur) .. "%", dur >= 30)
-  else rows[#rows + 1] = line("Durabilidade", "—", true) end
-  rows[#rows + 1] = line("Frasco", s.flask > 0 and tostring(s.flask) or "falta", s.flask > 0)
-  rows[#rows + 1] = line("Poção", s.potion > 0 and tostring(s.potion) or "falta", s.potion > 0)
-  rows[#rows + 1] = line("Comida", s.food > 0 and tostring(s.food) or "falta", s.food > 0)
-  rows[#rows + 1] = line("Pedra de Vida", s.hs > 0 and tostring(s.hs) or "falta", s.hs > 0)
-  rows[#rows + 1] = line("Runa/encantamento", s.rune > 0 and tostring(s.rune) or "falta", s.rune > 0)
-  rows[#rows + 1] = line("Pedra-chave M+", (kLvl and kLvl > 0) and ("+" .. kLvl) or "nenhuma", kLvl and kLvl > 0)
+  if dur then rows[#rows + 1] = line(L.READY_DURABILITY, math.floor(dur) .. "%", dur >= 30)
+  else rows[#rows + 1] = line(L.READY_DURABILITY, "—", true) end
+  rows[#rows + 1] = line(L.READY_FLASK, s.flask > 0 and tostring(s.flask) or L.READY_MISSING, s.flask > 0)
+  rows[#rows + 1] = line(L.READY_POTION, s.potion > 0 and tostring(s.potion) or L.READY_MISSING, s.potion > 0)
+  rows[#rows + 1] = line(L.READY_FOOD, s.food > 0 and tostring(s.food) or L.READY_MISSING, s.food > 0)
+  rows[#rows + 1] = line(L.READY_HEALTHSTONE, s.hs > 0 and tostring(s.hs) or L.READY_MISSING, s.hs > 0)
+  rows[#rows + 1] = line(L.READY_RUNE, s.rune > 0 and tostring(s.rune) or L.READY_MISSING, s.rune > 0)
+  rows[#rows + 1] = line(L.READY_KEYSTONE, (kLvl and kLvl > 0) and ("+" .. kLvl) or L.READY_NONE, kLvl and kLvl > 0)
   READY.body:SetText(table.concat(rows, "\n"))
 end
 local function ToggleReady()
@@ -2117,12 +2423,12 @@ local function ToggleReady()
       READY:SetBackdropColor(0, 0, 0, 0.92)
     end
     local title = READY:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -10); title:SetText("|cfff0d98cProntidão|r")
+    title:SetPoint("TOP", 0, -10); title:SetText("|cfff0d98c" .. L.READY_TITLE .. "|r")
     local close = CreateFrame("Button", nil, READY, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", 2, 2)
     READY.body = READY:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     READY.body:SetPoint("TOPLEFT", 16, -40); READY.body:SetJustifyH("LEFT"); READY.body:SetSpacing(6)
     local hint = READY:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    hint:SetPoint("BOTTOM", 0, 10); hint:SetText("Suprimentos contados na mochila")
+    hint:SetPoint("BOTTOM", 0, 10); hint:SetText(L.READY_HINT)
     READY:HookScript("OnShow", RefreshReady)
   end
   if READY:IsShown() then READY:Hide() else READY:Show(); RefreshReady() end
@@ -2243,7 +2549,7 @@ local function AddCountsToTooltip(tooltip, itemID)
     end
   end
   local wb = DB.warband and DB.warband[itemID]
-  if wb and wb > 0 then lines[#lines + 1] = "|cff00ccffBrigada|r: " .. wb end
+  if wb and wb > 0 then lines[#lines + 1] = "|cff00ccff" .. L.WARBAND_LABEL .. "|r: " .. wb end
   if #lines > 0 then tooltip:AddLine("|cfff0d98cKronon|r  " .. table.concat(lines, "   "), 1, 1, 1) end
 end
 -- registra o hook de tooltip (API moderna do 12.0); silencioso se ausente
@@ -2269,12 +2575,12 @@ local function AutoVendor()
       local withdraw = GetGuildBankWithdrawMoney and GetGuildBankWithdrawMoney() or 0 -- -1 = ilimitado
       if guildOk and (withdraw == -1 or withdraw >= cost) then
         RepairAllItems(true)
-        print("|cfff0d98cKrononBags|r: reparado com fundos da guilda (" .. GetCoinTextureString(cost) .. ").")
+        print(KB_PREFIX .. string.format(L.MSG_REPAIR_GUILD, GetCoinTextureString(cost)))
       elseif (GetMoney() or 0) >= cost then
         RepairAllItems(false)
-        print("|cfff0d98cKrononBags|r: reparado por " .. GetCoinTextureString(cost) .. ".")
+        print(KB_PREFIX .. string.format(L.MSG_REPAIR_SELF, GetCoinTextureString(cost)))
       else
-        print("|cfff0d98cKrononBags|r: ouro insuficiente pra reparar (" .. GetCoinTextureString(cost) .. ").")
+        print(KB_PREFIX .. string.format(L.MSG_REPAIR_NOGOLD, GetCoinTextureString(cost)))
       end
     end
   end
@@ -2355,7 +2661,7 @@ SlashCmdList["KRONONBAGS"] = function(msg)
     if not UI:IsShown() then UI:Show() end
     if atBank or HasCharBankSnap() then mode = "bank"
     elseif HasWarbandSnap() then mode = "warband"
-    else print("|cfff0d98cKrononBags|r: abra o banco uma vez pra poder consultá-lo de longe.") end
+    else print(KB_PREFIX .. L.MSG_OPEN_BANK_ONCE) end
     UpdateTabs(); Refresh()
   elseif msg == "pronto" or msg == "prontidao" or msg == "prontidão" or msg == "readiness" then
     ToggleReady()

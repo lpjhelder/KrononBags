@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.0
+- **Suporte a idiomas (PT-BR / Inglês / Espanhol).** A interface agora segue automaticamente o idioma do cliente do WoW — toda a config, tooltips, menus, abas, painel de Prontidão e mensagens aparecem traduzidos. Suas categorias, favoritos e atribuições continuam intactos (só o rótulo das categorias pré-prontas muda de idioma).
+- **Navegação por controle (ConsolePort), parte 3 — o fix de verdade.** A v0.20.1 ainda pulava seções inteiras ao descer. A causa real: o cursor do ConsolePort só navega entre itens que dividem o mesmo "pai" interno, e o KrononBags agrupava os itens por bolsa (um pai por bolsa) — então ao descer ele saltava pro próximo item da mesma bolsa, lá longe. Agora todos os itens ficam sob um **pai único** (igual às Bolsas Combinadas nativas) e a bolsa é guardada em cada botão — a navegação por controle vira uma grade contígua de verdade, sem pular, e o clique de usar/equipar/vender segue idêntico.
+
 ## 0.20.1
 - **Navegação por controle (ConsolePort), parte 2.** A v0.20.0 ainda pulava seção ao descer e não ia pra célula vizinha ao lado. O motivo: os **cabeçalhos de categoria são de largura total**, e o cursor geométrico do ConsolePort os enxergava como candidato em quase toda direção. Agora os cabeçalhos (e os botões "Equipar" e "Distribuir") ficam **fora da navegação por controle** — o cursor passa a enxergar só a grade de itens, que vira uma grade uniforme de verdade (esquerda/direita/cima/baixo previsíveis). No mouse, recolher/Equipar/Distribuir continuam funcionando normalmente.
 
