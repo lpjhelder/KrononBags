@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.22.0
+- **Abas em ícone** (Mochila/Banco/Brigada viraram ícones com o nome no tooltip), **botão de ajuda "?"** com um painel explicando categorias, busca, favoritos, banco, organizar e controle, e **botão de limpar busca**.
+
 ## 0.21.0
 - **Suporte a idiomas (PT-BR / Inglês / Espanhol).** A interface agora segue automaticamente o idioma do cliente do WoW — toda a config, tooltips, menus, abas, painel de Prontidão e mensagens aparecem traduzidos. Suas categorias, favoritos e atribuições continuam intactos (só o rótulo das categorias pré-prontas muda de idioma).
 - **Navegação por controle (ConsolePort), parte 3 — o fix de verdade.** A v0.20.1 ainda pulava seções inteiras ao descer. A causa real: o cursor do ConsolePort só navega entre itens que dividem o mesmo "pai" interno, e o KrononBags agrupava os itens por bolsa (um pai por bolsa) — então ao descer ele saltava pro próximo item da mesma bolsa, lá longe. Agora todos os itens ficam sob um **pai único** (igual às Bolsas Combinadas nativas) e a bolsa é guardada em cada botão — a navegação por controle vira uma grade contígua de verdade, sem pular, e o clique de usar/equipar/vender segue idêntico.

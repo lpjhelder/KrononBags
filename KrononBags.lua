@@ -129,6 +129,17 @@ local EN = {
   READY_KEYSTONE = "M+ Keystone", READY_MISSING = "missing", READY_NONE = "none",
   -- tooltip de contagem nos alts
   WARBAND_LABEL = "Warband",
+  -- ajuda / limpar busca
+  TIP_HELP = "Help",
+  TIP_SEARCH_CLEAR = "Clear search",
+  HELP_TITLE = "KrononBags — Help",
+  HELP_CATEGORIES = "Categories: items sort automatically. Drag an item onto a category header to assign it; drop on Favorites to protect, on Misc to reset.",
+  HELP_SEARCH = "Search: name, ilvl>200, q:epic, type:armor, words (boe, wb, quest, junk, equip, new, fav) with & | ! and ( ).",
+  HELP_FAVORITES = "Favorites: click the star to protect an item from selling. Equipment Manager gear is auto-protected (blue star).",
+  HELP_BANK = "Bank/Warband: tabs appear at the bank, and the content stays viewable from anywhere (last snapshot). Command: /kb banco.",
+  HELP_SORT = "Sort: the broom button auto-organizes your bags. Auto-sell junk and auto-repair run at vendors (toggle in options).",
+  HELP_CONTROLLER = "Controller: full ConsolePort support — move across the item grid with the D-pad.",
+  HELP_COMMANDS = "Commands: /kb, /kb config, /kb grade, /kb organizar, /kb pronto, /kb banco.",
 }
 
 local PT = {
@@ -212,6 +223,16 @@ local PT = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Pedra de Vida", READY_RUNE = "Runa/encantamento",
   READY_KEYSTONE = "Pedra-chave M+", READY_MISSING = "falta", READY_NONE = "nenhuma",
   WARBAND_LABEL = "Brigada",
+  TIP_HELP = "Ajuda",
+  TIP_SEARCH_CLEAR = "Limpar busca",
+  HELP_TITLE = "KrononBags — Ajuda",
+  HELP_CATEGORIES = "Categorias: os itens se organizam sozinhos. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo; solte em Favoritos pra proteger, em Diversos pra resetar.",
+  HELP_SEARCH = "Busca: nome, ilvl>200, q:epico, tipo:armadura, palavras (boe, wb, missao, lixo, equip, novo, favorito) com & | ! e ( ).",
+  HELP_FAVORITES = "Favoritos: clique na estrela pra proteger um item de venda. Itens do Gerenciador de Equipamento são protegidos automaticamente (estrela azul).",
+  HELP_BANK = "Banco/Brigada: as abas aparecem no banco, e o conteúdo fica consultável de qualquer lugar (último retrato). Comando: /kb banco.",
+  HELP_SORT = "Organizar: o botão de vassoura organiza as bolsas. Auto-vender lixo e auto-reparar rodam no vendedor (ligar/desligar nas opções).",
+  HELP_CONTROLLER = "Controle: suporte completo ao ConsolePort — ande pela grade de itens com o direcional.",
+  HELP_COMMANDS = "Comandos: /kb, /kb config, /kb grade, /kb organizar, /kb pronto, /kb banco.",
 }
 
 local ES = {
@@ -295,6 +316,16 @@ local ES = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Piedra de salud", READY_RUNE = "Runa/encantamiento",
   READY_KEYSTONE = "Piedra angular M+", READY_MISSING = "falta", READY_NONE = "ninguna",
   WARBAND_LABEL = "Banda de guerra",
+  TIP_HELP = "Ayuda",
+  TIP_SEARCH_CLEAR = "Limpiar búsqueda",
+  HELP_TITLE = "KrononBags — Ayuda",
+  HELP_CATEGORIES = "Categorías: los objetos se ordenan solos. Arrastra un objeto al encabezado de una categoría para asignarlo; suéltalo en Favoritos para protegerlo, en Varios para restablecer.",
+  HELP_SEARCH = "Búsqueda: nombre, ilvl>200, q:epic, type:armor, palabras (boe, wb, quest, junk, equip, new, fav) con & | ! y ( ).",
+  HELP_FAVORITES = "Favoritos: haz clic en la estrella para proteger un objeto de la venta. El equipo del Administrador de equipo se protege automáticamente (estrella azul).",
+  HELP_BANK = "Banco/Banda de guerra: las pestañas aparecen en el banco, y el contenido queda consultable desde cualquier lugar (última captura). Comando: /kb banco.",
+  HELP_SORT = "Organizar: el botón de escoba organiza las bolsas. Vender basura y reparar automáticos funcionan en el vendedor (en opciones).",
+  HELP_CONTROLLER = "Mando: soporte completo de ConsolePort — muévete por la cuadrícula de objetos con la cruceta.",
+  HELP_COMMANDS = "Comandos: /kb, /kb config, /kb grade, /kb organizar, /kb pronto, /kb banco.",
 }
 
 for k, v in pairs(EN) do L[k] = v end
@@ -1815,7 +1846,7 @@ UpdateTabs = function()
     if id == "bags" then t:SetShown(true)
     elseif id == "bank" then t:SetShown(showBank)
     elseif id == "warband" then t:SetShown(showWb) end
-    if id == mode then t:SetButtonState("PUSHED", true) else t:SetButtonState("NORMAL") end
+    if t.sel then t.sel:SetShown(id == mode) end
   end
   -- depositar só vale no banco de verdade
   if UI.depositBtn then UI.depositBtn:SetShown(atBank and (mode == "bank" or mode == "warband")) end
@@ -1884,9 +1915,68 @@ CreateUI = function()
   gear:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_CONFIG); GameTooltip:Show() end)
   gear:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+  -- painel de ajuda (criado escondido); o botão "?" alterna a visibilidade
+  local helpPanel = CreateFrame("Frame", "KrononBagsHelp", UIParent, "BackdropTemplate")
+  helpPanel:SetSize(440, 400)
+  helpPanel:SetPoint("CENTER")
+  helpPanel:SetFrameStrata("DIALOG")
+  helpPanel:SetMovable(true); helpPanel:EnableMouse(true); helpPanel:RegisterForDrag("LeftButton")
+  helpPanel:SetScript("OnDragStart", helpPanel.StartMoving)
+  helpPanel:SetScript("OnDragStop", helpPanel.StopMovingOrSizing)
+  helpPanel:SetAttribute("nodeignore", true)
+  if helpPanel.SetBackdrop then
+    helpPanel:SetBackdrop({
+      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 16, edgeSize = 16,
+      insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    helpPanel:SetBackdropColor(0, 0, 0, 0.95)
+  end
+  local htitle = helpPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  htitle:SetPoint("TOP", 0, -12); htitle:SetText("|cfff0d98c" .. L.HELP_TITLE .. "|r")
+  local hclose = CreateFrame("Button", nil, helpPanel, "UIPanelCloseButton")
+  hclose:SetPoint("TOPRIGHT", 2, 2)
+  local helpKeys = { L.HELP_CATEGORIES, L.HELP_SEARCH, L.HELP_FAVORITES, L.HELP_BANK, L.HELP_SORT, L.HELP_CONTROLLER, L.HELP_COMMANDS }
+  local hprev
+  for _, txt in ipairs(helpKeys) do
+    local fs = helpPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fs:SetJustifyH("LEFT"); fs:SetWidth(400); fs:SetSpacing(2); fs:SetText(txt)
+    if hprev then
+      fs:SetPoint("TOPLEFT", hprev, "BOTTOMLEFT", 0, -8)
+    else
+      fs:SetPoint("TOPLEFT", helpPanel, "TOPLEFT", 18, -44)
+    end
+    hprev = fs
+  end
+  helpPanel:Hide()
+  UI.helpPanel = helpPanel
+  tinsert(UISpecialFrames, "KrononBagsHelp")
+
+  -- botão "?" à esquerda da engrenagem
+  local help = CreateFrame("Button", nil, UI)
+  help:SetSize(22, 22)
+  help:SetPoint("RIGHT", gear, "LEFT", -6, 0)
+  help:SetNormalTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+  help:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  help:SetScript("OnClick", function()
+    if UI.helpPanel:IsShown() then UI.helpPanel:Hide() else UI.helpPanel:Show() end
+  end)
+  help:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_HELP); GameTooltip:Show() end)
+  help:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
   local sb = CreateFrame("EditBox", nil, UI, "InputBoxTemplate")
-  sb:SetSize(150, 20); sb:SetPoint("RIGHT", gear, "LEFT", -10, 0); sb:SetAutoFocus(false)
-  sb:SetScript("OnTextChanged", function(self) search = (self:GetText() or ""):lower(); Refresh() end)
+  sb:SetSize(150, 20); sb:SetPoint("RIGHT", help, "LEFT", -6, 0); sb:SetAutoFocus(false) -- à esquerda do "?" (sem sobrepor)
+  -- botãozinho "✕" pra limpar a busca (só aparece quando há texto)
+  local clr = CreateFrame("Button", nil, sb)
+  clr:SetSize(14, 14); clr:SetPoint("RIGHT", sb, "RIGHT", -4, 0)
+  clr:SetNormalAtlas("common-search-clearbutton")   -- "✕" oficial das caixas de busca
+  clr:SetHighlightAtlas("common-search-clearbutton")
+  clr:Hide()
+  clr:SetScript("OnClick", function() sb:SetText(""); sb:ClearFocus() end) -- OnTextChanged zera a busca e dá Refresh (evita Refresh duplo)
+  clr:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(L.TIP_SEARCH_CLEAR); GameTooltip:Show() end)
+  clr:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  sb:SetScript("OnTextChanged", function(self) search = (self:GetText() or ""):lower(); clr:SetShown((self:GetText() or "") ~= ""); Refresh() end)
   sb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   sb:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -2007,13 +2097,25 @@ CreateUI = function()
   tabBar:SetSize(10, 20)
   tabBar:SetPoint("TOPLEFT", UI, "TOPLEFT", UI.kbMargin, -(UI.kbTop - 2))
   UI.tabBar = tabBar; UI.tabs = {}
-  local tdefs = { { id = "bags", t = L.TAB_BAGS }, { id = "bank", t = L.TAB_BANK }, { id = "warband", t = L.TAB_WARBAND } }
+  local tdefs = {
+    { id = "bags",    t = L.TAB_BAGS,    icon = "Interface\\Icons\\INV_Misc_Bag_08" },
+    { id = "bank",    t = L.TAB_BANK,    icon = "Interface\\Icons\\Achievement_GuildPerk_MobileBanking" },
+    { id = "warband", t = L.TAB_WARBAND, icon = "Interface\\Icons\\Achievement_GuildPerk_EverybodysFriend" },
+  }
   local tx = 0
   for _, d in ipairs(tdefs) do
-    local tb = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
-    tb:SetSize(70, 18); tb:SetText(d.t); tb:SetPoint("LEFT", tx, 0); tx = tx + 73
+    local tb = CreateFrame("Button", nil, tabBar)
+    tb:SetSize(24, 24); tb:SetPoint("LEFT", tx, 0); tx = tx + 28
+    tb:SetNormalTexture(d.icon)
+    tb:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    tb.sel = tb:CreateTexture(nil, "OVERLAY")
+    tb.sel:SetAllPoints()
+    tb.sel:SetColorTexture(1, 0.82, 0, 0.30)
+    tb.sel:Hide()
     tb.mode = d.id
     tb:SetScript("OnClick", function() mode = tb.mode; UpdateTabs(); Refresh() end)
+    tb:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(d.t); GameTooltip:Show() end)
+    tb:SetScript("OnLeave", function() GameTooltip:Hide() end)
     UI.tabs[d.id] = tb
   end
   local dep = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
