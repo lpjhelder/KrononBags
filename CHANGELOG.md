@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.0
+- **Itens do Gerenciador de Equipamento viram favoritos automáticos.** Toda peça salva num Conjunto de Equipamento agora aparece com a estrela (em tom azulado, pra diferenciar do favorito manual) e fica **protegida de venda automaticamente** — mesmo com a opção "Proteger itens" desligada. Sincroniza sozinho: tirou do conjunto, deixa de ser favorito. Não dá pra desfavoritar pela estrela (é automático); tire o item do conjunto pra liberar.
+- **Auto-vender lixo e auto-reparar.** Ao abrir um vendedor, o KrononBags pode vender todos os itens cinza e reparar tudo automaticamente — tentando os **fundos da guilda** primeiro (se você tiver permissão e houver saldo) e caindo pro seu ouro só se precisar. Avisa no chat quanto gastou e de onde. Liga/desliga cada um em `/kb config` (ambos ligados por padrão).
+- **Navegação por controle (ConsolePort) consertada.** Antes, mover entre os itens com o direcional pulava seções e não seguia a ordem. O motivo: cada item tinha a estrela de favoritar sobreposta no canto, e o ConsolePort a tratava como um item navegável concorrente — centenas de "nós" extras grudados nos itens bagunçavam o cálculo de vizinho mais próximo. Agora a estrela e a barra de rolagem ficam fora da navegação por controle (não muda nada no mouse), a grade de itens fica limpa e o cursor anda na ordem certa, seção por seção, com rolagem automática do conteúdo. A janela também passa a se registrar direto no cursor do ConsolePort.
+
 ## 0.19.0
 - **Banco consultável de qualquer lugar.** Agora dá pra ver o que você tem guardado no **Banco** e no **Banco da Brigada** sem estar no banco — o KrononBags salva um retrato do conteúdo toda vez que você abre o banco. As abas Banco/Brigada ficam disponíveis na janela mesmo longe do banco, mostrando o último estado salvo (com a hora da captura). É **só consulta**: pra mover/sacar é preciso ir até o banco (o jogo não deixa de longe). Comando novo: `/kb banco`.
 

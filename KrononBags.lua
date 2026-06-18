@@ -137,6 +137,8 @@ local function InitDB()
   if KrononBagsDB.settings.stackItems == nil then KrononBagsDB.settings.stackItems = false end -- empilhar itens iguais num ícone só
   if KrononBagsDB.settings.qualityBorder == nil then KrononBagsDB.settings.qualityBorder = true end -- borda colorida por raridade no ícone
   if KrononBagsDB.settings.searchHighlight == nil then KrononBagsDB.settings.searchHighlight = true end -- na busca, escurece o resto em vez de esconder
+  if KrononBagsDB.settings.autoSellJunk == nil then KrononBagsDB.settings.autoSellJunk = true end -- vender lixo automaticamente ao abrir o vendedor
+  if KrononBagsDB.settings.autoRepair == nil then KrononBagsDB.settings.autoRepair = true end -- reparar tudo ao abrir o vendedor (fundos da guilda quando possível)
   -- favoritar e proteger agora são UMA coisa só: migra protegidos antigos
   for id in pairs(KrononBagsDB.protected) do KrononBagsDB.favorites[id] = true end
   wipe(KrononBagsDB.protected)
@@ -340,6 +342,7 @@ end
 -- protegido = favorito OU (opção ligada E está numa categoria de verdade)
 local function IsProtected(itemID)
   if DB.favorites[itemID] then return true end -- favorito = protegido
+  if equipSetByItem[itemID] then return true end -- item de Conjunto de Equipamento = SEMPRE protegido (favorito automático)
   if DB.settings and DB.settings.autoProtectCategorized and IsCategorized(itemID) then return true end
   return false
 end
@@ -610,14 +613,22 @@ AcquireButton = function(i)
     star:SetSize(14, 14); star:SetPoint("TOPLEFT", -1, 1)
     star:SetFrameLevel(b:GetFrameLevel() + 5)
     star:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    -- a estrela fica grudada no canto do item: pro ConsolePort ela é um nó
+    -- navegável concorrente sobreposto a cada item, o que bagunça a navegação
+    -- por controle (pula/zigue-zague). nodeignore tira ela do scan do cursor
+    -- (não afeta mouse). O item continua sendo o único nó daquele slot.
+    star:SetAttribute("nodeignore", true)
     star.tex = star:CreateTexture(nil, "OVERLAY"); star.tex:SetAllPoints()
     star.tex:SetAtlas("PetJournal-FavoritesIcon")
     b.kbStar = star
     local function updateStar()
-      if b.itemID and DB.favorites[b.itemID] then
+      local setFav = b.itemID and equipSetByItem[b.itemID] -- item de Conjunto de Equipamento: favorito automático
+      if b.itemID and (DB.favorites[b.itemID] or setFav) then
         star:Show(); star.tex:SetDesaturated(false); star.tex:SetAlpha(1)
+        if setFav and not DB.favorites[b.itemID] then star.tex:SetVertexColor(0.5, 0.8, 1) -- azulado = auto (Gerenciador de Equipamento)
+        else star.tex:SetVertexColor(1, 1, 1) end
       elseif b.itemID and b:IsMouseOver() then
-        star:Show(); star.tex:SetDesaturated(true); star.tex:SetAlpha(0.4)
+        star:Show(); star.tex:SetDesaturated(true); star.tex:SetAlpha(0.4); star.tex:SetVertexColor(1, 1, 1)
       else
         star:Hide()
       end
@@ -626,12 +637,19 @@ AcquireButton = function(i)
     star:SetScript("OnClick", function(_, mb)
       local id = b.itemID
       if not id then return end
-      if mb == "RightButton" then OpenItemMenu(b) else ToggleFavorite(id) end
+      if mb == "RightButton" then OpenItemMenu(b)
+      elseif equipSetByItem[id] then
+        print("|cfff0d98cKrononBags|r: item de Conjunto de Equipamento — favorito/protegido automaticamente (tire-o do conjunto pra liberar).")
+      else ToggleFavorite(id) end
     end)
     star:SetScript("OnEnter", function(s)
       updateStar()
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
-      GameTooltip:SetText("Esquerdo: favoritar (protege de venda)\nDireito: menu (mover p/ categoria)")
+      if b.itemID and equipSetByItem[b.itemID] then
+        GameTooltip:SetText("Favorito automático — está num Conjunto de Equipamento (protegido de venda)")
+      else
+        GameTooltip:SetText("Esquerdo: favoritar (protege de venda)\nDireito: menu (mover p/ categoria)")
+      end
       GameTooltip:Show()
     end)
     star:SetScript("OnLeave", function() GameTooltip:Hide(); updateStar() end)
@@ -1640,6 +1658,7 @@ CreateUI = function()
   local thumb = sbar:GetThumbTexture(); if thumb then thumb:SetSize(12, 28) end
   sbar:SetMinMaxValues(0, 0); sbar:SetValue(0); sbar:SetValueStep(1); sbar:SetObeyStepOnDrag(true)
   sbar:SetScript("OnValueChanged", function(_, v) UI.scroll:SetVerticalScroll(v) end)
+  sbar:SetAttribute("nodeignore", true) -- o controle rola sozinho (auto-scroll do ConsolePort); a barra não é alvo de navegação
   sbar:Hide()
   UI.sb = sbar
   UI.scroll:SetScript("OnMouseWheel", function(_, delta)
@@ -1743,6 +1762,15 @@ CreateUI = function()
   -- ESC fecha a janela (igual à bag do jogo)
   tinsert(UISpecialFrames, "KrononBagsFrame")
 
+  -- Navegação por controle (ConsolePort): registra a janela no cursor de interface
+  -- pra ele varrer/navegar nossos itens e fazer auto-scroll do conteúdo. O cursor
+  -- dele é geométrico (vizinho mais próximo na direção), então o que faz a navegação
+  -- seguir a ordem é a grade limpa de itens — por isso tiramos a estrela e a barra
+  -- de rolagem do scan (nodeignore). Sem ConsolePort, isto é só um no-op.
+  if ConsolePort and ConsolePort.AddInterfaceCursorFrame then
+    pcall(function() ConsolePort:AddInterfaceCursorFrame(UI) end)
+  end
+
   -- ao esconder (X, /kb ou auto), zera a flag de auto-aberta pra não fechar janela manual
   UI:HookScript("OnHide", function(self) self.autoOpened = false end)
 
@@ -1764,7 +1792,7 @@ end
 
 -- ---------------- Configurações (extensível) ----------------
 local catRows = {}
-local CAT_LIST_TOP = -486
+local CAT_LIST_TOP = -514
 RefreshConfigCats = function()
   if not CFG then return end
   for _, r in ipairs(catRows) do r:Hide() end
@@ -1813,12 +1841,12 @@ RefreshConfigCats = function()
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", 16, y); r:Show()
     y = y - 22
   end
-  CFG:SetHeight(math.max(522, -y + 30)) -- +espaço pro rodapé de créditos
+  CFG:SetHeight(math.max(550, -y + 30)) -- +espaço pro rodapé de créditos
 end
 
 CreateConfig = function()
   CFG = CreateFrame("Frame", "KrononBagsConfig", UIParent, "BackdropTemplate")
-  CFG:SetSize(400, 522)
+  CFG:SetSize(400, 550)
   CFG:SetPoint("CENTER")
   CFG:SetFrameStrata("DIALOG")
   CFG:SetMovable(true); CFG:EnableMouse(true); CFG:RegisterForDrag("LeftButton")
@@ -1939,10 +1967,16 @@ CreateConfig = function()
   check("KrononBagsSearchHLCheck", RCOL, -334, "Realçar busca", function() return DB.settings.searchHighlight end, function(v)
     DB.settings.searchHighlight = v; Refresh()
   end)
+  check("KrononBagsAutoSellCheck", LCOL, -362, "Auto-vender lixo", function() return DB.settings.autoSellJunk end, function(v)
+    DB.settings.autoSellJunk = v
+  end)
+  check("KrononBagsAutoRepairCheck", RCOL, -362, "Auto-reparar", function() return DB.settings.autoRepair end, function(v)
+    DB.settings.autoRepair = v
+  end)
   -- seletor de ordenação dentro da categoria
   local SORT_NAMES = { ilvl = "Item level", quality = "Qualidade", name = "Nome", type = "Tipo", recent = "Recentes" }
   local sortBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -362)
+  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -390)
   local function updSortBtn() sortBtn:SetText("Ordenar por: " .. (SORT_NAMES[DB.settings.sortMode] or "Item level")) end
   updSortBtn()
   sortBtn:SetScript("OnClick", function(self)
@@ -1956,13 +1990,13 @@ CreateConfig = function()
   end)
 
   -- ===== Categorias =====
-  section("Categorias", -394)
+  section("Categorias", -422)
   local catHint = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  catHint:SetPoint("TOPLEFT", 18, -412)
+  catHint:SetPoint("TOPLEFT", 18, -440)
   catHint:SetText("Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.")
 
   local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", CFG, "InputBoxTemplate")
-  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -434); newCat:SetAutoFocus(false)
+  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -462); newCat:SetAutoFocus(false)
   local addBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
   addBtn:SetSize(60, 20); addBtn:SetText("Criar"); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
   local presetBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
@@ -1993,7 +2027,7 @@ CreateConfig = function()
 
   -- Exportar / Importar (Layout Oficial da Guilda)
   local exportBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  exportBtn:SetSize(110, 20); exportBtn:SetText("Exportar"); exportBtn:SetPoint("TOPLEFT", 22, -460)
+  exportBtn:SetSize(110, 20); exportBtn:SetText("Exportar"); exportBtn:SetPoint("TOPLEFT", 22, -488)
   exportBtn:SetScript("OnClick", function()
     KB_exportStr = ExportCategories(); StaticPopup_Show("KRONONBAGS_EXPORT")
   end)
@@ -2213,6 +2247,33 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
   end)
 end
 
+-- ---------------- Auto-vendedor: vender lixo + reparar ----------------
+-- Roda no MERCHANT_SHOW. Usa APIs nativas chamáveis por addon (sem taint):
+-- C_MerchantFrame.SellAllJunkItems / RepairAllItems / GetRepairAllCost.
+-- Reparo: tenta fundos da guilda primeiro (se houver permissão e saldo), senão ouro próprio.
+local function AutoVendor()
+  if not (DB and DB.settings) then return end
+  if DB.settings.autoSellJunk and C_MerchantFrame and C_MerchantFrame.SellAllJunkItems then
+    pcall(C_MerchantFrame.SellAllJunkItems)
+  end
+  if DB.settings.autoRepair and CanMerchantRepair and CanMerchantRepair() then
+    local cost = GetRepairAllCost and select(1, GetRepairAllCost()) or 0
+    if cost and cost > 0 then
+      local guildOk = IsInGuild and IsInGuild() and CanGuildBankRepair and CanGuildBankRepair()
+      local withdraw = GetGuildBankWithdrawMoney and GetGuildBankWithdrawMoney() or 0 -- -1 = ilimitado
+      if guildOk and (withdraw == -1 or withdraw >= cost) then
+        RepairAllItems(true)
+        print("|cfff0d98cKrononBags|r: reparado com fundos da guilda (" .. GetCoinTextureString(cost) .. ").")
+      elseif (GetMoney() or 0) >= cost then
+        RepairAllItems(false)
+        print("|cfff0d98cKrononBags|r: reparado por " .. GetCoinTextureString(cost) .. ".")
+      else
+        print("|cfff0d98cKrononBags|r: ouro insuficiente pra reparar (" .. GetCoinTextureString(cost) .. ").")
+      end
+    end
+  end
+end
+
 -- ---------------- Eventos / comandos ----------------
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
@@ -2243,6 +2304,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
   elseif event == "PLAYER_REGEN_ENABLED" then
     if UI and UI.refreshPending and UI:IsShown() then UI.refreshPending = nil; Refresh() end
   elseif event == "MERCHANT_SHOW" then
+    AutoVendor() -- auto-vender lixo + auto-reparar (se ligados na config)
     AutoShow(); if UI then UpdateTabs() end; Refresh() -- bloquear venda de protegidos + botão vender lixo
   elseif event == "MERCHANT_CLOSED" then
     AutoHide(); if UI then UpdateTabs() end; Refresh() -- restaura usar/equipar; esconde vender lixo
