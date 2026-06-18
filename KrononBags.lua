@@ -113,15 +113,34 @@ local EN = {
   IMP_ERR_EMPTY = "empty", IMP_ERR_FORMAT = "invalid format", IMP_ERR_NOCATS = "no categories",
   -- config: seções
   SEC_APPEARANCE = "Appearance", SEC_BEHAVIOR = "Behavior", SEC_CATEGORIES = "Categories",
+  SEC_ICONS = "Icons", SEC_VENDOR = "Vendor", SEC_BANK = "Bank", SEC_ABOUT = "About",
   -- config: opções
   OPT_BLIZZ_FRAME = "Blizzard frame", OPT_BLIZZ_COLORS = "Blizzard colors (dark)",
-  OPT_SHOW_ILVL = "Show item level", OPT_ILVL_RARITY = "ilvl by rarity",
+  OPT_SHOW_ILVL = "Show item level", OPT_ILVL_RARITY = "Color item level by rarity",
   OPT_PROTECT = "Protect items (don't sell)", OPT_AUTOOPEN = "Open at vendor/bank",
   OPT_BANK_REPLACE = "Replace bank / Warband", OPT_ALT_COUNTS = "Alt counts (tooltip)",
   OPT_REPLACE_BAGS = "Replace the game's bags (B key)", OPT_STACK = "Stack identical items",
   OPT_QUAL_BORDER = "Colored border (rarity)", OPT_SEARCH_HL = "Highlight search",
   OPT_AUTOSELL = "Auto-sell junk", OPT_AUTOREPAIR = "Auto-repair",
   OPT_OPACITY = "Background opacity: %d%%", OPT_COLS = "Columns (items per row): %d",
+  -- config: tooltips das opções
+  TIP_OPT_BLIZZ_FRAME = "Use WoW's native frame instead of the dark KrononBags look.",
+  TIP_OPT_BLIZZ_COLORS = "Use Blizzard's default color scheme.",
+  TIP_OPT_SHOW_ILVL = "Show item level on gear in the icon corner.",
+  TIP_OPT_ILVL_RARITY = "On: item level in the rarity color. Off: item level in white.",
+  TIP_OPT_QUAL_BORDER = "Colored border on the icon by rarity (junk = gray; common = no border).",
+  TIP_OPT_AUTOOPEN = "Open KrononBags automatically at a vendor or bank.",
+  TIP_OPT_REPLACE_BAGS = "The B key and bag buttons open KrononBags. Needs /reload.",
+  TIP_OPT_STACK = "Merge stacks of the same item into one icon, summing the count.",
+  TIP_OPT_SEARCH_HL = "When searching, dim non-matching items instead of hiding them.",
+  TIP_OPT_PROTECT = "Protect items that are in a category from being sold.",
+  TIP_OPT_ALT_COUNTS = "In the item tooltip, show how many your other characters have.",
+  TIP_OPT_AUTOSELL = "Sell all gray items automatically when you open a vendor.",
+  TIP_OPT_AUTOREPAIR = "Repair everything at a vendor (uses guild funds when possible).",
+  TIP_OPT_BANK_REPLACE = "Replace the native bank and Warband bank with KrononBags. Needs /reload. (To buy bank tabs, turn this off + /reload.)",
+  TIP_OPT_OPACITY = "Window transparency.",
+  TIP_OPT_COLS = "How many item columns the window shows.",
+  TIP_OPT_SORT = "How items are ordered inside each category.",
   -- config: ordenação
   SORT_ILVL = "Item level", SORT_QUALITY = "Quality", SORT_NAME = "Name",
   SORT_TYPE = "Type", SORT_RECENT = "Recent", SORT_BY = "Sort by: ", SORT_MENU_TITLE = "Sort items by",
@@ -219,14 +238,32 @@ local PT = {
   MSG_OPEN_BANK_ONCE = "abra o banco uma vez pra poder consultá-lo de longe.",
   IMP_ERR_EMPTY = "vazio", IMP_ERR_FORMAT = "formato inválido", IMP_ERR_NOCATS = "sem categorias",
   SEC_APPEARANCE = "Aparência", SEC_BEHAVIOR = "Comportamento", SEC_CATEGORIES = "Categorias",
+  SEC_ICONS = "Ícones", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Sobre",
   OPT_BLIZZ_FRAME = "Moldura Blizzard", OPT_BLIZZ_COLORS = "Cores Blizzard (escuro)",
-  OPT_SHOW_ILVL = "Mostrar item level", OPT_ILVL_RARITY = "ilvl pela raridade",
+  OPT_SHOW_ILVL = "Mostrar item level", OPT_ILVL_RARITY = "Colorir item level pela raridade",
   OPT_PROTECT = "Proteger itens (não vender)", OPT_AUTOOPEN = "Abrir no vendedor/banco",
   OPT_BANK_REPLACE = "Substituir banco / Brigada", OPT_ALT_COUNTS = "Contagem nos alts (tooltip)",
   OPT_REPLACE_BAGS = "Substituir a bag do jogo (tecla B)", OPT_STACK = "Empilhar itens iguais",
   OPT_QUAL_BORDER = "Borda colorida (raridade)", OPT_SEARCH_HL = "Realçar busca",
   OPT_AUTOSELL = "Auto-vender lixo", OPT_AUTOREPAIR = "Auto-reparar",
   OPT_OPACITY = "Opacidade do fundo: %d%%", OPT_COLS = "Colunas (itens por fileira): %d",
+  TIP_OPT_BLIZZ_FRAME = "Usa a moldura nativa do WoW em vez do visual escuro do KrononBags.",
+  TIP_OPT_BLIZZ_COLORS = "Usa o esquema de cores padrão da Blizzard.",
+  TIP_OPT_SHOW_ILVL = "Mostra o item level no canto do ícone do equipamento.",
+  TIP_OPT_ILVL_RARITY = "Ligado: item level na cor da raridade. Desligado: item level em branco.",
+  TIP_OPT_QUAL_BORDER = "Borda colorida no ícone pela raridade (lixo = cinza; comum = sem borda).",
+  TIP_OPT_AUTOOPEN = "Abre o KrononBags sozinho ao falar com vendedor ou abrir o banco.",
+  TIP_OPT_REPLACE_BAGS = "A tecla B e os botões de bolsa passam a abrir o KrononBags. Precisa de /reload.",
+  TIP_OPT_STACK = "Junta stacks do mesmo item num ícone só, somando a contagem.",
+  TIP_OPT_SEARCH_HL = "Na busca, escurece o que não bate em vez de esconder.",
+  TIP_OPT_PROTECT = "Protege de venda os itens que estão em alguma categoria.",
+  TIP_OPT_ALT_COUNTS = "No tooltip do item, mostra quanto seus outros personagens têm dele.",
+  TIP_OPT_AUTOSELL = "Vende todos os itens cinza automaticamente ao abrir o vendedor.",
+  TIP_OPT_AUTOREPAIR = "Repara tudo ao abrir o vendedor (usa fundos da guilda quando dá).",
+  TIP_OPT_BANK_REPLACE = "Substitui o banco e o banco da Brigada nativos pelo KrononBags. Precisa de /reload. (Pra comprar abas do banco, desligue + /reload.)",
+  TIP_OPT_OPACITY = "Transparência da janela.",
+  TIP_OPT_COLS = "Quantas colunas de itens a janela mostra.",
+  TIP_OPT_SORT = "Como os itens são ordenados dentro de cada categoria.",
   SORT_ILVL = "Item level", SORT_QUALITY = "Qualidade", SORT_NAME = "Nome",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recentes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar itens por",
   CAT_HINT = "Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.",
@@ -319,14 +356,32 @@ local ES = {
   MSG_OPEN_BANK_ONCE = "abre el banco una vez para poder consultarlo desde lejos.",
   IMP_ERR_EMPTY = "vacío", IMP_ERR_FORMAT = "formato inválido", IMP_ERR_NOCATS = "sin categorías",
   SEC_APPEARANCE = "Apariencia", SEC_BEHAVIOR = "Comportamiento", SEC_CATEGORIES = "Categorías",
+  SEC_ICONS = "Iconos", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Acerca de",
   OPT_BLIZZ_FRAME = "Marco Blizzard", OPT_BLIZZ_COLORS = "Colores Blizzard (oscuro)",
-  OPT_SHOW_ILVL = "Mostrar nivel de objeto", OPT_ILVL_RARITY = "ilvl por rareza",
+  OPT_SHOW_ILVL = "Mostrar nivel de objeto", OPT_ILVL_RARITY = "Colorear nivel de objeto por rareza",
   OPT_PROTECT = "Proteger objetos (no vender)", OPT_AUTOOPEN = "Abrir en vendedor/banco",
   OPT_BANK_REPLACE = "Reemplazar banco / Banda de guerra", OPT_ALT_COUNTS = "Cantidad en alters (tooltip)",
   OPT_REPLACE_BAGS = "Reemplazar las bolsas del juego (tecla B)", OPT_STACK = "Apilar objetos iguales",
   OPT_QUAL_BORDER = "Borde de color (rareza)", OPT_SEARCH_HL = "Resaltar búsqueda",
   OPT_AUTOSELL = "Auto-vender basura", OPT_AUTOREPAIR = "Auto-reparar",
   OPT_OPACITY = "Opacidad del fondo: %d%%", OPT_COLS = "Columnas (objetos por fila): %d",
+  TIP_OPT_BLIZZ_FRAME = "Usa el marco nativo de WoW en lugar del aspecto oscuro de KrononBags.",
+  TIP_OPT_BLIZZ_COLORS = "Usa el esquema de colores predeterminado de Blizzard.",
+  TIP_OPT_SHOW_ILVL = "Muestra el nivel de objeto en la esquina del icono del equipo.",
+  TIP_OPT_ILVL_RARITY = "Activado: nivel de objeto en el color de rareza. Desactivado: en blanco.",
+  TIP_OPT_QUAL_BORDER = "Borde de color en el icono por rareza (basura = gris; común = sin borde).",
+  TIP_OPT_AUTOOPEN = "Abre KrononBags automáticamente en un vendedor o banco.",
+  TIP_OPT_REPLACE_BAGS = "La tecla B y los botones de bolsa abren KrononBags. Requiere /reload.",
+  TIP_OPT_STACK = "Combina montones del mismo objeto en un icono, sumando la cantidad.",
+  TIP_OPT_SEARCH_HL = "Al buscar, atenúa lo que no coincide en lugar de ocultarlo.",
+  TIP_OPT_PROTECT = "Protege de la venta los objetos que están en una categoría.",
+  TIP_OPT_ALT_COUNTS = "En la información del objeto, muestra cuántos tienen tus otros personajes.",
+  TIP_OPT_AUTOSELL = "Vende todos los objetos grises automáticamente al abrir un vendedor.",
+  TIP_OPT_AUTOREPAIR = "Repara todo en el vendedor (usa fondos del clan cuando es posible).",
+  TIP_OPT_BANK_REPLACE = "Reemplaza el banco y el banco de la banda de guerra nativos por KrononBags. Requiere /reload. (Para comprar pestañas, desactiva + /reload.)",
+  TIP_OPT_OPACITY = "Transparencia de la ventana.",
+  TIP_OPT_COLS = "Cuántas columnas de objetos muestra la ventana.",
+  TIP_OPT_SORT = "Cómo se ordenan los objetos dentro de cada categoría.",
   SORT_ILVL = "Nivel de objeto", SORT_QUALITY = "Calidad", SORT_NAME = "Nombre",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recientes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar objetos por",
   CAT_HINT = "Orden (arriba → abajo) = orden en el inventario. ▲▼ mueve, Eliminar quita.",
@@ -2395,7 +2450,7 @@ end
 
 -- ---------------- Configurações (extensível) ----------------
 local catRows = {}
-local CAT_LIST_TOP = -514
+local CAT_LIST_TOP = -650
 RefreshConfigCats = function()
   if not CFG then return end
   for _, r in ipairs(catRows) do r:Hide() end
@@ -2444,7 +2499,14 @@ RefreshConfigCats = function()
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", 16, y); r:Show()
     y = y - 22
   end
-  CFG:SetHeight(math.max(550, -y + 30)) -- +espaço pro rodapé de créditos
+  -- seção "Sobre" logo abaixo da lista de categorias (que tem altura variável)
+  y = y - 8
+  if CFG.aboutH then
+    CFG.aboutH:ClearAllPoints(); CFG.aboutH:SetPoint("TOPLEFT", 16, y)
+    CFG.aboutD:ClearAllPoints()
+    CFG.aboutD:SetPoint("TOPLEFT", 14, y - 15); CFG.aboutD:SetPoint("TOPRIGHT", -14, y - 15)
+  end
+  CFG:SetHeight(math.max(550, -y + 58)) -- +espaço pro header "Sobre" e o rodapé de créditos
 end
 
 CreateConfig = function()
@@ -2489,13 +2551,22 @@ CreateConfig = function()
     d:SetColorTexture(0.4, 0.4, 0.45, 0.5); d:SetHeight(1)
     d:SetPoint("TOPLEFT", 14, y - 15); d:SetPoint("TOPRIGHT", -14, y - 15)
   end
-  local function check(name, x, y, label, getf, setf)
+  local function check(name, x, y, label, getf, setf, tipKey)
     local c = CreateFrame("CheckButton", name, CFG, "UICheckButtonTemplate")
     c:SetPoint("TOPLEFT", x, y)
     local lbl = c.Text or _G[name .. "Text"]
     if lbl then lbl:SetText(label) end
     c:SetChecked(getf())
     c:SetScript("OnClick", function(self) setf(self:GetChecked() and true or false) end)
+    if tipKey then
+      c:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(label)
+        GameTooltip:AddLine(L[tipKey], 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+      end)
+      c:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
     return c
   end
   local LCOL, RCOL = 16, 205
@@ -2505,22 +2576,16 @@ CreateConfig = function()
   check("KrononBagsFrameStyleCheck", LCOL, -66, L.OPT_BLIZZ_FRAME, function() return DB.settings.frameStyle == "blizzard" end, function(v)
     DB.settings.frameStyle = v and "blizzard" or "dark"
     print(KB_PREFIX .. L.MSG_RELOAD_VISUAL)
-  end)
+  end, "TIP_OPT_BLIZZ_FRAME")
   check("KrononBagsBlizzColorsCheck", RCOL, -66, L.OPT_BLIZZ_COLORS, function() return DB.settings.blizzardStyle end, function(v)
     DB.settings.blizzardStyle = v; ApplyOpacity()
-  end)
-  check("KrononBagsShowIlvlCheck", LCOL, -94, L.OPT_SHOW_ILVL, function() return DB.settings.showIlvl end, function(v)
-    DB.settings.showIlvl = v; Refresh()
-  end)
-  check("KrononBagsIlvlRarityCheck", RCOL, -94, L.OPT_ILVL_RARITY, function() return DB.settings.ilvlUseRarity end, function(v)
-    DB.settings.ilvlUseRarity = v; Refresh()
-  end)
+  end, "TIP_OPT_BLIZZ_COLORS")
 
   local opLabel = CFG:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  opLabel:SetPoint("TOPLEFT", 18, -124)
+  opLabel:SetPoint("TOPLEFT", 18, -98)
   local function setOpLabel(v) opLabel:SetText(string.format(L.OPT_OPACITY, math.floor(v * 100 + 0.5))) end
   local slider = CreateFrame("Slider", "KrononBagsOpacitySlider", CFG, "OptionsSliderTemplate")
-  slider:SetPoint("TOPLEFT", 18, -144); slider:SetWidth(360)
+  slider:SetPoint("TOPLEFT", 18, -118); slider:SetWidth(360)
   slider:SetMinMaxValues(0.1, 1.0); slider:SetValueStep(0.05); slider:SetObeyStepOnDrag(true)
   local low  = slider.Low  or _G["KrononBagsOpacitySliderLow"];  if low  then low:SetText("10%")   end
   local high = slider.High or _G["KrononBagsOpacitySliderHigh"]; if high then high:SetText("100%") end
@@ -2528,12 +2593,19 @@ CreateConfig = function()
   slider:SetValue((DB.settings and DB.settings.opacity) or 0.92)
   setOpLabel((DB.settings and DB.settings.opacity) or 0.92)
   slider:SetScript("OnValueChanged", function(_, v) DB.settings.opacity = v; setOpLabel(v); ApplyOpacity() end)
+  slider:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(opLabel:GetText())
+    GameTooltip:AddLine(L.TIP_OPT_OPACITY, 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  slider:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   local colLabel = CFG:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  colLabel:SetPoint("TOPLEFT", 18, -176)
+  colLabel:SetPoint("TOPLEFT", 18, -150)
   local function setColLabel(v) colLabel:SetText(string.format(L.OPT_COLS, v)) end
   local colSlider = CreateFrame("Slider", "KrononBagsColsSlider", CFG, "OptionsSliderTemplate")
-  colSlider:SetPoint("TOPLEFT", 18, -196); colSlider:SetWidth(360)
+  colSlider:SetPoint("TOPLEFT", 18, -170); colSlider:SetWidth(360)
   colSlider:SetMinMaxValues(COLS_MIN, COLS_MAX); colSlider:SetValueStep(1); colSlider:SetObeyStepOnDrag(true)
   local cLow  = colSlider.Low  or _G["KrononBagsColsSliderLow"];  if cLow  then cLow:SetText(COLS_MIN) end
   local cHigh = colSlider.High or _G["KrononBagsColsSliderHigh"]; if cHigh then cHigh:SetText(COLS_MAX) end
@@ -2541,45 +2613,51 @@ CreateConfig = function()
   colSlider:SetValue((DB.settings and DB.settings.cols) or 14)
   setColLabel((DB.settings and DB.settings.cols) or 14)
   colSlider:SetScript("OnValueChanged", function(_, v) v = math.floor(v + 0.5); DB.settings.cols = v; setColLabel(v); Refresh() end)
+  colSlider:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(colLabel:GetText())
+    GameTooltip:AddLine(L.TIP_OPT_COLS, 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  colSlider:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- ===== Ícones =====
+  section(L.SEC_ICONS, -208)
+  check("KrononBagsShowIlvlCheck", LCOL, -230, L.OPT_SHOW_ILVL, function() return DB.settings.showIlvl end, function(v)
+    DB.settings.showIlvl = v; Refresh()
+  end, "TIP_OPT_SHOW_ILVL")
+  check("KrononBagsIlvlRarityCheck", RCOL, -230, L.OPT_ILVL_RARITY, function() return DB.settings.ilvlUseRarity end, function(v)
+    DB.settings.ilvlUseRarity = v; Refresh()
+  end, "TIP_OPT_ILVL_RARITY")
+  check("KrononBagsQualBorderCheck", LCOL, -258, L.OPT_QUAL_BORDER, function() return DB.settings.qualityBorder end, function(v)
+    DB.settings.qualityBorder = v; Refresh()
+  end, "TIP_OPT_QUAL_BORDER")
 
   -- ===== Comportamento =====
-  section(L.SEC_BEHAVIOR, -230)
-  check("KrononBagsAutoProtectCheck", LCOL, -252, L.OPT_PROTECT, function() return DB.settings.autoProtectCategorized end, function(v)
-    DB.settings.autoProtectCategorized = v; Refresh()
-  end)
-  check("KrononBagsAutoOpenCheck", RCOL, -252, L.OPT_AUTOOPEN, function() return DB.settings.autoOpen end, function(v)
+  section(L.SEC_BEHAVIOR, -294)
+  check("KrononBagsAutoOpenCheck", LCOL, -316, L.OPT_AUTOOPEN, function() return DB.settings.autoOpen end, function(v)
     DB.settings.autoOpen = v
-  end)
-  check("KrononBagsBankReplaceCheck", LCOL, -280, L.OPT_BANK_REPLACE, function() return DB.settings.bankReplace end, function(v)
-    DB.settings.bankReplace = v
-    print(KB_PREFIX .. L.MSG_RELOAD_BANK)
-  end)
-  check("KrononBagsAltCountsCheck", RCOL, -280, L.OPT_ALT_COUNTS, function() return DB.settings.altCounts end, function(v)
-    DB.settings.altCounts = v
-  end)
-  check("KrononBagsReplaceBagsCheck", LCOL, -308, L.OPT_REPLACE_BAGS, function() return DB.settings.replaceBags end, function(v)
+  end, "TIP_OPT_AUTOOPEN")
+  check("KrononBagsReplaceBagsCheck", RCOL, -316, L.OPT_REPLACE_BAGS, function() return DB.settings.replaceBags end, function(v)
     DB.settings.replaceBags = v
     print(KB_PREFIX .. L.MSG_RELOAD_BAG)
-  end)
-  check("KrononBagsStackCheck", RCOL, -308, L.OPT_STACK, function() return DB.settings.stackItems end, function(v)
+  end, "TIP_OPT_REPLACE_BAGS")
+  check("KrononBagsStackCheck", LCOL, -344, L.OPT_STACK, function() return DB.settings.stackItems end, function(v)
     DB.settings.stackItems = v; Refresh()
-  end)
-  check("KrononBagsQualBorderCheck", LCOL, -334, L.OPT_QUAL_BORDER, function() return DB.settings.qualityBorder end, function(v)
-    DB.settings.qualityBorder = v; Refresh()
-  end)
-  check("KrononBagsSearchHLCheck", RCOL, -334, L.OPT_SEARCH_HL, function() return DB.settings.searchHighlight end, function(v)
+  end, "TIP_OPT_STACK")
+  check("KrononBagsSearchHLCheck", RCOL, -344, L.OPT_SEARCH_HL, function() return DB.settings.searchHighlight end, function(v)
     DB.settings.searchHighlight = v; Refresh()
-  end)
-  check("KrononBagsAutoSellCheck", LCOL, -362, L.OPT_AUTOSELL, function() return DB.settings.autoSellJunk end, function(v)
-    DB.settings.autoSellJunk = v
-  end)
-  check("KrononBagsAutoRepairCheck", RCOL, -362, L.OPT_AUTOREPAIR, function() return DB.settings.autoRepair end, function(v)
-    DB.settings.autoRepair = v
-  end)
+  end, "TIP_OPT_SEARCH_HL")
+  check("KrononBagsAutoProtectCheck", LCOL, -372, L.OPT_PROTECT, function() return DB.settings.autoProtectCategorized end, function(v)
+    DB.settings.autoProtectCategorized = v; Refresh()
+  end, "TIP_OPT_PROTECT")
+  check("KrononBagsAltCountsCheck", RCOL, -372, L.OPT_ALT_COUNTS, function() return DB.settings.altCounts end, function(v)
+    DB.settings.altCounts = v
+  end, "TIP_OPT_ALT_COUNTS")
   -- seletor de ordenação dentro da categoria
   local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
   local sortBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -390)
+  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -402)
   local function updSortBtn() sortBtn:SetText(L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL)) end
   updSortBtn()
   sortBtn:SetScript("OnClick", function(self)
@@ -2591,15 +2669,38 @@ CreateConfig = function()
       end
     end)
   end)
+  sortBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(L.SORT_MENU_TITLE)
+    GameTooltip:AddLine(L.TIP_OPT_SORT, 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- ===== Vendedor =====
+  section(L.SEC_VENDOR, -440)
+  check("KrononBagsAutoSellCheck", LCOL, -462, L.OPT_AUTOSELL, function() return DB.settings.autoSellJunk end, function(v)
+    DB.settings.autoSellJunk = v
+  end, "TIP_OPT_AUTOSELL")
+  check("KrononBagsAutoRepairCheck", RCOL, -462, L.OPT_AUTOREPAIR, function() return DB.settings.autoRepair end, function(v)
+    DB.settings.autoRepair = v
+  end, "TIP_OPT_AUTOREPAIR")
+
+  -- ===== Banco =====
+  section(L.SEC_BANK, -498)
+  check("KrononBagsBankReplaceCheck", LCOL, -520, L.OPT_BANK_REPLACE, function() return DB.settings.bankReplace end, function(v)
+    DB.settings.bankReplace = v
+    print(KB_PREFIX .. L.MSG_RELOAD_BANK)
+  end, "TIP_OPT_BANK_REPLACE")
 
   -- ===== Categorias =====
-  section(L.SEC_CATEGORIES, -422)
+  section(L.SEC_CATEGORIES, -558)
   local catHint = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  catHint:SetPoint("TOPLEFT", 18, -440)
+  catHint:SetPoint("TOPLEFT", 18, -576)
   catHint:SetText(L.CAT_HINT)
 
   local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", CFG, "InputBoxTemplate")
-  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -462); newCat:SetAutoFocus(false)
+  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -598); newCat:SetAutoFocus(false)
   local addBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
   addBtn:SetSize(60, 20); addBtn:SetText(L.BTN_CREATE); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
   local presetBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
@@ -2630,13 +2731,19 @@ CreateConfig = function()
 
   -- Exportar / Importar (Layout Oficial da Guilda)
   local exportBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  exportBtn:SetSize(110, 20); exportBtn:SetText(L.BTN_EXPORT); exportBtn:SetPoint("TOPLEFT", 22, -488)
+  exportBtn:SetSize(110, 20); exportBtn:SetText(L.BTN_EXPORT); exportBtn:SetPoint("TOPLEFT", 22, -624)
   exportBtn:SetScript("OnClick", function()
     KB_exportStr = ExportCategories(); StaticPopup_Show("KRONONBAGS_EXPORT")
   end)
   local importBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
   importBtn:SetSize(110, 20); importBtn:SetText(L.BTN_IMPORT); importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0)
   importBtn:SetScript("OnClick", function() StaticPopup_Show("KRONONBAGS_IMPORT") end)
+
+  -- ===== Sobre ===== (reposicionado em RefreshConfigCats, logo após a lista de categorias)
+  CFG.aboutH = CFG:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  CFG.aboutH:SetText("|cfff0d98c" .. L.SEC_ABOUT .. "|r")
+  CFG.aboutD = CFG:CreateTexture(nil, "ARTWORK")
+  CFG.aboutD:SetColorTexture(0.4, 0.4, 0.45, 0.5); CFG.aboutD:SetHeight(1)
 
   CFG:Hide()
 end

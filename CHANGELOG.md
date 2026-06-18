@@ -1,78 +1,269 @@
 # Changelog
 
+## 0.24.0
+**🇧🇷 Português**
+- **Configuração em 7 seções** — Aparência, Ícones, Comportamento, Vendedor, Banco, Categorias e Sobre, com rótulos mais claros.
+- **Tooltip em cada opção** — passe o mouse sobre checkbox, slider ou botão pra ver uma explicação curta.
+
+**🇬🇧 English**
+- **Settings in 7 sections** — Appearance, Icons, Behavior, Merchant, Bank, Categories and About, with clearer labels.
+- **Tooltip on every option** — hover any checkbox, slider or button to see a short explanation.
+
+**🇪🇸 Español**
+- **Configuración en 7 secciones** — Apariencia, Iconos, Comportamiento, Vendedor, Banco, Categorías y Acerca de, con etiquetas más claras.
+- **Tooltip en cada opción** — pasa el ratón sobre cualquier casilla, deslizador o botón para ver una breve explicación.
+
 ## 0.23.0
-- **Transferir pela busca**: no vendedor vende (com confirmação) e no banco deposita tudo que bate com a busca atual, num clique.
-- **Categoria "Abríveis"** com botão **"Abrir tudo"**: agrupa recipientes de loot e abre todos de uma vez (pulando os trancados).
+**🇧🇷 Português**
+- **Transferir pela busca** — no vendedor vende (com confirmação) e no banco deposita tudo que bate com a busca atual, num clique.
+- **Categoria "Abríveis"** — botão "Abrir tudo" agrupa recipientes de loot e abre todos de uma vez (pula os trancados).
+
+**🇬🇧 English**
+- **Transfer by search** — at the merchant sells (with confirmation) and at the bank deposits everything matching the current search, in one click.
+- **"Openable" category** — "Open all" button groups loot containers and opens them all at once (skips locked ones).
+
+**🇪🇸 Español**
+- **Transferir por búsqueda** — en el vendedor vende (con confirmación) y en el banco deposita todo lo que coincide con la búsqueda actual, en un clic.
+- **Categoría "Abribles"** — el botón "Abrir todo" agrupa contenedores de botín y los abre todos a la vez (omite los bloqueados).
 
 ## 0.22.0
-- **Abas em ícone** (Mochila/Banco/Brigada viraram ícones com o nome no tooltip), **botão de ajuda "?"** com um painel explicando categorias, busca, favoritos, banco, organizar e controle, e **botão de limpar busca**.
+**🇧🇷 Português**
+- **Abas em ícone** — Mochila/Banco/Brigada viraram ícones com o nome no tooltip.
+- **Botão de ajuda "?"** — painel explicando categorias, busca, favoritos, banco, organizar e controle.
+- **Botão de limpar busca** — apaga o termo atual num clique.
+
+**🇬🇧 English**
+- **Icon tabs** — Bags/Bank/Warband became icons with the name in the tooltip.
+- **Help button "?"** — panel explaining categories, search, favorites, bank, organize and controller.
+- **Clear search button** — wipes the current term in one click.
+
+**🇪🇸 Español**
+- **Pestañas en icono** — Mochila/Banco/Banda de guerra ahora son iconos con el nombre en el tooltip.
+- **Botón de ayuda "?"** — panel que explica categorías, búsqueda, favoritos, banco, organizar y mando.
+- **Botón de limpiar búsqueda** — borra el término actual en un clic.
 
 ## 0.21.0
-- **Suporte a idiomas (PT-BR / Inglês / Espanhol).** A interface agora segue automaticamente o idioma do cliente do WoW — toda a config, tooltips, menus, abas, painel de Prontidão e mensagens aparecem traduzidos. Suas categorias, favoritos e atribuições continuam intactos (só o rótulo das categorias pré-prontas muda de idioma).
-- **Navegação por controle (ConsolePort), parte 3 — o fix de verdade.** A v0.20.1 ainda pulava seções inteiras ao descer. A causa real: o cursor do ConsolePort só navega entre itens que dividem o mesmo "pai" interno, e o KrononBags agrupava os itens por bolsa (um pai por bolsa) — então ao descer ele saltava pro próximo item da mesma bolsa, lá longe. Agora todos os itens ficam sob um **pai único** (igual às Bolsas Combinadas nativas) e a bolsa é guardada em cada botão — a navegação por controle vira uma grade contígua de verdade, sem pular, e o clique de usar/equipar/vender segue idêntico.
+**🇧🇷 Português**
+- **Suporte a idiomas (PT-BR / Inglês / Espanhol)** — a interface segue automaticamente o idioma do cliente do WoW; config, tooltips, menus, abas, painel de Prontidão e mensagens traduzidos. Suas categorias, favoritos e atribuições continuam intactos.
+- **Corrigido: navegação por controle (ConsolePort), parte 3** — todos os itens agora ficam sob um pai único (igual às Bolsas Combinadas nativas), virando uma grade contígua de verdade que não pula seções ao descer.
+
+**🇬🇧 English**
+- **Language support (PT-BR / English / Spanish)** — the UI automatically follows the WoW client language; settings, tooltips, menus, tabs, Readiness panel and messages translated. Your categories, favorites and assignments stay intact.
+- **Fixed: controller navigation (ConsolePort), part 3** — all items now sit under a single parent (like the native Combined Bags), forming a truly contiguous grid that no longer skips sections when moving down.
+
+**🇪🇸 Español**
+- **Soporte de idiomas (PT-BR / Inglés / Español)** — la interfaz sigue automáticamente el idioma del cliente de WoW; configuración, tooltips, menús, pestañas, panel de Preparación y mensajes traducidos. Tus categorías, favoritos y asignaciones quedan intactos.
+- **Corregido: navegación con mando (ConsolePort), parte 3** — todos los objetos ahora están bajo un único padre (como las Bolsas Combinadas nativas), formando una cuadrícula realmente contigua que ya no salta secciones al bajar.
 
 ## 0.20.1
-- **Navegação por controle (ConsolePort), parte 2.** A v0.20.0 ainda pulava seção ao descer e não ia pra célula vizinha ao lado. O motivo: os **cabeçalhos de categoria são de largura total**, e o cursor geométrico do ConsolePort os enxergava como candidato em quase toda direção. Agora os cabeçalhos (e os botões "Equipar" e "Distribuir") ficam **fora da navegação por controle** — o cursor passa a enxergar só a grade de itens, que vira uma grade uniforme de verdade (esquerda/direita/cima/baixo previsíveis). No mouse, recolher/Equipar/Distribuir continuam funcionando normalmente.
+**🇧🇷 Português**
+- **Corrigido: navegação por controle (ConsolePort), parte 2** — cabeçalhos de categoria e os botões "Equipar"/"Distribuir" saíram da navegação por controle; o cursor passa a enxergar só a grade de itens (esquerda/direita/cima/baixo previsíveis). No mouse tudo segue igual.
+
+**🇬🇧 English**
+- **Fixed: controller navigation (ConsolePort), part 2** — category headers and the "Equip"/"Distribute" buttons were pulled out of controller navigation; the cursor now sees only the item grid (predictable left/right/up/down). Mouse behavior unchanged.
+
+**🇪🇸 Español**
+- **Corregido: navegación con mando (ConsolePort), parte 2** — los encabezados de categoría y los botones "Equipar"/"Distribuir" salieron de la navegación con mando; el cursor ahora solo ve la cuadrícula de objetos (izquierda/derecha/arriba/abajo predecibles). Con ratón todo sigue igual.
 
 ## 0.20.0
-- **Itens do Gerenciador de Equipamento viram favoritos automáticos.** Toda peça salva num Conjunto de Equipamento agora aparece com a estrela (em tom azulado, pra diferenciar do favorito manual) e fica **protegida de venda automaticamente** — mesmo com a opção "Proteger itens" desligada. Sincroniza sozinho: tirou do conjunto, deixa de ser favorito. Não dá pra desfavoritar pela estrela (é automático); tire o item do conjunto pra liberar.
-- **Auto-vender lixo e auto-reparar.** Ao abrir um vendedor, o KrononBags pode vender todos os itens cinza e reparar tudo automaticamente — tentando os **fundos da guilda** primeiro (se você tiver permissão e houver saldo) e caindo pro seu ouro só se precisar. Avisa no chat quanto gastou e de onde. Liga/desliga cada um em `/kb config` (ambos ligados por padrão).
-- **Navegação por controle (ConsolePort) consertada.** Antes, mover entre os itens com o direcional pulava seções e não seguia a ordem. O motivo: cada item tinha a estrela de favoritar sobreposta no canto, e o ConsolePort a tratava como um item navegável concorrente — centenas de "nós" extras grudados nos itens bagunçavam o cálculo de vizinho mais próximo. Agora a estrela e a barra de rolagem ficam fora da navegação por controle (não muda nada no mouse), a grade de itens fica limpa e o cursor anda na ordem certa, seção por seção, com rolagem automática do conteúdo. A janela também passa a se registrar direto no cursor do ConsolePort.
+**🇧🇷 Português**
+- **Itens do Gerenciador de Equipamento viram favoritos automáticos** — toda peça de um Conjunto de Equipamento ganha estrela azulada e fica protegida de venda; sincroniza sozinho (tirou do conjunto, deixa de ser favorito).
+- **Auto-vender lixo e auto-reparar** — ao abrir o vendedor, vende todos os cinzas e repara tudo, tentando os fundos da guilda primeiro e caindo pro seu ouro só se precisar. Liga/desliga em `/kb config`.
+- **Corrigido: navegação por controle (ConsolePort)** — estrela de favoritar e barra de rolagem saíram da navegação; a grade fica limpa e o cursor anda na ordem certa, seção por seção, com rolagem automática.
+
+**🇬🇧 English**
+- **Equipment Manager items become automatic favorites** — every piece in an Equipment Set gets a bluish star and is sell-protected; it syncs on its own (remove it from the set and it stops being a favorite).
+- **Auto-sell junk and auto-repair** — when you open a merchant, it sells all greys and repairs everything, trying guild funds first and falling back to your gold only if needed. Toggle in `/kb config`.
+- **Fixed: controller navigation (ConsolePort)** — the favorite star and scrollbar were pulled out of navigation; the grid stays clean and the cursor moves in the right order, section by section, with automatic scrolling.
+
+**🇪🇸 Español**
+- **Los objetos del Gestor de Equipo se vuelven favoritos automáticos** — cada pieza de un Equipo recibe una estrella azulada y queda protegida de venta; se sincroniza solo (quítala del equipo y deja de ser favorito).
+- **Auto-vender basura y auto-reparar** — al abrir un vendedor, vende todos los grises y repara todo, probando primero los fondos del hermandad y recurriendo a tu oro solo si hace falta. Activa/desactiva en `/kb config`.
+- **Corregido: navegación con mando (ConsolePort)** — la estrella de favorito y la barra de desplazamiento salieron de la navegación; la cuadrícula queda limpia y el cursor avanza en el orden correcto, sección por sección, con desplazamiento automático.
 
 ## 0.19.0
-- **Banco consultável de qualquer lugar.** Agora dá pra ver o que você tem guardado no **Banco** e no **Banco da Brigada** sem estar no banco — o KrononBags salva um retrato do conteúdo toda vez que você abre o banco. As abas Banco/Brigada ficam disponíveis na janela mesmo longe do banco, mostrando o último estado salvo (com a hora da captura). É **só consulta**: pra mover/sacar é preciso ir até o banco (o jogo não deixa de longe). Comando novo: `/kb banco`.
+**🇧🇷 Português**
+- **Banco consultável de qualquer lugar** — veja o conteúdo do Banco e do Banco da Brigada sem estar no banco; o KrononBags salva um retrato a cada visita (com a hora da captura). É só consulta: pra mover é preciso ir até o banco. Comando: `/kb banco`.
+
+**🇬🇧 English**
+- **Bank viewable from anywhere** — see your Bank and Warband Bank contents without being at the bank; KrononBags saves a snapshot each visit (with the capture time). View only: to move items you must go to the bank. Command: `/kb banco`.
+
+**🇪🇸 Español**
+- **Banco consultable desde cualquier lugar** — mira el contenido del Banco y del Banco de la banda de guerra sin estar en el banco; KrononBags guarda una captura en cada visita (con la hora). Solo consulta: para mover hay que ir al banco. Comando: `/kb banco`.
 
 ## 0.18.0
-- **Borda colorida por raridade** no ícone: incomum/raro/épico/lendário ganham borda na cor da raridade, lixo fica com borda cinza (comum/branco fica sem borda, pra não poluir). Leitura visual bem mais rápida. Liga/desliga em `/kb config`.
-- **Realçar busca.** Ao buscar, em vez de esconder o que não bate, o KrononBags **escurece** os itens que não batem e mantém os que batem acesos — você não perde a noção de onde as coisas estão. Pode voltar pro modo "esconder" na config.
+**🇧🇷 Português**
+- **Borda colorida por raridade** no ícone — incomum/raro/épico/lendário ganham borda na cor da raridade, lixo fica cinza, comum sem borda. Liga/desliga em `/kb config`.
+- **Realçar busca** — em vez de esconder, escurece os itens que não batem e mantém os que batem acesos. Modo "esconder" continua disponível na config.
+
+**🇬🇧 English**
+- **Rarity-colored border** on the icon — uncommon/rare/epic/legendary get a border in the rarity color, junk goes grey, common has none. Toggle in `/kb config`.
+- **Search highlight** — instead of hiding, it dims items that don't match and keeps matches lit. The "hide" mode is still available in settings.
+
+**🇪🇸 Español**
+- **Borde de color por rareza** en el icono — poco común/raro/épico/legendario reciben borde del color de la rareza, la basura queda gris, lo común sin borde. Activa/desactiva en `/kb config`.
+- **Resaltar búsqueda** — en lugar de ocultar, oscurece los objetos que no coinciden y mantiene encendidos los que sí. El modo "ocultar" sigue disponible en la configuración.
 
 ## 0.17.0
-- **"Recém-obtidos" agora segura os itens.** Antes o item saía da seção assim que você passava o mouse. Agora ele **fica** em Recém-obtidos (o brilho some quando você olha, mas o item permanece) até você clicar no botão **Distribuir**, no cabeçalho da seção — aí cada item vai pra sua categoria certa de uma vez. Dá pra arrastar um item pro cabeçalho "Recém-obtidos" pra recolocá-lo lá. A lista de recém-obtidos é lembrada entre sessões.
+**🇧🇷 Português**
+- **"Recém-obtidos" agora segura os itens** — o item fica na seção (o brilho some ao olhar) até você clicar em "Distribuir", no cabeçalho; aí cada item vai pra sua categoria de uma vez. Dá pra arrastar um item de volta pro cabeçalho. A lista é lembrada entre sessões.
+
+**🇬🇧 English**
+- **"Recently obtained" now holds items** — the item stays in the section (the glow fades when you look) until you click "Distribute" in the header; then each item goes to its category at once. You can drag an item back onto the header. The list is remembered between sessions.
+
+**🇪🇸 Español**
+- **"Recién obtenidos" ahora retiene los objetos** — el objeto permanece en la sección (el brillo desaparece al mirar) hasta que pulsas "Distribuir" en el encabezado; entonces cada objeto va a su categoría de golpe. Puedes arrastrar un objeto de vuelta al encabezado. La lista se recuerda entre sesiones.
 
 ## 0.16.0
-- **Categorias dinâmicas por regra.** Numa categoria sua, clique em **Regra** (na config) e defina uma busca (ex: `ilvl>200 & boe`, `tipo:armadura`, `q:epico`) — a categoria se preenche e atualiza sozinha. Mesma sintaxe da busca.
-- **Ordenação configurável** dentro da categoria: Item level, Qualidade, Nome, Tipo ou Recentes (config → "Ordenar por").
-- **Empilhar itens iguais** (opção na config): junta stacks do mesmo item num ícone só com a contagem somada. O tooltip avisa que a ação afeta 1 stack.
+**🇧🇷 Português**
+- **Categorias dinâmicas por regra** — clique em "Regra" (na config) e defina uma busca (ex: `ilvl>200 & boe`, `tipo:armadura`); a categoria se preenche e atualiza sozinha. Mesma sintaxe da busca.
+- **Ordenação configurável** — Item level, Qualidade, Nome, Tipo ou Recentes (config → "Ordenar por").
+- **Empilhar itens iguais** — junta stacks do mesmo item num ícone só com a contagem somada.
+
+**🇬🇧 English**
+- **Rule-based dynamic categories** — click "Rule" (in settings) and set a search (e.g. `ilvl>200 & boe`, `tipo:armadura`); the category fills and updates on its own. Same search syntax.
+- **Configurable sorting** — Item level, Quality, Name, Type or Recent (settings → "Sort by").
+- **Stack identical items** — merges stacks of the same item into one icon with the combined count.
+
+**🇪🇸 Español**
+- **Categorías dinámicas por regla** — pulsa "Regla" (en la configuración) y define una búsqueda (ej: `ilvl>200 & boe`, `tipo:armadura`); la categoría se llena y se actualiza sola. Misma sintaxis de búsqueda.
+- **Orden configurable** — Item level, Calidad, Nombre, Tipo o Recientes (configuración → "Ordenar por").
+- **Apilar objetos iguales** — junta los montones del mismo objeto en un solo icono con el recuento sumado.
 
 ## 0.15.0
-- **Arrastar item pra categoria.** Pegue um item e solte no cabeçalho de uma categoria pra jogá-lo ali (categoria sua ou pré-pronta). Soltar em **Favoritos** favorita; soltar em **Diversos** tira da categoria (volta pro automático). O cabeçalho destaca ao passar por cima.
+**🇧🇷 Português**
+- **Arrastar item pra categoria** — solte um item no cabeçalho de uma categoria pra movê-lo ali. Soltar em "Favoritos" favorita; soltar em "Diversos" volta pro automático. O cabeçalho destaca ao passar por cima.
+
+**🇬🇧 English**
+- **Drag item onto a category** — drop an item on a category header to move it there. Dropping on "Favorites" favorites it; dropping on "Misc" returns it to automatic. The header highlights on hover.
+
+**🇪🇸 Español**
+- **Arrastrar objeto a una categoría** — suelta un objeto en el encabezado de una categoría para moverlo allí. Soltar en "Favoritos" lo marca como favorito; soltar en "Varios" lo devuelve al automático. El encabezado se resalta al pasar por encima.
 
 ## 0.14.0
-- **Substitui a bag do jogo.** Agora a tecla B, clicar nos ícones das bolsas e qualquer atalho de bag abrem o KrononBags — as bolsas padrão não aparecem mais. Funciona pra qualquer forma de abrir (não só o B). ESC fecha a janela. Dá pra desligar em `/kb config` → "Substituir a bag do jogo".
+**🇧🇷 Português**
+- **Substitui a bag do jogo** — a tecla B, os ícones das bolsas e qualquer atalho de bag abrem o KrononBags; as bolsas padrão somem. ESC fecha. Desligue em `/kb config` → "Substituir a bag do jogo".
+
+**🇬🇧 English**
+- **Replaces the game's bags** — the B key, the bag icons and any bag shortcut open KrononBags; the default bags disappear. ESC closes. Disable in `/kb config` → "Replace the game's bags".
+
+**🇪🇸 Español**
+- **Reemplaza las bolsas del juego** — la tecla B, los iconos de las bolsas y cualquier atajo de bolsa abren KrononBags; las bolsas estándar desaparecen. ESC cierra. Desactiva en `/kb config` → "Reemplazar las bolsas del juego".
 
 ## 0.13.0
-- **Altura máxima + barra de rolagem.** A janela não cresce mais sem limite: o conteúdo (categorias, itens e a seção "Vazio") agora rola dentro de uma área com altura limitada. Essencial pro banco gigante (em abas × 98 slots) e pro inventário cheio, que antes estouravam a tela. Rola com a roda do mouse ou pela barra à direita.
-- A **alça do canto inferior direito** agora controla também a **altura** (além das colunas): arraste pra definir quanto aparece antes de rolar.
+**🇧🇷 Português**
+- **Altura máxima + barra de rolagem** — o conteúdo rola dentro de uma área com altura limitada (essencial pro banco gigante e o inventário cheio). Rola com a roda ou pela barra à direita.
+- **Alça controla a altura** — a alça do canto inferior direito agora ajusta a altura (além das colunas): arraste pra definir quanto aparece antes de rolar.
+
+**🇬🇧 English**
+- **Max height + scrollbar** — content scrolls inside a height-limited area (essential for the huge bank and a full inventory). Scroll with the wheel or the bar on the right.
+- **Handle controls height** — the bottom-right handle now adjusts height (besides columns): drag to set how much shows before scrolling.
+
+**🇪🇸 Español**
+- **Altura máxima + barra de desplazamiento** — el contenido se desplaza dentro de un área de altura limitada (esencial para el banco gigante y el inventario lleno). Desplázate con la rueda o con la barra de la derecha.
+- **El tirador controla la altura** — el tirador de la esquina inferior derecha ahora ajusta la altura (además de las columnas): arrastra para definir cuánto se muestra antes de desplazar.
 
 ## 0.12.2
-- **Alça de redimensionar** no canto inferior direito: arraste pra mudar quantas colunas o inventário mostra (6 a 28) — ele reflui os slots ao soltar. O slider "Colunas" agora acompanha a mesma faixa.
-- Correção da **seta de upgrade do Pawn** (usa a seta nativa do botão quando existe; antes o ícone podia ficar invisível).
+**🇧🇷 Português**
+- **Alça de redimensionar** — no canto inferior direito, arraste pra mudar quantas colunas o inventário mostra (6 a 28); reflui ao soltar. O slider "Colunas" acompanha a mesma faixa.
+- **Corrigido: seta de upgrade do Pawn** — usa a seta nativa do botão quando existe (antes o ícone podia ficar invisível).
+
+**🇬🇧 English**
+- **Resize handle** — at the bottom-right corner, drag to change how many columns the inventory shows (6 to 28); reflows on release. The "Columns" slider follows the same range.
+- **Fixed: Pawn upgrade arrow** — uses the button's native arrow when present (before, the icon could be invisible).
+
+**🇪🇸 Español**
+- **Tirador de redimensión** — en la esquina inferior derecha, arrastra para cambiar cuántas columnas muestra el inventario (6 a 28); se reorganiza al soltar. El deslizador "Columnas" sigue el mismo rango.
+- **Corregido: flecha de mejora de Pawn** — usa la flecha nativa del botón cuando existe (antes el icono podía quedar invisible).
 
 ## 0.12.0
-- **Export/Import de categorias** (Layout Oficial da Guilda): na config, botões **Exportar** (gera um código pra copiar) e **Importar** (cola um código e mescla com as suas categorias). Base pra padronizar o setup da guilda.
-- **Prontidão de Raide/M+** (`/kb pronto`): painel que mostra, num relance, durabilidade do equipado, quantos frascos/poções/comida/pedra de vida/runas você tem na mochila e o nível da pedra-chave — verde = ok, vermelho = falta.
-- **Contagem de itens nos alts** no tooltip: passe o mouse num item e veja quanto seus outros personagens têm dele (e quanto tem no Banco da Brigada). Liga/desliga na config. Os dados são capturados ao deslogar e ao usar o banco.
+**🇧🇷 Português**
+- **Export/Import de categorias** — botões "Exportar" (gera um código) e "Importar" (cola e mescla com as suas). Base pra padronizar o setup da guilda.
+- **Prontidão de Raide/M+** (`/kb pronto`) — painel que mostra durabilidade, frascos/poções/comida/pedra de vida/runas na mochila e o nível da pedra-chave; verde = ok, vermelho = falta.
+- **Contagem de itens nos alts** no tooltip — veja quanto seus outros personagens têm (e o Banco da Brigada). Liga/desliga na config; dados capturados ao deslogar e ao usar o banco.
+
+**🇬🇧 English**
+- **Category Export/Import** — "Export" (generates a code) and "Import" (paste and merge with yours) buttons. A base for standardizing the guild setup.
+- **Raid/M+ Readiness** (`/kb pronto`) — panel showing durability, flasks/potions/food/healthstone/runes in your bags and the keystone level; green = ok, red = missing.
+- **Alt item count** in the tooltip — see how much your other characters have (and the Warband Bank). Toggle in settings; data captured on logout and when using the bank.
+
+**🇪🇸 Español**
+- **Exportar/Importar categorías** — botones "Exportar" (genera un código) e "Importar" (pega y fusiona con las tuyas). Base para estandarizar la configuración del hermandad.
+- **Preparación de Banda/M+** (`/kb pronto`) — panel que muestra durabilidad, frascos/pociones/comida/piedra de salud/runas en la mochila y el nivel de la piedra angular; verde = ok, rojo = falta.
+- **Recuento de objetos en los alts** en el tooltip — mira cuánto tienen tus otros personajes (y el Banco de la banda de guerra). Activa/desactiva en la configuración; datos capturados al cerrar sesión y al usar el banco.
 
 ## 0.11.0
-- **Seção "Recém-obtidos"** no topo: itens recém-pegos aparecem juntos numa categoria própria e migram pras categorias normais quando você passa o mouse (deixam de ser "novos").
-- **Ações em massa por categoria** (clique-direito no cabeçalho da seção): recolher/expandir todas, favoritar/desfavoritar a categoria inteira e, no banco, "Guardar tudo no banco".
+**🇧🇷 Português**
+- **Seção "Recém-obtidos"** no topo — itens recém-pegos aparecem juntos e migram pras categorias normais quando você passa o mouse.
+- **Ações em massa por categoria** (clique-direito no cabeçalho) — recolher/expandir todas, favoritar/desfavoritar a categoria inteira e, no banco, "Guardar tudo no banco".
+
+**🇬🇧 English**
+- **"Recently obtained" section** at the top — newly picked items show together and migrate to normal categories when you hover them.
+- **Bulk actions per category** (right-click the header) — collapse/expand all, favorite/unfavorite the whole category and, at the bank, "Deposit everything".
+
+**🇪🇸 Español**
+- **Sección "Recién obtenidos"** arriba — los objetos recién recogidos aparecen juntos y migran a las categorías normales cuando pasas el ratón.
+- **Acciones masivas por categoría** (clic derecho en el encabezado) — contraer/expandir todas, marcar/desmarcar la categoría entera y, en el banco, "Guardar todo en el banco".
 
 ## 0.10.0
-- **Vender lixo** num clique: botão aparece no vendedor (modo Mochila) e usa a venda nativa do jogo (`C_MerchantFrame.SellAllJunkItems`). Atenção: vende todos os cinzas, inclusive cinza favoritado.
-- **Busca avançada.** Além do nome, agora dá pra buscar por: `ilvl>200`, `ilvl:200-300`, `q:epico`, `tipo:armadura`, `id:12345`, e palavras `boe`, `wb`, `vinculado`, `missao`, `lixo`, `equip`, `consumivel`, `novo`, `favorito`. Operadores `&` (e), `|` (ou), `!` (não) e parênteses. Sem operador entre termos = E. Passe o mouse na caixa de busca pra ver a sintaxe.
-- **Seta de upgrade do Pawn** no ícone (se você tiver o addon Pawn instalado).
-- **Estrela de qualidade de reagente** (T1/T2/T3) no ícone dos materiais de profissão.
+**🇧🇷 Português**
+- **Vender lixo num clique** — botão no vendedor (modo Mochila) usa a venda nativa do jogo. Atenção: vende todos os cinzas, inclusive cinza favoritado.
+- **Busca avançada** — busque por `ilvl>200`, `ilvl:200-300`, `q:epico`, `tipo:armadura`, `id:12345` e palavras (`boe`, `wb`, `vinculado`, `missao`, `lixo`, `equip`, `consumivel`, `novo`, `favorito`). Operadores `&`, `|`, `!` e parênteses.
+- **Seta de upgrade do Pawn** no ícone (se tiver o addon Pawn).
+- **Estrela de qualidade de reagente** (T1/T2/T3) nos materiais de profissão.
 - **Posição da janela por personagem** — lembra onde você deixou a bag em cada char.
-- Novos comandos: `/kb grade` (alterna a visão em grade) e `/kb organizar` (organiza automático).
+- **Novos comandos** — `/kb grade` (visão em grade) e `/kb organizar` (organiza automático).
+
+**🇬🇧 English**
+- **Sell junk in one click** — button at the merchant (Bags mode) uses the game's native sell. Note: sells all greys, including favorited greys.
+- **Advanced search** — search by `ilvl>200`, `ilvl:200-300`, `q:epico`, `tipo:armadura`, `id:12345` and keywords (`boe`, `wb`, `vinculado`, `missao`, `lixo`, `equip`, `consumivel`, `novo`, `favorito`). Operators `&`, `|`, `!` and parentheses.
+- **Pawn upgrade arrow** on the icon (if you have the Pawn addon).
+- **Reagent quality star** (T1/T2/T3) on profession materials.
+- **Per-character window position** — remembers where you left the bag on each char.
+- **New commands** — `/kb grade` (grid view) and `/kb organizar` (auto organize).
+
+**🇪🇸 Español**
+- **Vender basura en un clic** — botón en el vendedor (modo Mochila) usa la venta nativa del juego. Atención: vende todos los grises, incluso los grises favoritos.
+- **Búsqueda avanzada** — busca por `ilvl>200`, `ilvl:200-300`, `q:epico`, `tipo:armadura`, `id:12345` y palabras (`boe`, `wb`, `vinculado`, `missao`, `lixo`, `equip`, `consumivel`, `novo`, `favorito`). Operadores `&`, `|`, `!` y paréntesis.
+- **Flecha de mejora de Pawn** en el icono (si tienes el addon Pawn).
+- **Estrella de calidad de reactivo** (T1/T2/T3) en los materiales de profesión.
+- **Posición de la ventana por personaje** — recuerda dónde dejaste la bolsa en cada personaje.
+- **Nuevos comandos** — `/kb grade` (vista en cuadrícula) y `/kb organizar` (organiza automático).
 
 ## 0.9.0
-- **Banco e Banco da Brigada (warband).** A janela agora substitui o banco nativo: ao abrir o banco aparecem as abas **Mochila / Banco / Brigada**, cada uma mostrando os itens com as mesmas categorias, selos e ações (sacar/guardar pelo clique). Botão **Depositar itens** guarda automaticamente o que está marcado pra depósito.
-- **Carga assíncrona de itens.** Item level, vínculo (BoE/Warband) e qualidade agora aparecem corretos mesmo logo após o login ou troca de zona, quando o cliente ainda não cacheou os itens (importante pro banco, que tem muitos itens). Usa `ContinuableContainer`.
-- Nova opção na config: **Substituir banco / Brigada** (ligada por padrão). Desligue se preferir o banco nativo da Blizzard.
+**🇧🇷 Português**
+- **Banco e Banco da Brigada (Warband)** — a janela substitui o banco nativo: ao abrir aparecem as abas Mochila/Banco/Brigada, com as mesmas categorias, selos e ações. Botão "Depositar itens" guarda o que está marcado.
+- **Carga assíncrona de itens** — item level, vínculo (BoE/Warband) e qualidade aparecem corretos mesmo logo após o login ou troca de zona (usa `ContinuableContainer`).
+- **Nova opção: Substituir banco / Brigada** (ligada por padrão) — desligue se preferir o banco nativo da Blizzard.
+
+**🇬🇧 English**
+- **Bank and Warband Bank** — the window replaces the native bank: on opening it shows the Bags/Bank/Warband tabs, with the same categories, marks and actions. The "Deposit items" button stores what's flagged.
+- **Asynchronous item loading** — item level, binding (BoE/Warband) and quality show correctly even right after login or a zone change (uses `ContinuableContainer`).
+- **New option: Replace bank / Warband** (on by default) — turn it off if you prefer Blizzard's native bank.
+
+**🇪🇸 Español**
+- **Banco y Banco de la banda de guerra (Warband)** — la ventana reemplaza el banco nativo: al abrir muestra las pestañas Mochila/Banco/Banda de guerra, con las mismas categorías, marcas y acciones. El botón "Depositar objetos" guarda lo marcado.
+- **Carga asíncrona de objetos** — item level, vínculo (BoE/Warband) y calidad aparecen correctos incluso justo tras iniciar sesión o cambiar de zona (usa `ContinuableContainer`).
+- **Nueva opción: Reemplazar banco / Banda de guerra** (activada por defecto) — desactívala si prefieres el banco nativo de Blizzard.
 
 ## 0.8.5
-- Logo da Kronon no cabeçalho e na config, créditos e Discord da guilda.
-- Dois visuais selecionáveis na config: Escuro (atual) e moldura estilo Blizzard.
-- Pacote rápido no ícone: item level (cor por raridade ou branco), selos BoE/Warband, item novo, cooldown, borda de missão e valor do lixo no rodapé.
-- Botões de item nativos: usar / equipar / abrir / vender funcionam com segurança (sem taint).
-- Categorias ordenáveis, seção de Reagentes, preset de Pedra-chave, seções recolhíveis e organizar automático.
+**🇧🇷 Português**
+- **Identidade Kronon** — logo no cabeçalho e na config, créditos e Discord da guilda.
+- **Dois visuais** — Escuro (atual) e moldura estilo Blizzard, selecionáveis na config.
+- **Pacote rápido no ícone** — item level (cor por raridade ou branco), selos BoE/Warband, item novo, cooldown, borda de missão e valor do lixo no rodapé.
+- **Botões de item nativos** — usar/equipar/abrir/vender funcionam com segurança (sem taint).
+- **Categorias** — ordenáveis, seção de Reagentes, preset de Pedra-chave, seções recolhíveis e organizar automático.
+
+**🇬🇧 English**
+- **Kronon identity** — logo in the header and settings, credits and guild Discord.
+- **Two looks** — Dark (current) and a Blizzard-style frame, selectable in settings.
+- **Quick info on the icon** — item level (rarity color or white), BoE/Warband marks, new item, cooldown, quest border and junk value in the footer.
+- **Native item buttons** — use/equip/open/sell work safely (no taint).
+- **Categories** — sortable, Reagents section, Keystone preset, collapsible sections and auto organize.
+
+**🇪🇸 Español**
+- **Identidad Kronon** — logo en el encabezado y la configuración, créditos y Discord del hermandad.
+- **Dos estilos** — Oscuro (actual) y marco estilo Blizzard, seleccionables en la configuración.
+- **Información rápida en el icono** — item level (color por rareza o blanco), marcas BoE/Warband, objeto nuevo, reutilización, borde de misión y valor de la basura en el pie.
+- **Botones de objeto nativos** — usar/equipar/abrir/vender funcionan con seguridad (sin taint).
+- **Categorías** — ordenables, sección de Reactivos, preajuste de Piedra angular, secciones plegables y organizar automático.
