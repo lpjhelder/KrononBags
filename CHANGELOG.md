@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.25.0
+**🇧🇷 Português**
+- **Barra de modos de visualização** — botões de Categorias e Grade fixos à esquerda da janela, com selo no modo ativo.
+- **Tutorial guiado no "?"** — o botão de ajuda agora abre um tour passo-a-passo que destaca cada controle (pula o que não está visível).
+
+**🇬🇧 English**
+- **View mode bar** — Categories and Grid buttons docked to the left of the window, with a marker on the active mode.
+- **Guided tutorial on "?"** — the help button now opens a step-by-step tour that highlights each control (skips whatever isn't visible).
+
+**🇪🇸 Español**
+- **Barra de modos de vista** — botones de Categorías y Cuadrícula fijos a la izquierda de la ventana, con un sello en el modo activo.
+- **Tutorial guiado en "?"** — el botón de ayuda ahora abre un tour paso a paso que resalta cada control (omite lo que no está visible).
+
 ## 0.24.0
 **🇧🇷 Português**
 - **Configuração em 7 seções** — Aparência, Ícones, Comportamento, Vendedor, Banco, Categorias e Sobre, com rótulos mais claros.

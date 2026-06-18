@@ -10,7 +10,7 @@ local DB
 local UI, CFG
 local goldText, currencyText, freeBox, freeNum, reagentBox, reagentNum, emptyHeader
 local Refresh, RenderGrid, OnEnter, AcquireButton, Categorize, GetIlvl, Toggle, CreateUI, OpenItemMenu, ResolveCat
-local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney, UpdateTabs, SearchMatcher, RefreshConfigCats
+local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney, UpdateTabs, UpdateModeBar, SearchMatcher, RefreshConfigCats
 
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- mochila + 4 bolsas + bolsa de reagentes
 local COLS = 14
@@ -167,6 +167,23 @@ local EN = {
   HELP_SORT = "Sort: the broom button auto-organizes your bags. Auto-sell junk and auto-repair run at vendors (toggle in options).",
   HELP_CONTROLLER = "Controller: full ConsolePort support — move across the item grid with the D-pad.",
   HELP_COMMANDS = "Commands: /kb, /kb config, /kb grade, /kb organizar, /kb pronto, /kb banco.",
+  -- v0.25.0: barra de modos de visualização + tour guiado
+  MODE_CATEGORIES = "Categories", MODE_GRID = "Grid",
+  TUT_NEXT = "Next", TUT_PREV = "Back", TUT_CLOSE = "Close",
+  TUT_SEARCH_TITLE = "Search",
+  TUT_SEARCH_BODY = "Search by name, ilvl>200, q:epic, type:armor — with & | ! and ( ).",
+  TUT_MODES_TITLE = "View modes",
+  TUT_MODES_BODY = "Switch between Categories and Grid view here.",
+  TUT_SORT_TITLE = "Organize",
+  TUT_SORT_BODY = "Auto-organizes your bags in one click.",
+  TUT_TABS_TITLE = "Tabs",
+  TUT_TABS_BODY = "Bags, Bank and Warband — the bank tabs appear at the bank.",
+  TUT_HELP_TITLE = "Help",
+  TUT_HELP_BODY = "Reopen this tour anytime from this button.",
+  TUT_CATEGORIES_TITLE = "Categories",
+  TUT_CATEGORIES_BODY = "Items auto-sort into categories. Drag an item onto a category header to assign it; right-click the header for actions.",
+  TUT_FOOTER_TITLE = "Footer",
+  TUT_FOOTER_BODY = "Gold, currencies and free slots show here.",
 }
 
 local PT = {
@@ -285,6 +302,22 @@ local PT = {
   HELP_SORT = "Organizar: o botão de vassoura organiza as bolsas. Auto-vender lixo e auto-reparar rodam no vendedor (ligar/desligar nas opções).",
   HELP_CONTROLLER = "Controle: suporte completo ao ConsolePort — ande pela grade de itens com o direcional.",
   HELP_COMMANDS = "Comandos: /kb, /kb config, /kb grade, /kb organizar, /kb pronto, /kb banco.",
+  MODE_CATEGORIES = "Categorias", MODE_GRID = "Grade",
+  TUT_NEXT = "Próximo", TUT_PREV = "Anterior", TUT_CLOSE = "Fechar",
+  TUT_SEARCH_TITLE = "Busca",
+  TUT_SEARCH_BODY = "Busque por nome, ilvl>200, q:epico, tipo:armadura — com & | ! e ( ).",
+  TUT_MODES_TITLE = "Modos de visão",
+  TUT_MODES_BODY = "Alterne entre ver por Categorias ou em Grade aqui.",
+  TUT_SORT_TITLE = "Organizar",
+  TUT_SORT_BODY = "Organiza suas bolsas automaticamente num clique.",
+  TUT_TABS_TITLE = "Abas",
+  TUT_TABS_BODY = "Mochila, Banco e Brigada — as abas do banco aparecem no banco.",
+  TUT_HELP_TITLE = "Ajuda",
+  TUT_HELP_BODY = "Reabra este tour quando quiser por este botão.",
+  TUT_CATEGORIES_TITLE = "Categorias",
+  TUT_CATEGORIES_BODY = "Os itens se organizam em categorias. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo; clique-direito no cabeçalho pra ações.",
+  TUT_FOOTER_TITLE = "Rodapé",
+  TUT_FOOTER_BODY = "Ouro, currencies e slots livres aparecem aqui.",
 }
 
 local ES = {
@@ -403,6 +436,22 @@ local ES = {
   HELP_SORT = "Organizar: el botón de escoba organiza las bolsas. Vender basura y reparar automáticos funcionan en el vendedor (en opciones).",
   HELP_CONTROLLER = "Mando: soporte completo de ConsolePort — muévete por la cuadrícula de objetos con la cruceta.",
   HELP_COMMANDS = "Comandos: /kb, /kb config, /kb grade, /kb organizar, /kb pronto, /kb banco.",
+  MODE_CATEGORIES = "Categorías", MODE_GRID = "Cuadrícula",
+  TUT_NEXT = "Siguiente", TUT_PREV = "Atrás", TUT_CLOSE = "Cerrar",
+  TUT_SEARCH_TITLE = "Búsqueda",
+  TUT_SEARCH_BODY = "Busca por nombre, ilvl>200, q:epic, type:armor — con & | ! y ( ).",
+  TUT_MODES_TITLE = "Modos de vista",
+  TUT_MODES_BODY = "Cambia entre la vista por Categorías y Cuadrícula aquí.",
+  TUT_SORT_TITLE = "Organizar",
+  TUT_SORT_BODY = "Organiza tus bolsas automáticamente con un clic.",
+  TUT_TABS_TITLE = "Pestañas",
+  TUT_TABS_BODY = "Bolsas, Banco y Banda de guerra — las pestañas del banco aparecen en el banco.",
+  TUT_HELP_TITLE = "Ayuda",
+  TUT_HELP_BODY = "Reabre este tour cuando quieras con este botón.",
+  TUT_CATEGORIES_TITLE = "Categorías",
+  TUT_CATEGORIES_BODY = "Los objetos se ordenan en categorías. Arrastra un objeto al encabezado de una categoría para asignarlo; clic derecho en el encabezado para acciones.",
+  TUT_FOOTER_TITLE = "Pie",
+  TUT_FOOTER_BODY = "Oro, monedas y espacios libres se muestran aquí.",
 }
 
 for k, v in pairs(EN) do L[k] = v end
@@ -1677,6 +1726,7 @@ Refresh = function()
   if InCombatLockdown() then UI.refreshPending = true; return end
   RebuildEquipSets()
   if UI.tabs then UpdateTabs() end -- garante abas Banco/Brigada visíveis de longe quando há snapshot
+  if UI.modeBar then UpdateModeBar() end -- selo de modo ativo na barra lateral de visualização
   local bags = ActiveBags()
   EnsureItemsCached(bags)
   if UI.distribBtn then UI.distribBtn:Hide() end -- esconde já (a grade não tem cabeçalho de seção)
@@ -2058,7 +2108,14 @@ UpdateMoney = function()
   end
 end
 
--- mostra/esconde e destaca as abas (Mochila/Banco/Brigada) + botão de depositar
+-- destaca o modo de visualização ativo (Categorias/Grade) na barra lateral
+UpdateModeBar = function()
+  if not (UI and UI.modeBar) then return end
+  local grid = (DB and DB.settings and DB.settings.gridView) and true or false
+  if UI.modeBar.catsBtn and UI.modeBar.catsBtn.sel then UI.modeBar.catsBtn.sel:SetShown(not grid) end
+  if UI.modeBar.gridBtn and UI.modeBar.gridBtn.sel then UI.modeBar.gridBtn.sel:SetShown(grid) end
+end
+
 UpdateTabs = function()
   if not (UI and UI.tabs) then return end
   -- abas Banco/Brigada também aparecem de LONGE quando há snapshot salvo (consulta read-only)
@@ -2189,7 +2246,7 @@ CreateUI = function()
   help:SetNormalTexture("Interface\\Icons\\INV_Misc_QuestionMark")
   help:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
   help:SetScript("OnClick", function()
-    if UI.helpPanel:IsShown() then UI.helpPanel:Hide() else UI.helpPanel:Show() end
+    if UI.ShowTour then UI.ShowTour(1) end -- abre o tour guiado no passo 1 (o painel estático foi aposentado)
   end)
   help:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_HELP); GameTooltip:Show() end)
   help:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -2230,6 +2287,31 @@ CreateUI = function()
   end)
   sortBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_AUTOSORT); GameTooltip:Show() end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- barra de modos de visualização (à ESQUERDA, FORA da janela: não mexe na largura/scroll)
+  local modeBar = CreateFrame("Frame", nil, UI)
+  modeBar:SetSize(30, 64)
+  modeBar:SetPoint("TOPRIGHT", UI, "TOPLEFT", -2, -(UI.kbTop or 34))
+  modeBar:SetAttribute("nodeignore", true) -- chrome lateral: fora da navegação por controle
+  UI.modeBar = modeBar
+  local function makeModeBtn(yOff, isGrid, icon, tipText)
+    local b = CreateFrame("Button", nil, modeBar)
+    b:SetSize(28, 28); b:SetPoint("TOP", modeBar, "TOP", 0, yOff)
+    b:SetNormalTexture(icon)
+    b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    b.sel = b:CreateTexture(nil, "OVERLAY"); b.sel:SetAllPoints(); b.sel:SetColorTexture(1, 0.82, 0, 0.30); b.sel:Hide()
+    b:SetAttribute("nodeignore", true) -- só mouse; não interfere na navegação por controle da grade
+    b:SetScript("OnClick", function()
+      DB.settings.gridView = isGrid
+      UpdateModeBar(); Refresh()
+    end)
+    b:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(tipText); GameTooltip:Show() end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return b
+  end
+  modeBar.catsBtn = makeModeBtn(-4, false, "Interface\\ICONS\\INV_Misc_Note_02", L.MODE_CATEGORIES)
+  modeBar.gridBtn = makeModeBtn(-36, true, "Interface\\ICONS\\INV_Misc_Gem_Variety_01", L.MODE_GRID)
+  UpdateModeBar()
 
   -- botão "Vender lixo" (só aparece no vendedor, modo Mochila); API nativa, sem taint
   local sellJunk = CreateFrame("Button", nil, UI, "UIPanelButtonTemplate")
@@ -2276,16 +2358,8 @@ CreateUI = function()
   currencyText:SetPoint("BOTTOMLEFT", UI, "BOTTOMLEFT", blizzard and 12 or 8, blizzard and 12 or 7)
   currencyText:SetPoint("RIGHT", goldText, "LEFT", -10, 0)
 
-  -- seção "Vazio": 2 slots grandes (geral + reagentes), clicáveis = alternar grade
-  local function toggleGrid()
-    DB.settings.gridView = not DB.settings.gridView
-    Refresh()
-  end
-  local function gridTip(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(DB.settings.gridView and L.TIP_VIEW_CATS or L.TIP_VIEW_GRID)
-    GameTooltip:Show()
-  end
+  -- seção "Vazio": 2 slots grandes (geral + reagentes). A troca de modo é pela
+  -- barra lateral de visualização (modeBar); /kb grade alterna direto.
 
   -- área rolável: o conteúdo (categorias + itens + "Vazio") vai num ScrollFrame com
   -- altura limitada; cabeçalho e rodapé ficam fixos. O ScrollFrame recorta o clique
@@ -2322,18 +2396,12 @@ CreateUI = function()
   freeBox.bg = freeBox:CreateTexture(nil, "BACKGROUND"); freeBox.bg:SetAllPoints(); freeBox.bg:SetAtlas("bags-item-slot64")
   freeBox.border = freeBox:CreateTexture(nil, "ARTWORK"); freeBox.border:SetAllPoints(); freeBox.border:SetTexture("Interface\\Common\\WhiteIconFrame"); freeBox.border:SetVertexColor(0.4, 0.4, 0.45, 0.7)
   freeNum = freeBox:CreateFontString(nil, "OVERLAY", "NumberFontNormal"); freeNum:SetPoint("BOTTOMRIGHT", -2, 2)
-  freeBox:SetScript("OnClick", toggleGrid)
-  freeBox:SetScript("OnEnter", gridTip)
-  freeBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
   freeBox:Hide()
 
   reagentBox = CreateFrame("Button", nil, UI.content)
   reagentBox.bg = reagentBox:CreateTexture(nil, "BACKGROUND"); reagentBox.bg:SetAllPoints(); reagentBox.bg:SetAtlas("bags-item-slot64")
   reagentBox.border = reagentBox:CreateTexture(nil, "ARTWORK"); reagentBox.border:SetAllPoints(); reagentBox.border:SetTexture("Interface\\Common\\WhiteIconFrame"); reagentBox.border:SetVertexColor(0.4, 0.4, 0.45, 0.7)
   reagentNum = reagentBox:CreateFontString(nil, "OVERLAY", "NumberFontNormal"); reagentNum:SetPoint("BOTTOMRIGHT", -2, 2)
-  reagentBox:SetScript("OnClick", toggleGrid)
-  reagentBox:SetScript("OnEnter", gridTip)
-  reagentBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
   reagentBox:Hide()
 
   -- abas Mochila/Banco/Brigada (aparecem só com o banco aberto) + depositar automático
@@ -2377,6 +2445,117 @@ CreateUI = function()
   dep:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.depositBtn = dep
   tabBar:Hide()
+
+  -- tour guiado (coach marks) no botão "?": destaca cada controle passo-a-passo
+  local tour = CreateFrame("Frame", "KrononBagsTour", UIParent, "BackdropTemplate")
+  tour:SetFrameStrata("FULLSCREEN_DIALOG")
+  tour:SetAllPoints(UIParent)
+  tour:EnableMouse(true) -- modal leve: evita cliques acidentais atrás enquanto o tour está aberto
+  tour:SetAttribute("nodeignore", true)
+  tour.dim = tour:CreateTexture(nil, "BACKGROUND"); tour.dim:SetAllPoints(); tour.dim:SetColorTexture(0, 0, 0, 0.35)
+  tour.glow = tour:CreateTexture(nil, "ARTWORK")
+  tour.glow:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); tour.glow:SetBlendMode("ADD")
+  tour.glow:SetVertexColor(1, 0.82, 0, 1); tour.glow:Hide()
+  tour:Hide()
+  UI.tour = tour
+
+  local box = CreateFrame("Frame", nil, tour, "BackdropTemplate")
+  box:SetSize(320, 140); box:SetFrameStrata("FULLSCREEN_DIALOG"); box:EnableMouse(true)
+  box:SetClampedToScreen(true)
+  if box.SetBackdrop then
+    box:SetBackdrop({
+      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 16, edgeSize = 16,
+      insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    box:SetBackdropColor(0, 0, 0, 0.95)
+  end
+  tour.box = box
+  box.title = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  box.title:SetPoint("TOPLEFT", 14, -12); box.title:SetWidth(292); box.title:SetJustifyH("LEFT")
+  box.body = box:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  box.body:SetPoint("TOPLEFT", box.title, "BOTTOMLEFT", 0, -6); box.body:SetWidth(292)
+  box.body:SetJustifyH("LEFT"); box.body:SetJustifyV("TOP"); box.body:SetSpacing(2)
+  box.counter = box:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  box.counter:SetPoint("BOTTOMLEFT", 14, 17)
+  box.close = CreateFrame("Button", nil, box, "UIPanelButtonTemplate")
+  box.close:SetSize(66, 22); box.close:SetPoint("BOTTOMRIGHT", -12, 12); box.close:SetText(L.TUT_CLOSE)
+  box.next = CreateFrame("Button", nil, box, "UIPanelButtonTemplate")
+  box.next:SetSize(84, 22); box.next:SetPoint("RIGHT", box.close, "LEFT", -6, 0); box.next:SetText(L.TUT_NEXT)
+  box.prev = CreateFrame("Button", nil, box, "UIPanelButtonTemplate")
+  box.prev:SetSize(84, 22); box.prev:SetPoint("RIGHT", box.next, "LEFT", -6, 0); box.prev:SetText(L.TUT_PREV)
+
+  -- passos do tour: cada um aponta pra um frame (ou nil); passos com alvo nil/escondido são pulados
+  local steps = {
+    { getTarget = function() return sb end,         title = L.TUT_SEARCH_TITLE,     body = L.TUT_SEARCH_BODY },
+    { getTarget = function() return UI.modeBar end, title = L.TUT_MODES_TITLE,      body = L.TUT_MODES_BODY },
+    { getTarget = function() return sortBtn end,    title = L.TUT_SORT_TITLE,       body = L.TUT_SORT_BODY },
+    { getTarget = function() return UI.tabBar end,  title = L.TUT_TABS_TITLE,       body = L.TUT_TABS_BODY },
+    { getTarget = function() return help end,       title = L.TUT_HELP_TITLE,       body = L.TUT_HELP_BODY },
+    { getTarget = function() return UI.content end, title = L.TUT_CATEGORIES_TITLE, body = L.TUT_CATEGORIES_BODY },
+    { getTarget = function() return goldText end,   title = L.TUT_FOOTER_TITLE,     body = L.TUT_FOOTER_BODY },
+  }
+  tour.steps = steps
+  local current = 1
+
+  local function stepValid(s)
+    if not s or not s.getTarget then return false end
+    local t = s.getTarget()
+    return (t and t.IsShown and t:IsShown() and t.GetWidth and (t:GetWidth() or 0) > 0) and true or false
+  end
+  local function countValid()
+    local n = 0
+    for _, s in ipairs(steps) do if stepValid(s) then n = n + 1 end end
+    return n
+  end
+  local function positionBox(target)
+    box:ClearAllPoints()
+    if not target then box:SetPoint("CENTER", UIParent, "CENTER", 0, 0); return end
+    local cx = target:GetCenter()
+    local sw = UIParent:GetWidth() or 1024
+    if cx and cx < sw * 0.6 then
+      box:SetPoint("TOPLEFT", target, "TOPRIGHT", 16, 0)
+    else
+      box:SetPoint("TOPRIGHT", target, "TOPLEFT", -16, 0)
+    end
+  end
+
+  local ShowTourStep
+  ShowTourStep = function(i, dir)
+    dir = (dir == -1) and -1 or 1 -- nunca 0 (evitaria avançar e travaria o loop)
+    while i >= 1 and i <= #steps and not stepValid(steps[i]) do i = i + dir end
+    if i < 1 or i > #steps then tour:Hide(); return end -- sem passo válido na direção: encerra o tour
+    current = i
+    local step = steps[i]
+    local target = step.getTarget()
+    -- o conteúdo é gigante e rola: destaca a área VISÍVEL (scroll), não o frame inteiro
+    local glowTarget = (target == UI.content and UI.scroll) or target
+    tour.glow:ClearAllPoints()
+    tour.glow:SetPoint("TOPLEFT", glowTarget, "TOPLEFT", -4, 4)
+    tour.glow:SetPoint("BOTTOMRIGHT", glowTarget, "BOTTOMRIGHT", 4, -4)
+    tour.glow:Show()
+    box.title:SetText(step.title or "")
+    box.body:SetText(step.body or "")
+    local total, idx = countValid(), 0
+    for k = 1, i do if stepValid(steps[k]) then idx = idx + 1 end end
+    box.counter:SetText(idx .. "/" .. total)
+    local bodyH = math.max(40, box.body:GetStringHeight() or 40)
+    box:SetHeight(84 + bodyH)
+    positionBox(glowTarget)
+    local hasPrev = false
+    for k = i - 1, 1, -1 do if stepValid(steps[k]) then hasPrev = true; break end end
+    local hasNext = false
+    for k = i + 1, #steps do if stepValid(steps[k]) then hasNext = true; break end end
+    box.prev:SetEnabled(hasPrev)
+    box.next:SetEnabled(hasNext)
+    tour:Show(); box:Show()
+  end
+  box.prev:SetScript("OnClick", function() ShowTourStep(current - 1, -1) end)
+  box.next:SetScript("OnClick", function() ShowTourStep(current + 1, 1) end)
+  box.close:SetScript("OnClick", function() tour:Hide() end)
+  UI.ShowTour = function(i) ShowTourStep(i or 1, 1) end
+  tinsert(UISpecialFrames, "KrononBagsTour") -- ESC fecha o tour
 
   -- alça de redimensionar (canto inferior direito): arraste pra mudar quantas colunas cabem.
   -- Ao soltar, calcula as colunas pela largura e re-renderiza (que reajusta a janela).
@@ -2430,7 +2609,7 @@ CreateUI = function()
   end
 
   -- ao esconder (X, /kb ou auto), zera a flag de auto-aberta pra não fechar janela manual
-  UI:HookScript("OnHide", function(self) self.autoOpened = false end)
+  UI:HookScript("OnHide", function(self) self.autoOpened = false; if UI.tour then UI.tour:Hide() end end)
 
   -- restaura a posição salva deste personagem (se houver)
   local sp = DB.charPos and DB.charPos[CharKey()]
