@@ -666,6 +666,7 @@ local function AcquireEquipButton(i)
   local eb = equipBtnPool[i]
   if not eb then
     eb = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate") -- dentro do conteúdo rolável
+    eb:SetAttribute("nodeignore", true) -- botão "Equipar" fora da navegação por controle (fica na linha do cabeçalho; só mouse)
     eb:SetSize(62, 16)
     local fs = eb:GetFontString(); if fs then fs:SetTextScale(0.85) end
     eb:SetScript("OnClick", function(self)
@@ -1259,6 +1260,10 @@ Refresh = function()
       if not h then
         h = CreateFrame("Button", nil, UI.content)
         h:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        -- cabeçalho é de largura total: pro ConsolePort o retângulo dele atravessa a tela
+        -- e vira "candidato" em quase toda direção, quebrando a navegação por controle.
+        -- nodeignore tira ele do scan do cursor (mouse intacto: clicar/recolher/arrastar segue).
+        h:SetAttribute("nodeignore", true)
         local hl = h:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.08) -- alvo de drop / hover
         h.label = h:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         h.label:SetPoint("LEFT", 0, 0)
@@ -1304,6 +1309,7 @@ Refresh = function()
       if cat == "Recém-obtidos" then
         if not UI.distribBtn then
           local d = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate")
+          d:SetAttribute("nodeignore", true) -- "Distribuir" fora da navegação por controle (linha do cabeçalho; só mouse)
           d:SetSize(72, 18); d:SetText("Distribuir")
           d:SetScript("OnClick", DistributeNew)
           d:SetScript("OnEnter", function(self)

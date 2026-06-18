@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.20.1
+- **Navegação por controle (ConsolePort), parte 2.** A v0.20.0 ainda pulava seção ao descer e não ia pra célula vizinha ao lado. O motivo: os **cabeçalhos de categoria são de largura total**, e o cursor geométrico do ConsolePort os enxergava como candidato em quase toda direção. Agora os cabeçalhos (e os botões "Equipar" e "Distribuir") ficam **fora da navegação por controle** — o cursor passa a enxergar só a grade de itens, que vira uma grade uniforme de verdade (esquerda/direita/cima/baixo previsíveis). No mouse, recolher/Equipar/Distribuir continuam funcionando normalmente.
+
 ## 0.20.0
 - **Itens do Gerenciador de Equipamento viram favoritos automáticos.** Toda peça salva num Conjunto de Equipamento agora aparece com a estrela (em tom azulado, pra diferenciar do favorito manual) e fica **protegida de venda automaticamente** — mesmo com a opção "Proteger itens" desligada. Sincroniza sozinho: tirou do conjunto, deixa de ser favorito. Não dá pra desfavoritar pela estrela (é automático); tire o item do conjunto pra liberar.
 - **Auto-vender lixo e auto-reparar.** Ao abrir um vendedor, o KrononBags pode vender todos os itens cinza e reparar tudo automaticamente — tentando os **fundos da guilda** primeiro (se você tiver permissão e houver saldo) e caindo pro seu ouro só se precisar. Avisa no chat quanto gastou e de onde. Liga/desliga cada um em `/kb config` (ambos ligados por padrão).
