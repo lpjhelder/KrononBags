@@ -143,6 +143,10 @@ local EN = {
   TIP_OPT_OPACITY = "Window transparency.",
   TIP_OPT_COLS = "How many item columns the window shows.",
   TIP_OPT_SORT = "How items are ordered inside each category.",
+  -- v0.27.0: sub-grupos por expansão
+  OPT_NEST_EXPANSION = "Group by expansion",
+  TIP_OPT_NEST_EXPANSION = "Inside each category, sub-group items by their expansion.",
+  EXPAC_UNKNOWN = "Other",
   -- config: ordenação
   SORT_ILVL = "Item level", SORT_QUALITY = "Quality", SORT_NAME = "Name",
   SORT_TYPE = "Type", SORT_RECENT = "Recent", SORT_BY = "Sort by: ", SORT_MENU_TITLE = "Sort items by",
@@ -285,6 +289,9 @@ local PT = {
   TIP_OPT_OPACITY = "Transparência da janela.",
   TIP_OPT_COLS = "Quantas colunas de itens a janela mostra.",
   TIP_OPT_SORT = "Como os itens são ordenados dentro de cada categoria.",
+  OPT_NEST_EXPANSION = "Agrupar por expansão",
+  TIP_OPT_NEST_EXPANSION = "Dentro de cada categoria, sub-agrupa os itens pela expansão de origem.",
+  EXPAC_UNKNOWN = "Outros",
   SORT_ILVL = "Item level", SORT_QUALITY = "Qualidade", SORT_NAME = "Nome",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recentes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar itens por",
   CAT_HINT = "Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.",
@@ -421,6 +428,9 @@ local ES = {
   TIP_OPT_OPACITY = "Transparencia de la ventana.",
   TIP_OPT_COLS = "Cuántas columnas de objetos muestra la ventana.",
   TIP_OPT_SORT = "Cómo se ordenan los objetos dentro de cada categoría.",
+  OPT_NEST_EXPANSION = "Agrupar por expansión",
+  TIP_OPT_NEST_EXPANSION = "Dentro de cada categoría, subagrupa los objetos por su expansión.",
+  EXPAC_UNKNOWN = "Otros",
   SORT_ILVL = "Nivel de objeto", SORT_QUALITY = "Calidad", SORT_NAME = "Nombre",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recientes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar objetos por",
   CAT_HINT = "Orden (arriba → abajo) = orden en el inventario. ▲▼ mueve, Eliminar quita.",
@@ -534,6 +544,7 @@ local function HasWarbandSnap() return DB and DB.warbandSnap and #DB.warbandSnap
 
 local pool = {}        -- pool de botões de item
 local headerPool = {}  -- pool de cabeçalhos de seção
+local subHeaderPool = {} -- pool de sub-cabeçalhos de expansão (sub-grupos por expansão)
 
 -- catálogo de categorias pré-prontas (ordem de fresh install + menu "Pré-pronta…")
 local KB_PRESETS = {
@@ -596,6 +607,7 @@ local function InitDB()
   if KrononBagsDB.settings.replaceBags == nil then KrononBagsDB.settings.replaceBags = true end -- tecla B / botão da bolsa abrem o KrononBags
   if KrononBagsDB.settings.sortMode == nil then KrononBagsDB.settings.sortMode = "ilvl" end -- ordem dentro da categoria: ilvl/quality/name/type/recent
   if KrononBagsDB.settings.stackItems == nil then KrononBagsDB.settings.stackItems = false end -- empilhar itens iguais num ícone só
+  if KrononBagsDB.settings.nestByExpansion == nil then KrononBagsDB.settings.nestByExpansion = false end -- sub-agrupar itens por expansão de origem dentro de cada categoria
   if KrononBagsDB.settings.qualityBorder == nil then KrononBagsDB.settings.qualityBorder = true end -- borda colorida por raridade no ícone
   if KrononBagsDB.settings.searchHighlight == nil then KrononBagsDB.settings.searchHighlight = true end -- na busca, escurece o resto em vez de esconder
   if KrononBagsDB.settings.autoSellJunk == nil then KrononBagsDB.settings.autoSellJunk = true end -- vender lixo automaticamente ao abrir o vendedor
@@ -842,6 +854,27 @@ GetIlvl = function(link)
   if C_Item.GetDetailedItemLevelInfo then return C_Item.GetDetailedItemLevelInfo(link) or 0 end
   if GetDetailedItemLevelInfo then return GetDetailedItemLevelInfo(link) or 0 end
   return 0
+end
+
+-- ---------------- Expansão de origem do item (sub-grupos por expansão) ----------------
+-- O expacID (expansão de origem) vem do 15º retorno de C_Item.GetItemInfo. Em cache frio
+-- (logo após login/troca de zona) o GetItemInfo devolve nil: nesse caso NÃO bloqueamos
+-- nem cacheamos — retorna nil e o item cai no grupo "desconhecido" até GET_ITEM_INFO_RECEIVED
+-- esquentar o cache e o Refresh re-renderizar. Cacheado por itemID (expacID não muda).
+local kbExpacCache = {}
+local function GetItemExpac(itemID, link)
+  if not itemID then return nil end
+  local cached = kbExpacCache[itemID]
+  if cached ~= nil then return cached end
+  local e = select(15, C_Item.GetItemInfo(link or itemID))
+  if e == nil then return nil end -- cache frio: tenta de novo depois (não cacheia o nil)
+  kbExpacCache[itemID] = e
+  return e
+end
+-- nome legível da expansão (global EXPANSION_NAME<n>); nil → "Outros"
+local function ExpacName(e)
+  if e == nil then return L.EXPAC_UNKNOWN end
+  return _G["EXPANSION_NAME" .. e] or L.EXPAC_UNKNOWN
 end
 
 -- ---------------- Trilha de upgrade (Gear Track) ----------------
@@ -1187,6 +1220,23 @@ local function AcquireEquipButton(i)
   return eb
 end
 
+-- sub-cabeçalho de expansão (sub-grupos dentro de uma categoria). Só texto: Frame leve
+-- + FontString, indentado ~8px, cor cinza-dourado suave. nodeignore tira da navegação por
+-- controle (é rótulo, não item). Pooled como o headerPool: escondidos no reset do Refresh,
+-- só os usados aparecem (sem texto-fantasma).
+local function AcquireSubHeader(i)
+  local sh = subHeaderPool[i]
+  if not sh then
+    sh = CreateFrame("Frame", nil, UI.content)
+    sh:SetAttribute("nodeignore", true)
+    sh.label = sh:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sh.label:SetPoint("LEFT", 0, 0)
+    sh.label:SetTextColor(0.80, 0.72, 0.52) -- cinza-dourado suave
+    subHeaderPool[i] = sh
+  end
+  return sh
+end
+
 -- seção "Vazio": header + slot geral + slot reagentes (dentro do conteúdo rolável, x a partir de 0)
 local function DrawEmpty(yOff)
   -- no modo cache não há slots vivos: mostra só a contagem salva de slots livres como texto
@@ -1439,6 +1489,7 @@ RenderGrid = function()
   for _, b in ipairs(pool) do b:Hide() end
   for _, h in ipairs(headerPool) do h:Hide() end
   for _, eb in ipairs(equipBtnPool) do eb:Hide() end
+  for _, sh in ipairs(subHeaderPool) do sh:Hide() end -- sem sub-cabeçalhos fantasma na visão grade
   if UI.cacheBanner then UI.cacheBanner:Hide() end
 
   local idx, col = 0, 0
@@ -1876,14 +1927,37 @@ Refresh = function()
   for _, b in ipairs(pool) do b:Hide() end
   for _, h in ipairs(headerPool) do h:Hide() end
   for _, eb in ipairs(equipBtnPool) do eb:Hide() end
+  for _, sh in ipairs(subHeaderPool) do sh:Hide() end -- reset igual ao headerPool (sem fantasma)
   if UI.distribBtn then UI.distribBtn:Hide() end
   if UI.openAllBtn then UI.openAllBtn:Hide() end
 
   -- 5) desenha (dentro do conteúdo rolável: x a partir de 0, yOff a partir de 0)
   local cols = (DB.settings and DB.settings.cols) or COLS
   local contentW = cols * (BTN + PAD) - PAD
-  local btnIdx, hdrIdx, ebIdx = 0, 0, 0
+  local btnIdx, hdrIdx, ebIdx, shIdx = 0, 0, 0, 0
+  local nestExpac = DB.settings.nestByExpansion and not DB.settings.gridView -- sub-grupos por expansão (só na visão por categorias)
   local yOff = 0
+  -- desenha uma lista de itens num grid contíguo a partir de y; devolve o novo y.
+  -- avança btnIdx (upvalue) e usa cols/BTN/PAD do escopo; reaproveitado pelo caminho
+  -- normal e por cada sub-grupo de expansão.
+  local function DrawItemGrid(lst, y)
+    local col = 0
+    for _, it in ipairs(lst) do
+      btnIdx = btnIdx + 1
+      local b = AcquireButton(btnIdx)
+      if it.cached then FillButtonCached(b, it) else FillButton(b, it.bag, it.slot) end
+      if it.stacked then SetItemButtonCount(b, it.count); b.kbStacked = true end -- contagem somada do empilhamento
+      if it.dim then b:SetAlpha(0.25) end -- busca-realce: itens que não batem ficam apagados
+      b:SetSize(BTN, BTN)
+      b:ClearAllPoints()
+      b:SetPoint("TOPLEFT", col * (BTN + PAD), y)
+      b:Show()
+      col = col + 1
+      if col >= cols then col = 0; y = y - (BTN + PAD) end
+    end
+    if col > 0 then y = y - (BTN + PAD) end
+    return y
+  end
   -- banner de visualização (consulta do banco de longe, read-only)
   if cached then
     local _, _, snapTime = CurrentSnap()
@@ -1998,21 +2072,38 @@ Refresh = function()
       yOff = yOff - 18
 
       if not collapsed then
-        local col = 0
-        for _, it in ipairs(g) do
-          btnIdx = btnIdx + 1
-          local b = AcquireButton(btnIdx)
-          if it.cached then FillButtonCached(b, it) else FillButton(b, it.bag, it.slot) end
-          if it.stacked then SetItemButtonCount(b, it.count); b.kbStacked = true end -- contagem somada do empilhamento
-          if it.dim then b:SetAlpha(0.25) end -- busca-realce: itens que não batem ficam apagados
-          b:SetSize(BTN, BTN)
-          b:ClearAllPoints()
-          b:SetPoint("TOPLEFT", col * (BTN + PAD), yOff)
-          b:Show()
-          col = col + 1
-          if col >= cols then col = 0; yOff = yOff - (BTN + PAD) end
+        if nestExpac then
+          -- sub-agrupa os itens DESTA categoria pela expansão de origem.
+          -- chave = expacID; nil (cache frio / sem expansão) vira o grupo UNK ("desconhecido").
+          local UNK = -1 -- expacID válido é >= 0, então -1 é sentinela segura pro grupo nil
+          local byExpac, expacKeys = {}, {}
+          for _, it in ipairs(g) do
+            local e = GetItemExpac(it.itemID, it.link)
+            local key = (e == nil) and UNK or e
+            if not byExpac[key] then byExpac[key] = {}; expacKeys[#expacKeys + 1] = key end
+            local grp = byExpac[key]; grp[#grp + 1] = it
+          end
+          -- ordem: expacID DECRESCENTE (expansão mais nova primeiro); grupo desconhecido por último
+          table.sort(expacKeys, function(a, b)
+            if a == UNK then return false end
+            if b == UNK then return true end
+            return a > b
+          end)
+          for _, key in ipairs(expacKeys) do
+            local realE; if key ~= UNK then realE = key end -- evita o pitfall do "and/or" com 0
+            shIdx = shIdx + 1
+            local sh = AcquireSubHeader(shIdx)
+            sh.label:SetText(ExpacName(realE))
+            sh:SetSize(math.max(1, contentW - 8), 14)
+            sh:ClearAllPoints(); sh:SetPoint("TOPLEFT", 8, yOff)
+            sh:Show()
+            yOff = yOff - 16
+            yOff = DrawItemGrid(byExpac[key], yOff)
+            yOff = yOff - 4 -- pequeno gap ao fim do sub-grupo
+          end
+        else
+          yOff = DrawItemGrid(g, yOff)
         end
-        if col > 0 then yOff = yOff - (BTN + PAD) end
       end
       yOff = yOff - 6
     end
@@ -2694,7 +2785,7 @@ end
 
 -- ---------------- Configurações (extensível) ----------------
 local catRows = {}
-local CAT_LIST_TOP = -650
+local CAT_LIST_TOP = -678
 RefreshConfigCats = function()
   if not CFG then return end
   for _, r in ipairs(catRows) do r:Hide() end
@@ -2901,10 +2992,13 @@ CreateConfig = function()
   check("KrononBagsAltCountsCheck", RCOL, -372, L.OPT_ALT_COUNTS, function() return DB.settings.altCounts end, function(v)
     DB.settings.altCounts = v
   end, "TIP_OPT_ALT_COUNTS")
+  check("KrononBagsNestExpacCheck", LCOL, -400, L.OPT_NEST_EXPANSION, function() return DB.settings.nestByExpansion end, function(v)
+    DB.settings.nestByExpansion = v; Refresh()
+  end, "TIP_OPT_NEST_EXPANSION")
   -- seletor de ordenação dentro da categoria
   local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
   local sortBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -402)
+  sortBtn:SetSize(180, 20); sortBtn:SetPoint("TOPLEFT", 18, -430)
   local function updSortBtn() sortBtn:SetText(L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL)) end
   updSortBtn()
   sortBtn:SetScript("OnClick", function(self)
@@ -2925,29 +3019,29 @@ CreateConfig = function()
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   -- ===== Vendedor =====
-  section(L.SEC_VENDOR, -440)
-  check("KrononBagsAutoSellCheck", LCOL, -462, L.OPT_AUTOSELL, function() return DB.settings.autoSellJunk end, function(v)
+  section(L.SEC_VENDOR, -468)
+  check("KrononBagsAutoSellCheck", LCOL, -490, L.OPT_AUTOSELL, function() return DB.settings.autoSellJunk end, function(v)
     DB.settings.autoSellJunk = v
   end, "TIP_OPT_AUTOSELL")
-  check("KrononBagsAutoRepairCheck", RCOL, -462, L.OPT_AUTOREPAIR, function() return DB.settings.autoRepair end, function(v)
+  check("KrononBagsAutoRepairCheck", RCOL, -490, L.OPT_AUTOREPAIR, function() return DB.settings.autoRepair end, function(v)
     DB.settings.autoRepair = v
   end, "TIP_OPT_AUTOREPAIR")
 
   -- ===== Banco =====
-  section(L.SEC_BANK, -498)
-  check("KrononBagsBankReplaceCheck", LCOL, -520, L.OPT_BANK_REPLACE, function() return DB.settings.bankReplace end, function(v)
+  section(L.SEC_BANK, -526)
+  check("KrononBagsBankReplaceCheck", LCOL, -548, L.OPT_BANK_REPLACE, function() return DB.settings.bankReplace end, function(v)
     DB.settings.bankReplace = v
     print(KB_PREFIX .. L.MSG_RELOAD_BANK)
   end, "TIP_OPT_BANK_REPLACE")
 
   -- ===== Categorias =====
-  section(L.SEC_CATEGORIES, -558)
+  section(L.SEC_CATEGORIES, -586)
   local catHint = CFG:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  catHint:SetPoint("TOPLEFT", 18, -576)
+  catHint:SetPoint("TOPLEFT", 18, -604)
   catHint:SetText(L.CAT_HINT)
 
   local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", CFG, "InputBoxTemplate")
-  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -598); newCat:SetAutoFocus(false)
+  newCat:SetSize(150, 20); newCat:SetPoint("TOPLEFT", 22, -626); newCat:SetAutoFocus(false)
   local addBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
   addBtn:SetSize(60, 20); addBtn:SetText(L.BTN_CREATE); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
   local presetBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
@@ -2978,7 +3072,7 @@ CreateConfig = function()
 
   -- Exportar / Importar (Layout Oficial da Guilda)
   local exportBtn = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-  exportBtn:SetSize(110, 20); exportBtn:SetText(L.BTN_EXPORT); exportBtn:SetPoint("TOPLEFT", 22, -624)
+  exportBtn:SetSize(110, 20); exportBtn:SetText(L.BTN_EXPORT); exportBtn:SetPoint("TOPLEFT", 22, -652)
   exportBtn:SetScript("OnClick", function()
     KB_exportStr = ExportCategories(); StaticPopup_Show("KRONONBAGS_EXPORT")
   end)
@@ -3232,6 +3326,18 @@ local function AutoVendor()
 end
 
 -- ---------------- Eventos / comandos ----------------
+-- GET_ITEM_INFO_RECEIVED dispara em RAJADA quando muitos itens carregam. Debounce:
+-- agenda 1 Refresh só (pra os sub-grupos por expansão se acertarem quando o cache esquenta).
+local kbExpacRefreshPending = false
+local function KB_ExpacRefreshSoon()
+  if kbExpacRefreshPending then return end
+  kbExpacRefreshPending = true
+  C_Timer.After(0.3, function()
+    kbExpacRefreshPending = false
+    if UI and UI:IsShown() and not InCombatLockdown() then Refresh() end
+  end)
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
@@ -3241,6 +3347,7 @@ f:RegisterEvent("PLAYER_MONEY")
 f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 f:RegisterEvent("BAG_NEW_ITEMS_UPDATED")
 f:RegisterEvent("BAG_UPDATE_COOLDOWN")
+f:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:RegisterEvent("PLAYER_LOGOUT")
 f:RegisterEvent("MERCHANT_SHOW");      f:RegisterEvent("MERCHANT_CLOSED")
@@ -3258,6 +3365,12 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if UI and UI:IsShown() then UpdateMoney() end
   elseif event == "BAG_UPDATE_COOLDOWN" then
     if UI and UI:IsShown() then UpdateCooldowns() end
+  elseif event == "GET_ITEM_INFO_RECEIVED" then
+    -- cache de item esquentou: re-renderiza pra acertar os sub-grupos por expansão.
+    -- só quando a opção está ligada e a janela aberta (pra não refreshar à toa); debounced.
+    if DB and DB.settings and DB.settings.nestByExpansion and UI and UI:IsShown() then
+      KB_ExpacRefreshSoon()
+    end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if UI and UI.refreshPending and UI:IsShown() then UI.refreshPending = nil; Refresh() end
   elseif event == "MERCHANT_SHOW" then

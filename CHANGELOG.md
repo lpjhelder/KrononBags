@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.0
+**Português**
+- **Agrupar por expansão** — uma opção nova que, dentro de cada categoria, sub-agrupa os itens pela expansão de origem, com um sub-cabeçalho por expansão (a mais nova primeiro). Desligada por padrão; liga em Configurações → Comportamento.
+
+**English**
+- **Group by expansion** — a new option that, inside each category, sub-groups items by their source expansion, with a sub-header per expansion (newest first). Off by default; enable in Settings → Behavior.
+
+**Español**
+- **Agrupar por expansión** — una nueva opción que, dentro de cada categoría, subagrupa los objetos por su expansión de origen, con un subencabezado por expansión (la más nueva primero). Desactivada por defecto; actívala en Ajustes → Comportamiento.
+
 ## 0.26.0
 **Português**
 - **Trilha de upgrade no ícone** — o equipamento mostra o rank de melhoria no canto inferior do ícone (ex: H4/6, dourado quando completo). Liga/desliga em Configurações → Ícones.
