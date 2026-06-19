@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.37.0
+**Português**
+- **Tutorial repaginado:** o botão de ajuda virou um **"i"**.
+- **Novo:** ao clicar no "i", marcadores aparecem ao lado de cada controle.
+- Passe o mouse num marcador pra **destacar o controle** e ver a dica num **balão** (estilo do tutorial do jogo).
+- Não escurece a tela nem trava a bag — clique de novo (ou ESC) pra esconder.
+
+**English**
+- **Revamped tutorial:** the help button is now an **"i"**.
+- **New:** click the "i" and markers appear next to each control.
+- Hover a marker to **highlight that control** and read the tip in a **callout** (just like the in-game tutorial).
+- It doesn't dim the screen or lock the bag — click again (or ESC) to hide.
+
+**Español**
+- **Tutorial renovado:** el botón de ayuda ahora es una **"i"**.
+- **Nuevo:** al hacer clic en la "i", aparecen marcadores junto a cada control.
+- Pasa el ratón por un marcador para **resaltar ese control** y ver el consejo en un **globo** (como el tutorial del juego).
+- No oscurece la pantalla ni bloquea la bolsa — haz clic de nuevo (o ESC) para ocultar.
+
 ## 0.36.0
 **Português**
 - **Corrigido:** favoritar e proteger agora diferenciam variações do mesmo item (ilvl, raridade, qualidade). Um item de mesmo nome mas ilvl/raridade diferente não é mais marcado junto.

@@ -180,7 +180,7 @@ local EN = {
   -- painel de ouro por personagem (hover no rodapé)
   GOLD_PANEL_TITLE = "Gold per character", GOLD_WARBAND = "Warband bank", GOLD_TOTAL = "Total",
   -- ajuda / limpar busca
-  TIP_HELP = "Help",
+  TIP_HELP = "Tips — click to show/hide",
   TIP_SEARCH_CLEAR = "Clear search",
   HELP_TITLE = "KrononBags — Help",
   HELP_CATEGORIES = "Categories: items sort automatically. Drag an item onto a category header to assign it; drop on Favorites to protect, on Misc to reset.",
@@ -207,6 +207,10 @@ local EN = {
   TUT_CATEGORIES_BODY = "Items auto-sort into categories. Drag an item onto a category header to assign it; right-click the header for actions.",
   TUT_FOOTER_TITLE = "Footer",
   TUT_FOOTER_BODY = "Gold, currencies and free slots show here.",
+  TUT_FILTER_TITLE = "Search builder",
+  TUT_FILTER_BODY = "Build a search visually — pick fields and it writes the query for you.",
+  TUT_HISTORY_TITLE = "History",
+  TUT_HISTORY_BODY = "See what recently came in and out of your bags.",
   -- v0.29.0: construtor de busca modular
   FILTER_BTN = "Filter", FILTER_TITLE = "Search builder",
   FILTER_ADD = "Add filter", FILTER_APPLY = "Apply", FILTER_CLEAR = "Clear",
@@ -349,7 +353,7 @@ local PT = {
   WARBAND_LABEL = "Brigada",
   MARKET_VALUE = "Mercado (AH)", SELL_VALUE = "Preço de venda",
   GOLD_PANEL_TITLE = "Ouro por personagem", GOLD_WARBAND = "Banco da Brigada", GOLD_TOTAL = "Total",
-  TIP_HELP = "Ajuda",
+  TIP_HELP = "Dicas — clique para mostrar/esconder",
   TIP_SEARCH_CLEAR = "Limpar busca",
   HELP_TITLE = "KrononBags — Ajuda",
   HELP_CATEGORIES = "Categorias: os itens se organizam sozinhos. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo; solte em Favoritos pra proteger, em Diversos pra resetar.",
@@ -375,6 +379,10 @@ local PT = {
   TUT_CATEGORIES_BODY = "Os itens se organizam em categorias. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo; clique-direito no cabeçalho pra ações.",
   TUT_FOOTER_TITLE = "Rodapé",
   TUT_FOOTER_BODY = "Ouro, currencies e slots livres aparecem aqui.",
+  TUT_FILTER_TITLE = "Construtor de busca",
+  TUT_FILTER_BODY = "Monte uma busca visualmente — escolha os campos e ele escreve a consulta pra você.",
+  TUT_HISTORY_TITLE = "Histórico",
+  TUT_HISTORY_BODY = "Veja o que entrou e saiu das suas bolsas recentemente.",
   -- v0.29.0: construtor de busca modular
   FILTER_BTN = "Filtrar", FILTER_TITLE = "Construtor de busca",
   FILTER_ADD = "Adicionar filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpar",
@@ -517,7 +525,7 @@ local ES = {
   WARBAND_LABEL = "Banda de guerra",
   MARKET_VALUE = "Mercado (CA)", SELL_VALUE = "Precio de venta",
   GOLD_PANEL_TITLE = "Oro por personaje", GOLD_WARBAND = "Banco de la banda de guerra", GOLD_TOTAL = "Total",
-  TIP_HELP = "Ayuda",
+  TIP_HELP = "Consejos — clic para mostrar/ocultar",
   TIP_SEARCH_CLEAR = "Limpiar búsqueda",
   HELP_TITLE = "KrononBags — Ayuda",
   HELP_CATEGORIES = "Categorías: los objetos se ordenan solos. Arrastra un objeto al encabezado de una categoría para asignarlo; suéltalo en Favoritos para protegerlo, en Varios para restablecer.",
@@ -543,6 +551,10 @@ local ES = {
   TUT_CATEGORIES_BODY = "Los objetos se ordenan en categorías. Arrastra un objeto al encabezado de una categoría para asignarlo; clic derecho en el encabezado para acciones.",
   TUT_FOOTER_TITLE = "Pie",
   TUT_FOOTER_BODY = "Oro, monedas y espacios libres se muestran aquí.",
+  TUT_FILTER_TITLE = "Constructor de búsqueda",
+  TUT_FILTER_BODY = "Crea una búsqueda visualmente — elige los campos y él escribe la consulta por ti.",
+  TUT_HISTORY_TITLE = "Historial",
+  TUT_HISTORY_BODY = "Mira lo que entró y salió de tus bolsas recientemente.",
   -- v0.29.0: constructor de búsqueda modular
   FILTER_BTN = "Filtrar", FILTER_TITLE = "Constructor de búsqueda",
   FILTER_ADD = "Añadir filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpiar",
@@ -2986,52 +2998,14 @@ CreateUI = function()
   gear:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_CONFIG); GameTooltip:Show() end)
   gear:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-  -- painel de ajuda (criado escondido); o botão "?" alterna a visibilidade
-  local helpPanel = CreateFrame("Frame", "KrononBagsHelp", UIParent, "BackdropTemplate")
-  helpPanel:SetSize(440, 400)
-  helpPanel:SetPoint("CENTER")
-  helpPanel:SetFrameStrata("DIALOG")
-  helpPanel:SetMovable(true); helpPanel:EnableMouse(true); helpPanel:RegisterForDrag("LeftButton")
-  helpPanel:SetScript("OnDragStart", helpPanel.StartMoving)
-  helpPanel:SetScript("OnDragStop", helpPanel.StopMovingOrSizing)
-  helpPanel:SetAttribute("nodeignore", true)
-  if helpPanel.SetBackdrop then
-    helpPanel:SetBackdrop({
-      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-      tile = true, tileSize = 16, edgeSize = 16,
-      insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
-    helpPanel:SetBackdropColor(0, 0, 0, 0.95)
-  end
-  local htitle = helpPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  htitle:SetPoint("TOP", 0, -12); htitle:SetText("|cfff0d98c" .. L.HELP_TITLE .. "|r")
-  local hclose = CreateFrame("Button", nil, helpPanel, "UIPanelCloseButton")
-  hclose:SetPoint("TOPRIGHT", 2, 2)
-  local helpKeys = { L.HELP_CATEGORIES, L.HELP_SEARCH, L.HELP_FAVORITES, L.HELP_BANK, L.HELP_SORT, L.HELP_CONTROLLER, L.HELP_COMMANDS }
-  local hprev
-  for _, txt in ipairs(helpKeys) do
-    local fs = helpPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fs:SetJustifyH("LEFT"); fs:SetWidth(400); fs:SetSpacing(2); fs:SetText(txt)
-    if hprev then
-      fs:SetPoint("TOPLEFT", hprev, "BOTTOMLEFT", 0, -8)
-    else
-      fs:SetPoint("TOPLEFT", helpPanel, "TOPLEFT", 18, -44)
-    end
-    hprev = fs
-  end
-  helpPanel:Hide()
-  UI.helpPanel = helpPanel
-  tinsert(UISpecialFrames, "KrononBagsHelp")
-
-  -- botão "?" à esquerda da engrenagem
+  -- botão "i" (info/dicas) à esquerda da engrenagem
   local help = CreateFrame("Button", nil, UI)
   help:SetSize(22, 22)
   help:SetPoint("RIGHT", gear, "LEFT", -6, 0)
-  help:SetNormalTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+  help:SetNormalTexture("Interface\\Common\\help-i") -- "i" dourado (SWAPPÁVEL: troque a textura aqui)
   help:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
   help:SetScript("OnClick", function()
-    if UI.ShowTour then UI.ShowTour(1) end -- abre o tour guiado no passo 1 (o painel estático foi aposentado)
+    if UI.ToggleHelp then UI.ToggleHelp() end -- alterna os marcadores de dica (coach-marks, não-modal)
   end)
   help:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_HELP); GameTooltip:Show() end)
   help:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -3288,22 +3262,24 @@ CreateUI = function()
   UI.depositBtn = dep
   tabBar:Hide()
 
-  -- tour guiado (coach marks) no botão "?": destaca cada controle passo-a-passo
-  local tour = CreateFrame("Frame", "KrononBagsTour", UIParent, "BackdropTemplate")
+  -- tutorial em COACH-MARKS NÃO-MODAIS no botão "i": espalha marcadores "i" pelos controles.
+  -- Passar o mouse num marcador destaca aquele controle (glow dourado) e abre um balão com a dica.
+  -- Sem escurecer a tela e sem capturar o mouse: a bag segue 100% usável com os marcadores ligados.
+  local tour = CreateFrame("Frame", "KrononBagsTour", UIParent)
   tour:SetFrameStrata("FULLSCREEN_DIALOG")
   tour:SetAllPoints(UIParent)
-  tour:EnableMouse(true) -- modal leve: evita cliques acidentais atrás enquanto o tour está aberto
-  tour:SetAttribute("nodeignore", true)
-  tour.dim = tour:CreateTexture(nil, "BACKGROUND"); tour.dim:SetAllPoints(); tour.dim:SetColorTexture(0, 0, 0, 0.35)
+  tour:SetAttribute("nodeignore", true) -- overlay: fora da navegação por controle
+  -- glow dourado que envolve o alvo do marcador sob o mouse
   tour.glow = tour:CreateTexture(nil, "ARTWORK")
   tour.glow:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); tour.glow:SetBlendMode("ADD")
   tour.glow:SetVertexColor(1, 0.82, 0, 1); tour.glow:Hide()
   tour:Hide()
   UI.tour = tour
+  tour.markers = {}
 
+  -- balão da dica (estilo Blizzard): fundo escuro, borda dourada e uma setinha apontando pro controle
   local box = CreateFrame("Frame", nil, tour, "BackdropTemplate")
-  box:SetSize(320, 140); box:SetFrameStrata("FULLSCREEN_DIALOG"); box:EnableMouse(true)
-  box:SetClampedToScreen(true)
+  box:SetSize(300, 110); box:SetFrameStrata("TOOLTIP"); box:SetClampedToScreen(true)
   if box.SetBackdrop then
     box:SetBackdrop({
       bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -3312,92 +3288,120 @@ CreateUI = function()
       insets = { left = 4, right = 4, top = 4, bottom = 4 },
     })
     box:SetBackdropColor(0, 0, 0, 0.95)
+    box:SetBackdropBorderColor(1, 0.82, 0) -- borda dourada (destaque do tutorial)
   end
   tour.box = box
   box.title = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  box.title:SetPoint("TOPLEFT", 14, -12); box.title:SetWidth(292); box.title:SetJustifyH("LEFT")
+  box.title:SetPoint("TOPLEFT", 14, -12); box.title:SetWidth(272); box.title:SetJustifyH("LEFT")
+  box.title:SetTextColor(1, 0.82, 0)
   box.body = box:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  box.body:SetPoint("TOPLEFT", box.title, "BOTTOMLEFT", 0, -6); box.body:SetWidth(292)
+  box.body:SetPoint("TOPLEFT", box.title, "BOTTOMLEFT", 0, -6); box.body:SetWidth(272)
   box.body:SetJustifyH("LEFT"); box.body:SetJustifyV("TOP"); box.body:SetSpacing(2)
-  box.counter = box:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  box.counter:SetPoint("BOTTOMLEFT", 14, 17)
-  box.close = CreateFrame("Button", nil, box, "UIPanelButtonTemplate")
-  box.close:SetSize(66, 22); box.close:SetPoint("BOTTOMRIGHT", -12, 12); box.close:SetText(L.TUT_CLOSE)
-  box.next = CreateFrame("Button", nil, box, "UIPanelButtonTemplate")
-  box.next:SetSize(84, 22); box.next:SetPoint("RIGHT", box.close, "LEFT", -6, 0); box.next:SetText(L.TUT_NEXT)
-  box.prev = CreateFrame("Button", nil, box, "UIPanelButtonTemplate")
-  box.prev:SetSize(84, 22); box.prev:SetPoint("RIGHT", box.next, "LEFT", -6, 0); box.prev:SetText(L.TUT_PREV)
+  -- setinha apontando do balão pro controle (SWAPPÁVEL: troque textura/rotação aqui; ex.: um triângulo próprio)
+  box.arrow = box:CreateTexture(nil, "OVERLAY")
+  box.arrow:SetTexture("Interface\\Tooltips\\ChatBubble-Tail")
+  box.arrow:SetSize(20, 20); box.arrow:SetVertexColor(1, 0.82, 0); box.arrow:Hide()
+  box:Hide()
 
-  -- passos do tour: cada um aponta pra um frame (ou nil); passos com alvo nil/escondido são pulados
+  -- passos = fonte dos marcadores (alvos lidos lazy: os UI.* já existem quando a bag abre)
   local steps = {
-    { getTarget = function() return sb end,         title = L.TUT_SEARCH_TITLE,     body = L.TUT_SEARCH_BODY },
-    { getTarget = function() return UI.modeBar end, title = L.TUT_MODES_TITLE,      body = L.TUT_MODES_BODY },
-    { getTarget = function() return sortBtn end,    title = L.TUT_SORT_TITLE,       body = L.TUT_SORT_BODY },
-    { getTarget = function() return UI.tabBar end,  title = L.TUT_TABS_TITLE,       body = L.TUT_TABS_BODY },
-    { getTarget = function() return help end,       title = L.TUT_HELP_TITLE,       body = L.TUT_HELP_BODY },
-    { getTarget = function() return UI.content end, title = L.TUT_CATEGORIES_TITLE, body = L.TUT_CATEGORIES_BODY },
-    { getTarget = function() return goldText end,   title = L.TUT_FOOTER_TITLE,     body = L.TUT_FOOTER_BODY },
+    { getTarget = function() return sb end,           title = L.TUT_SEARCH_TITLE,     body = L.TUT_SEARCH_BODY },
+    { getTarget = function() return UI.filterBtn end, title = L.TUT_FILTER_TITLE,     body = L.TUT_FILTER_BODY },
+    { getTarget = function() return sortBtn end,      title = L.TUT_SORT_TITLE,       body = L.TUT_SORT_BODY },
+    { getTarget = function() return UI.modeBar end,   title = L.TUT_MODES_TITLE,      body = L.TUT_MODES_BODY },
+    { getTarget = function() return UI.tabBar end,    title = L.TUT_TABS_TITLE,       body = L.TUT_TABS_BODY },
+    { getTarget = function() return UI.histBtn end,   title = L.TUT_HISTORY_TITLE,    body = L.TUT_HISTORY_BODY },
+    { getTarget = function() return help end,         title = L.TUT_HELP_TITLE,       body = L.TUT_HELP_BODY },
+    { getTarget = function() return UI.content end,   title = L.TUT_CATEGORIES_TITLE, body = L.TUT_CATEGORIES_BODY },
+    { getTarget = function() return goldText end,     title = L.TUT_FOOTER_TITLE,     body = L.TUT_FOOTER_BODY },
   }
   tour.steps = steps
-  local current = 1
 
   local function stepValid(s)
     if not s or not s.getTarget then return false end
     local t = s.getTarget()
     return (t and t.IsShown and t:IsShown() and t.GetWidth and (t:GetWidth() or 0) > 0) and true or false
   end
-  local function countValid()
-    local n = 0
-    for _, s in ipairs(steps) do if stepValid(s) then n = n + 1 end end
-    return n
+  -- o conteúdo é gigante e rola: usa a área VISÍVEL (scroll) como alvo de glow/âncora
+  local function glowTargetOf(target)
+    return (target == UI.content and UI.scroll) or target
   end
   local function positionBox(target)
-    box:ClearAllPoints()
+    box:ClearAllPoints(); box.arrow:ClearAllPoints(); box.arrow:Hide()
     if not target then box:SetPoint("CENTER", UIParent, "CENTER", 0, 0); return end
     local cx = target:GetCenter()
     local sw = UIParent:GetWidth() or 1024
+    box.arrow:Show()
     if cx and cx < sw * 0.6 then
-      box:SetPoint("TOPLEFT", target, "TOPRIGHT", 16, 0)
+      box:SetPoint("LEFT", target, "RIGHT", 18, 0)         -- balão à direita do alvo
+      box.arrow:SetPoint("CENTER", box, "LEFT", 1, 0)
+      box.arrow:SetRotation(math.rad(-90))                  -- seta aponta pra ESQUERDA (troque o sinal se mudar a textura)
     else
-      box:SetPoint("TOPRIGHT", target, "TOPLEFT", -16, 0)
+      box:SetPoint("RIGHT", target, "LEFT", -18, 0)        -- balão à esquerda do alvo
+      box.arrow:SetPoint("CENTER", box, "RIGHT", -1, 0)
+      box.arrow:SetRotation(math.rad(90))                   -- seta aponta pra DIREITA
     end
   end
-
-  local ShowTourStep
-  ShowTourStep = function(i, dir)
-    dir = (dir == -1) and -1 or 1 -- nunca 0 (evitaria avançar e travaria o loop)
-    while i >= 1 and i <= #steps and not stepValid(steps[i]) do i = i + dir end
-    if i < 1 or i > #steps then tour:Hide(); return end -- sem passo válido na direção: encerra o tour
-    current = i
-    local step = steps[i]
+  local function hideTip()
+    tour.glow:Hide(); box:Hide()
+  end
+  local function showTip(stepIndex)
+    local step = steps[stepIndex]
+    if not step then return end
     local target = step.getTarget()
-    -- o conteúdo é gigante e rola: destaca a área VISÍVEL (scroll), não o frame inteiro
-    local glowTarget = (target == UI.content and UI.scroll) or target
+    if not target then return end
+    local gt = glowTargetOf(target)
     tour.glow:ClearAllPoints()
-    tour.glow:SetPoint("TOPLEFT", glowTarget, "TOPLEFT", -4, 4)
-    tour.glow:SetPoint("BOTTOMRIGHT", glowTarget, "BOTTOMRIGHT", 4, -4)
+    tour.glow:SetPoint("TOPLEFT", gt, "TOPLEFT", -4, 4)
+    tour.glow:SetPoint("BOTTOMRIGHT", gt, "BOTTOMRIGHT", 4, -4)
     tour.glow:Show()
     box.title:SetText(step.title or "")
     box.body:SetText(step.body or "")
-    local total, idx = countValid(), 0
-    for k = 1, i do if stepValid(steps[k]) then idx = idx + 1 end end
-    box.counter:SetText(idx .. "/" .. total)
-    local bodyH = math.max(40, box.body:GetStringHeight() or 40)
-    box:SetHeight(84 + bodyH)
-    positionBox(glowTarget)
-    local hasPrev = false
-    for k = i - 1, 1, -1 do if stepValid(steps[k]) then hasPrev = true; break end end
-    local hasNext = false
-    for k = i + 1, #steps do if stepValid(steps[k]) then hasNext = true; break end end
-    box.prev:SetEnabled(hasPrev)
-    box.next:SetEnabled(hasNext)
-    tour:Show(); box:Show()
+    local bodyH = math.max(28, box.body:GetStringHeight() or 28)
+    box:SetHeight(44 + bodyH)
+    positionBox(gt)
+    box:Show()
   end
-  box.prev:SetScript("OnClick", function() ShowTourStep(current - 1, -1) end)
-  box.next:SetScript("OnClick", function() ShowTourStep(current + 1, 1) end)
-  box.close:SetScript("OnClick", function() tour:Hide() end)
-  UI.ShowTour = function(i) ShowTourStep(i or 1, 1) end
-  tinsert(UISpecialFrames, "KrononBagsTour") -- ESC fecha o tour
+  -- pool de marcadores "i" (botões só-mouse), um por passo válido; reusados a cada toggle (sem ghost)
+  local function getMarker(i)
+    local m = tour.markers[i]
+    if not m then
+      m = CreateFrame("Button", nil, tour)
+      m:SetSize(18, 18); m:SetFrameStrata("FULLSCREEN_DIALOG")
+      m:SetAttribute("nodeignore", true) -- marcador: só mouse, fora da navegação por controle
+      m:SetNormalTexture("Interface\\Common\\help-i")   -- "i" dourado (SWAPPÁVEL: troque a textura aqui)
+      m:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+      m:SetScript("OnEnter", function(self) showTip(self.stepIndex) end)
+      m:SetScript("OnLeave", function() hideTip() end)
+      tour.markers[i] = m
+    end
+    return m
+  end
+  local function layoutMarkers()
+    local n = 0
+    for idx, s in ipairs(steps) do
+      if stepValid(s) then
+        n = n + 1
+        local m = getMarker(n)
+        m.stepIndex = idx
+        m:ClearAllPoints()
+        m:SetPoint("CENTER", glowTargetOf(s.getTarget()), "TOPRIGHT", 0, 0) -- "i" no canto sup. direito do controle
+        m:Show()
+      end
+    end
+    for k = n + 1, #tour.markers do tour.markers[k]:Hide() end -- esconde sobras (pool sem ghost)
+  end
+  local function setHelpShown(on)
+    hideTip()
+    if on then
+      layoutMarkers(); tour:Show()   -- mostra os marcadores; glow/balão só aparecem no hover
+    else
+      tour:Hide()                    -- esconde marcadores + glow + balão (todos filhos do overlay)
+    end
+  end
+  UI.ToggleHelp = function() setHelpShown(not tour:IsShown()) end
+  UI.ShowTour = UI.ToggleHelp -- compat: chamadas antigas agora só alternam os coach-marks
+  tinsert(UISpecialFrames, "KrononBagsTour") -- ESC esconde os marcadores
 
   -- alça de redimensionar (canto inferior direito): arraste pra mudar quantas colunas cabem.
   -- Ao soltar, calcula as colunas pela largura e re-renderiza (que reajusta a janela).
