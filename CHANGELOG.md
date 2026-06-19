@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.35.0
+**Português**
+- **Sub-grupos compactos** — ao agrupar por expansão, os grupos passam a fluir lado a lado em vez de ocupar uma linha cada um.
+- Liga/desliga na aba Comportamento da configuração.
+
+**English**
+- **Compact expansion groups** — when grouping by expansion, groups now flow side by side instead of taking one row each.
+- Toggle it in the Behavior tab of the settings.
+
+**Español**
+- **Subgrupos compactos** — al agrupar por expansión, los grupos ahora fluyen lado a lado en vez de ocupar una fila cada uno.
+- Actívalo o desactívalo en la pestaña Comportamiento de la configuración.
+
 ## 0.34.0
 **Português**
 - **Botão "Transferir" virou ícone** — ícone contextual com tooltip (moeda = vender no vendedor; bolsa = depositar no banco).

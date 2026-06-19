@@ -156,6 +156,8 @@ local EN = {
   -- v0.27.0: sub-grupos por expansão
   OPT_NEST_EXPANSION = "Group by expansion",
   TIP_OPT_NEST_EXPANSION = "Inside each category, sub-group items by their expansion.",
+  OPT_COMPACT_EXPAC = "Compact expansion groups",
+  TIP_OPT_COMPACT_EXPAC = "When grouping by expansion, flow groups side by side instead of one per row.",
   EXPAC_UNKNOWN = "Other",
   -- config: ordenação
   SORT_ILVL = "Item level", SORT_QUALITY = "Quality", SORT_NAME = "Name",
@@ -330,6 +332,8 @@ local PT = {
   TIP_OPT_SORT = "Como os itens são ordenados dentro de cada categoria.",
   OPT_NEST_EXPANSION = "Agrupar por expansão",
   TIP_OPT_NEST_EXPANSION = "Dentro de cada categoria, sub-agrupa os itens pela expansão de origem.",
+  OPT_COMPACT_EXPAC = "Sub-grupos compactos",
+  TIP_OPT_COMPACT_EXPAC = "Ao agrupar por expansão, flui os grupos lado a lado em vez de um por linha.",
   EXPAC_UNKNOWN = "Outros",
   SORT_ILVL = "Item level", SORT_QUALITY = "Qualidade", SORT_NAME = "Nome",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recentes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar itens por",
@@ -496,6 +500,8 @@ local ES = {
   TIP_OPT_SORT = "Cómo se ordenan los objetos dentro de cada categoría.",
   OPT_NEST_EXPANSION = "Agrupar por expansión",
   TIP_OPT_NEST_EXPANSION = "Dentro de cada categoría, subagrupa los objetos por su expansión.",
+  OPT_COMPACT_EXPAC = "Subgrupos compactos",
+  TIP_OPT_COMPACT_EXPAC = "Al agrupar por expansión, fluye los grupos lado a lado en vez de uno por fila.",
   EXPAC_UNKNOWN = "Otros",
   SORT_ILVL = "Nivel de objeto", SORT_QUALITY = "Calidad", SORT_NAME = "Nombre",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recientes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar objetos por",
@@ -698,6 +704,7 @@ local function InitDB()
   if KrononBagsDB.settings.sortMode == nil then KrononBagsDB.settings.sortMode = "ilvl" end -- ordem dentro da categoria: ilvl/quality/name/type/recent
   if KrononBagsDB.settings.stackItems == nil then KrononBagsDB.settings.stackItems = false end -- empilhar itens iguais num ícone só
   if KrononBagsDB.settings.nestByExpansion == nil then KrononBagsDB.settings.nestByExpansion = false end -- sub-agrupar itens por expansão de origem dentro de cada categoria
+  if KrononBagsDB.settings.compactExpac == nil then KrononBagsDB.settings.compactExpac = false end -- ao agrupar por expansão, fluir os sub-grupos lado a lado (compacto) em vez de um por linha
   if KrononBagsDB.settings.qualityBorder == nil then KrononBagsDB.settings.qualityBorder = true end -- borda colorida por raridade no ícone
   if KrononBagsDB.settings.searchHighlight == nil then KrononBagsDB.settings.searchHighlight = true end -- na busca, escurece o resto em vez de esconder
   if KrononBagsDB.settings.autoSellJunk == nil then KrononBagsDB.settings.autoSellJunk = true end -- vender lixo automaticamente ao abrir o vendedor
@@ -2248,17 +2255,64 @@ Refresh = function()
             if b == UNK then return true end
             return a > b
           end)
-          for _, key in ipairs(expacKeys) do
-            local realE; if key ~= UNK then realE = key end -- evita o pitfall do "and/or" com 0
-            shIdx = shIdx + 1
-            local sh = AcquireSubHeader(shIdx)
-            sh.label:SetText(ExpacName(realE))
-            sh:SetSize(math.max(1, contentW - 8), 14)
-            sh:ClearAllPoints(); sh:SetPoint("TOPLEFT", 8, yOff)
-            sh:Show()
-            yOff = yOff - 16
-            yOff = DrawItemGrid(byExpac[key], yOff)
-            yOff = yOff - 4 -- pequeno gap ao fim do sub-grupo
+          if DB.settings.compactExpac then
+            -- COMPACTO: os itens da categoria fluem num grid contínuo; o rótulo de cada
+            -- expansão fica numa faixa ACIMA do 1º item daquele grupo. Vários grupos
+            -- pequenos cabem na mesma linha; grupos grandes quebram pra próxima linha.
+            local LBLBAND = 13               -- faixa de rótulo no topo de cada linha
+            local ROWH = LBLBAND + BTN + PAD -- altura total de cada linha (rótulo + ícone + gap)
+            -- lista plana dos itens na ordem dos grupos; o 1º item de cada grupo carrega o rótulo
+            local flat = {}
+            for _, key in ipairs(expacKeys) do
+              local realE; if key ~= UNK then realE = key end -- evita o pitfall do "and/or" com 0
+              local grp = byExpac[key]
+              for idx = 1, #grp do
+                flat[#flat + 1] = { it = grp[idx], lbl = (idx == 1) and ExpacName(realE) or nil, grpSize = (idx == 1) and #grp or nil }
+              end
+            end
+            local col, rowTop = 0, yOff
+            for _, node in ipairs(flat) do
+              local x = col * (BTN + PAD)
+              local it = node.it
+              btnIdx = btnIdx + 1
+              local b = AcquireButton(btnIdx)
+              if it.cached then FillButtonCached(b, it) else FillButton(b, it.bag, it.slot) end
+              if it.stacked then SetItemButtonCount(b, it.count); b.kbStacked = true end -- contagem somada do empilhamento
+              if it.dim then b:SetAlpha(0.25) end -- busca-realce: itens que não batem ficam apagados
+              b:SetSize(BTN, BTN)
+              b:ClearAllPoints()
+              b:SetPoint("TOPLEFT", x, rowTop - LBLBAND) -- ícone abaixo da faixa de rótulo
+              b:Show()
+              if node.lbl then -- 1º item do grupo: rótulo da expansão acima dele
+                shIdx = shIdx + 1
+                local sh = AcquireSubHeader(shIdx)
+                local span = math.min(node.grpSize or 1, cols - col) * (BTN + PAD) -- largura do grupo nesta linha
+                sh.label:SetText(node.lbl)
+                sh.label:SetWidth(math.max(1, span - 4)); sh.label:SetWordWrap(false) -- trunca nome longo sem invadir o grupo vizinho
+                sh:SetSize(math.max(1, span), LBLBAND)
+                sh:ClearAllPoints(); sh:SetPoint("TOPLEFT", x, rowTop)
+                sh:Show()
+              end
+              col = col + 1
+              if col >= cols then col = 0; rowTop = rowTop - ROWH end
+            end
+            if col > 0 then rowTop = rowTop - ROWH end -- fecha a última linha parcial
+            yOff = rowTop
+          else
+            -- SEPARADO (padrão): cada expansão é um bloco que começa em nova linha cheia
+            for _, key in ipairs(expacKeys) do
+              local realE; if key ~= UNK then realE = key end -- evita o pitfall do "and/or" com 0
+              shIdx = shIdx + 1
+              local sh = AcquireSubHeader(shIdx)
+              sh.label:SetText(ExpacName(realE))
+              sh.label:SetWidth(0); sh.label:SetWordWrap(true) -- largura automática (mostra o nome inteiro; reseta truncamento do modo compacto)
+              sh:SetSize(math.max(1, contentW - 8), 14)
+              sh:ClearAllPoints(); sh:SetPoint("TOPLEFT", 8, yOff)
+              sh:Show()
+              yOff = yOff - 16
+              yOff = DrawItemGrid(byExpac[key], yOff)
+              yOff = yOff - 4 -- pequeno gap ao fim do sub-grupo
+            end
           end
         else
           yOff = DrawItemGrid(g, yOff)
@@ -3700,10 +3754,13 @@ CreateConfig = function()
   check(bhP, "KrononBagsNestExpacCheck", 4, -188, L.OPT_NEST_EXPANSION, function() return DB.settings.nestByExpansion end, function(v)
     DB.settings.nestByExpansion = v; Refresh()
   end, "TIP_OPT_NEST_EXPANSION")
+  check(bhP, "KrononBagsCompactExpacCheck", 4, -214, L.OPT_COMPACT_EXPAC, function() return DB.settings.compactExpac end, function(v)
+    DB.settings.compactExpac = v; Refresh()
+  end, "TIP_OPT_COMPACT_EXPAC")
   -- seletor de ordenação dentro da categoria
   local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
   local sortBtn = CreateFrame("Button", nil, bhP, "UIPanelButtonTemplate")
-  sortBtn:SetSize(200, 20); sortBtn:SetPoint("TOPLEFT", 8, -218); sortBtn:SetAttribute("nodeignore", true)
+  sortBtn:SetSize(200, 20); sortBtn:SetPoint("TOPLEFT", 8, -244); sortBtn:SetAttribute("nodeignore", true)
   local function updSortBtn() sortBtn:SetText(L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL)) end
   updSortBtn()
   sortBtn:SetScript("OnClick", function(self)
