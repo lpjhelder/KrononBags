@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.33.0
+**Português**
+- Configuração em ABAS — as opções agora ficam numa barra lateral (Aparência, Ícones, Comportamento, Vendedor, Banco, Categorias, Sobre); clique na aba para ver só o que importa.
+- Altura fixa — a janela tem tamanho fixo que cabe em qualquer resolução, sem mais estouro de tela.
+- Lista de categorias com rolagem — a aba Categorias rola por dentro; os controles (nova categoria, presets, exportar/importar) ficam fixos no topo.
+
+**English**
+- Settings in TABS — options now live in a left sidebar (Appearance, Icons, Behavior, Vendor, Bank, Categories, About); click a tab to see only what matters.
+- Fixed height — the window has a fixed size that fits any resolution, no more screen overflow.
+- Scrollable category list — the Categories tab scrolls internally; the controls (new category, presets, export/import) stay pinned at the top.
+
+**Español**
+- Ajustes en PESTAÑAS — las opciones ahora están en una barra lateral (Apariencia, Iconos, Comportamiento, Vendedor, Banco, Categorías, Acerca de); haz clic en una pestaña para ver solo lo que importa.
+- Altura fija — la ventana tiene un tamaño fijo que cabe en cualquier resolución, sin más desbordamiento de pantalla.
+- Lista de categorías con desplazamiento — la pestaña Categorías se desplaza por dentro; los controles (nueva categoría, presets, exportar/importar) quedan fijos arriba.
+
 ## 0.32.0
 **Português**
 - **Comparar com o equipado** — no tooltip de uma peça de equipamento aparece a comparação com o que você já tem no mesmo slot: diferença de item level e o delta dos atributos secundários (crítico, aceleração, maestria, versatilidade).
