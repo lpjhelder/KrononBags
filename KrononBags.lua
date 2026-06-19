@@ -50,8 +50,11 @@ local EN = {
   BTN_SELL_JUNK = "Sell Junk", BTN_DEPOSIT = "Deposit Items",
   -- v0.23.0: transferir pela busca + categoria Abríveis
   CAT_OPENABLE = "Openable",
-  BTN_TRANSFER = "Transfer", BTN_OPEN_ALL = "Open all",
-  TIP_TRANSFER = "Move all items matching the search — sell at a vendor, deposit at the bank.",
+  BTN_OPEN_ALL = "Open all",
+  TIP_TRANSFER_SELL_TITLE = "Sell filtered",
+  TIP_TRANSFER_SELL_BODY = "Sell all items matching the current search (asks to confirm).",
+  TIP_TRANSFER_DEPOSIT_TITLE = "Deposit filtered",
+  TIP_TRANSFER_DEPOSIT_BODY = "Deposit all items matching the current search into the bank.",
   TIP_OPEN_ALL = "Open all loot containers (skips locked ones).",
   MSG_TRANSFER_SOLD = "Sold %d item(s) matching the search.",
   MSG_TRANSFER_DEPOSITED = "Deposited %d item(s) matching the search.",
@@ -235,8 +238,11 @@ local PT = {
   BTN_EXPORT = "Exportar", BTN_DELETE = "Excluir", BTN_RULE = "Regra", BTN_PRESET = "Pré-pronta…",
   BTN_SELL_JUNK = "Vender lixo", BTN_DEPOSIT = "Depositar itens",
   CAT_OPENABLE = "Abríveis",
-  BTN_TRANSFER = "Transferir", BTN_OPEN_ALL = "Abrir tudo",
-  TIP_TRANSFER = "Move tudo que bate com a busca — vende no vendedor, deposita no banco.",
+  BTN_OPEN_ALL = "Abrir tudo",
+  TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
+  TIP_TRANSFER_SELL_BODY = "Vende todos os itens que batem com a busca atual (pede confirmação).",
+  TIP_TRANSFER_DEPOSIT_TITLE = "Depositar filtrados",
+  TIP_TRANSFER_DEPOSIT_BODY = "Deposita no banco todos os itens que batem com a busca atual.",
   TIP_OPEN_ALL = "Abre todos os recipientes de loot (pula os trancados).",
   MSG_TRANSFER_SOLD = "Vendido(s) %d item(ns) que batem com a busca.",
   MSG_TRANSFER_DEPOSITED = "Depositado(s) %d item(ns) que batem com a busca.",
@@ -398,8 +404,11 @@ local ES = {
   BTN_EXPORT = "Exportar", BTN_DELETE = "Eliminar", BTN_RULE = "Regla", BTN_PRESET = "Predefinida…",
   BTN_SELL_JUNK = "Vender basura", BTN_DEPOSIT = "Depositar objetos",
   CAT_OPENABLE = "Para abrir",
-  BTN_TRANSFER = "Transferir", BTN_OPEN_ALL = "Abrir todo",
-  TIP_TRANSFER = "Mueve todo lo que coincide con la búsqueda — vende en el vendedor, deposita en el banco.",
+  BTN_OPEN_ALL = "Abrir todo",
+  TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
+  TIP_TRANSFER_SELL_BODY = "Vende todos los objetos que coinciden con la búsqueda actual (pide confirmación).",
+  TIP_TRANSFER_DEPOSIT_TITLE = "Depositar filtrados",
+  TIP_TRANSFER_DEPOSIT_BODY = "Deposita en el banco todos los objetos que coinciden con la búsqueda actual.",
   TIP_OPEN_ALL = "Abre todos los contenedores de botín (omite los bloqueados).",
   MSG_TRANSFER_SOLD = "Vendido(s) %d objeto(s) que coinciden con la búsqueda.",
   MSG_TRANSFER_DEPOSITED = "Depositado(s) %d objeto(s) que coinciden con la búsqueda.",
@@ -1231,6 +1240,11 @@ AcquireButton = function(i)
     -- ConsolePort calcula o vizinho pelo CENTRO do hit rect; insets ≠ 0 (que alguns
     -- templates trazem) deslocam esse centro e desalinham a grade. Zerar = centro exato.
     b:SetHitRectInsets(0, 0, 0, 0)
+    -- o UpdateTooltip nativo do ItemButton chama C_NewItems.RemoveNewItem(bag,slot); em itens
+    -- cacheados (banco de longe) bag/slot = -1 e o 12.0.x recusa -1 (erro a cada frame de hover).
+    -- Guardamos o nativo (pros vivos) e trocamos por um no-op nos cacheados (o OnEnter já mostra o tooltip via SetHyperlink).
+    b.kbNativeUpdateTooltip = b.UpdateTooltip
+    b.kbNoTooltip = function() end
     -- selos próprios (nomes únicos kb* pra não colidir com campos do template nativo)
     b.kbIlvl = b:CreateFontString(nil, "OVERLAY")
     b.kbIlvl:SetFont("Fonts\\ARIALN.TTF", 12, "OUTLINE")
@@ -1546,6 +1560,7 @@ local function FillButton(b, bag, slot)
   if b.SetBagID then b:SetBagID(bag) else b.bagID = bag end
   b.bag, b.slot = bag, slot
   b.cached, b.cachedLink = nil, nil -- modo vivo (não é visualização de cache)
+  if b.kbNativeUpdateTooltip then b.UpdateTooltip = b.kbNativeUpdateTooltip end -- restaura o tooltip nativo (slot real)
   b:SetAlpha(1) -- reset (a busca-realce pode ter deixado escurecido num render anterior)
   b.kbStacked = nil -- limpa flag de pilha visual (re-setado no render se for empilhado)
   -- desliga o brilho de "item novo" NATIVO (tocava sozinho em slot vazio e em tudo após /reload);
@@ -1596,6 +1611,7 @@ local function FillButtonCached(b, it)
   b:SetID(-1)
   if b.SetBagID then b:SetBagID(-1) else b.bagID = -1 end -- limpa a bolsa viva anterior: cacheado nunca aponta pra um container real
   b.bag, b.slot = nil, nil
+  if b.kbNoTooltip then b.UpdateTooltip = b.kbNoTooltip end -- evita RemoveNewItem(-1) do UpdateTooltip nativo em item cacheado
   b.cached, b.cachedLink = true, it.link
   b:SetAlpha(1)
   b.kbStacked = nil
@@ -2435,6 +2451,8 @@ UpdateTabs = function()
   if UI.transferBtn then
     local merchant = MerchantFrame and MerchantFrame:IsShown()
     UI.transferBtn:SetShown(search ~= "" and (merchant or atBank))
+    -- ícone contextual: moeda no vendedor (vende), bolsa no banco (deposita)
+    UI.transferBtn:SetNormalTexture(merchant and "Interface\\ICONS\\INV_Misc_Coin_01" or "Interface\\ICONS\\INV_Misc_Bag_08")
   end
 end
 
@@ -2970,16 +2988,25 @@ CreateUI = function()
   sellJunk:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.sellJunkBtn = sellJunk; sellJunk:Hide()
 
-  -- botão "Transferir" (só com busca ativa, no vendedor ou no banco): vende/deposita o que bate
-  local transferBtn = CreateFrame("Button", nil, UI, "UIPanelButtonTemplate")
-  transferBtn:SetSize(86, 20)
+  -- botão "Transferir" (só com busca ativa, no vendedor ou no banco): vende/deposita o que bate.
+  -- Botão de ÍCONE contextual: moeda no vendedor (vende), bolsa no banco (deposita). O ícone e o
+  -- tooltip mudam conforme o contexto — atualizados em UpdateTabs (ícone) e no OnEnter (tooltip).
+  local transferBtn = CreateFrame("Button", nil, UI)
+  transferBtn:SetSize(24, 24)
   transferBtn:SetPoint("RIGHT", sellJunk, "LEFT", -6, 0)
-  transferBtn:SetText(L.BTN_TRANSFER)
+  transferBtn:SetNormalTexture("Interface\\ICONS\\INV_Misc_Coin_01") -- ícone inicial; UpdateTabs troca conforme o contexto
+  transferBtn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  transferBtn:SetAttribute("nodeignore", true) -- linha do cabeçalho; só mouse, fora da navegação por controle
   transferBtn:SetScript("OnClick", TransferBySearch)
   transferBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText(L.BTN_TRANSFER)
-    GameTooltip:AddLine(L.TIP_TRANSFER, 0.8, 0.8, 0.8, true)
+    if MerchantFrame and MerchantFrame:IsShown() then
+      GameTooltip:SetText(L.TIP_TRANSFER_SELL_TITLE)
+      GameTooltip:AddLine(L.TIP_TRANSFER_SELL_BODY, 0.8, 0.8, 0.8, true)
+    else
+      GameTooltip:SetText(L.TIP_TRANSFER_DEPOSIT_TITLE)
+      GameTooltip:AddLine(L.TIP_TRANSFER_DEPOSIT_BODY, 0.8, 0.8, 0.8, true)
+    end
     GameTooltip:Show()
   end)
   transferBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)

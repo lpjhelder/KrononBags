@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.34.0
+**Português**
+- **Botão "Transferir" virou ícone** — ícone contextual com tooltip (moeda = vender no vendedor; bolsa = depositar no banco).
+- **Corrigido:** erro de Lua ao passar o mouse em itens do banco consultado de longe (RemoveNewItem com slot inválido).
+
+**English**
+- **"Transfer" button is now an icon** — contextual icon with tooltip (coin = sell at a vendor; bag = deposit at the bank).
+- **Fixed:** Lua error when hovering items in the remotely-viewed bank (RemoveNewItem with an invalid slot).
+
+**Español**
+- **El botón "Transferir" ahora es un icono** — icono contextual con tooltip (moneda = vender; bolsa = depositar).
+- **Corregido:** error de Lua al pasar el ratón por objetos del banco consultado a distancia (RemoveNewItem con espacio inválido).
+
 ## 0.33.0
 **Português**
 - Configuração em ABAS — as opções agora ficam numa barra lateral (Aparência, Ícones, Comportamento, Vendedor, Banco, Categorias, Sobre); clique na aba para ver só o que importa.
