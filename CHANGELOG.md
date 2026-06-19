@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.36.0
+**Português**
+- **Corrigido:** favoritar e proteger agora diferenciam variações do mesmo item (ilvl, raridade, qualidade). Um item de mesmo nome mas ilvl/raridade diferente não é mais marcado junto.
+- **Conjunto de Equipamento** casa a peça exata do conjunto, não qualquer item de mesmo nome.
+- Nota: favoritos antigos continuam valendo; pra um item antigo passar a diferenciar, desfavorite e favorite de novo.
+
+**English**
+- **Fixed:** favoriting and selling protection now tell apart variants of the same item (ilvl, rarity, quality). An item with the same name but different ilvl/rarity is no longer flagged along with it.
+- **Equipment Set** matches the exact set piece, not just any item with the same name.
+- Note: old favorites still work; to make an old item variant-aware, unfavorite it and favorite it again.
+
+**Español**
+- **Corregido:** marcar como favorito y proteger ahora distinguen variantes del mismo objeto (nivel de objeto, rareza, calidad). Un objeto con el mismo nombre pero distinto nivel/rareza ya no se marca junto.
+- **Conjunto de equipo** coincide con la pieza exacta del conjunto, no con cualquier objeto del mismo nombre.
+- Nota: los favoritos antiguos siguen vigentes; para que un objeto antiguo distinga variantes, quítalo de favoritos y vuelve a marcarlo.
+
 ## 0.35.0
 **Português**
 - **Sub-grupos compactos** — ao agrupar por expansão, os grupos passam a fluir lado a lado em vez de ocupar uma linha cada um.

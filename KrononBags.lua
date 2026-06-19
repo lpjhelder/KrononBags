@@ -10,6 +10,7 @@ local DB
 local UI, CFG
 local goldText, currencyText, freeBox, freeNum, reagentBox, reagentNum, emptyHeader
 local Refresh, RenderGrid, OnEnter, AcquireButton, Categorize, GetIlvl, Toggle, CreateUI, OpenItemMenu, ResolveCat
+local ToggleFavorite -- usada em OpenItemMenu (definida acima da implementação)
 local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney, UpdateTabs, UpdateModeBar, SearchMatcher, RefreshConfigCats
 local CreateFilterBuilder
 
@@ -855,10 +856,42 @@ local function isKeystone(id)
   return res
 end
 
--- filtros recebem (itemID, quality, bag, slot). "reagentbag"/"keystone"/"new" são especiais.
+-- ---------------- Variação de item (chave estável) ----------------
+-- Dois itens de MESMO nome mas ilvl/raridade/qualidade diferentes têm o mesmo itemID base
+-- e bonusIDs diferentes. VariantKey monta uma chave canônica (itemID + bonusIDs ordenados +
+-- qualidade de criação) pra distinguir variações. Descarta dono/enchant/gems/suffix/uniqueID/
+-- linkLevel/spec/modifiersMask/itemContext (alinhado com Syndicator/Baganator). Robusto a link
+-- nil/malformado: devolve nil sem erro.
+local function VariantKey(link)
+  if not link then return nil end
+  local payload = link:match("item:([%-%d:]+)")   -- corpo numérico após item:
+  if not payload then return nil end
+  local f = { strsplit(":", payload) }             -- f[1]=itemID ... f[13]=numBonusIDs
+  local itemID = tonumber(f[1]); if not itemID then return nil end
+  local numBonus = tonumber(f[13]) or 0
+  local bonuses = {}
+  for i = 1, numBonus do bonuses[i] = tonumber(f[13 + i]) or 0 end
+  table.sort(bonuses)                              -- canônico
+  local craftQ, mStart = "", 14 + numBonus
+  local numMods = tonumber(f[mStart]) or 0
+  for i = 0, numMods - 1 do
+    local t = tonumber(f[mStart + 1 + i*2]); local v = f[mStart + 2 + i*2]
+    if t == 38 then craftQ = "q" .. tostring(v) end -- ITEM_MODIFIER_CRAFTING_QUALITY_ID
+  end
+  return itemID .. ":" .. table.concat(bonuses, ".") .. (craftQ ~= "" and ("#"..craftQ) or "")
+end
+
+-- favorito = protegido. Chaveado por VariantKey (variação exata), com COMPAT pra favoritos
+-- legados (chaves numéricas itemID): a leitura checa AMBOS. (A escrita grava VariantKey;
+-- desfavoritar limpa as duas — ver ToggleFavorite.)
+local function IsFavorited(itemID, link)
+  return (link and DB.favorites[VariantKey(link)]) or DB.favorites[itemID] or false
+end
+
+-- filtros recebem (itemID, quality, bag, slot, link). "reagentbag"/"keystone"/"new" são especiais.
 local PRESET_FILTERS = {
   new        = function(id, q, bag, slot) return (DB and DB.recem and DB.recem[id]) and true or false end, -- recém-obtido (fica até clicar em Distribuir)
-  favorites  = function(id, q, bag) return DB.favorites[id] and true or false end,
+  favorites  = function(id, q, bag, slot, link) return IsFavorited(id, link) end,
   keystone   = function(id, q, bag) return isKeystone(id) end,                                -- Pedra-chave
   reagentbag = function(id, q, bag) return bag == 5 end,                                       -- bolsa de reagentes (loc)
   equip      = function(id, q, bag) local c = classOf(id); return c == 2 or c == 4 end,        -- arma / armadura
@@ -873,23 +906,39 @@ local PRESET_FILTERS = {
 local AVAILABLE_PRESETS = KB_PRESETS
 
 -- ---------------- Conjuntos de Equipamento (auto PvP/PvE) ----------------
-local equipSetByItem = {}   -- [itemID] = nome do conjunto
+local equipSetByVariant = {} -- [VariantKey] = nome do conjunto
 local equipSetNames = {}    -- lista ordenada de nomes de conjunto
 local equipSetIDByName = {} -- [nome] = setID
 
+-- Chaveia por VARIAÇÃO (não por itemID), pra casar a peça EXATA do conjunto (ilvl/bonusIDs).
+-- Resolve cada location do conjunto pro link real: NÃO usa C_EquipmentSet.GetItemIDs (perde a
+-- variação). Pula loc <= 0 e locations não-resolvíveis (peça que o jogador não tem não precisa
+-- ser marcada).
 local function RebuildEquipSets()
-  wipe(equipSetByItem); wipe(equipSetNames); wipe(equipSetIDByName)
+  wipe(equipSetByVariant); wipe(equipSetNames); wipe(equipSetIDByName)
   if not C_EquipmentSet then return end
   for _, setID in ipairs(C_EquipmentSet.GetEquipmentSetIDs()) do
     local name = C_EquipmentSet.GetEquipmentSetInfo(setID)
     if name then
       equipSetNames[#equipSetNames + 1] = name
       equipSetIDByName[name] = setID
-      local items = C_EquipmentSet.GetItemIDs(setID)
-      if items then
-        for _, itemID in pairs(items) do
-          if type(itemID) == "number" and itemID > 1 then
-            equipSetByItem[itemID] = name
+      local locs = C_EquipmentSet.GetItemLocations and C_EquipmentSet.GetItemLocations(setID)
+      if locs then
+        for _, loc in pairs(locs) do
+          if type(loc) == "number" and loc > 0 and EquipmentManager_GetLocationData then
+            local d = EquipmentManager_GetLocationData(loc)
+            local itemLoc
+            if d then
+              if d.isBags and d.bag and d.slot then
+                itemLoc = ItemLocation:CreateFromBagAndSlot(d.bag, d.slot)
+              elseif d.isPlayer and d.slot then
+                itemLoc = ItemLocation:CreateFromEquipmentSlot(d.slot)
+              end
+            end
+            if itemLoc and C_Item.DoesItemExist(itemLoc) then
+              local key = VariantKey(C_Item.GetItemLink(itemLoc))
+              if key then equipSetByVariant[key] = name end
+            end
           end
         end
       end
@@ -900,21 +949,24 @@ end
 -- ---------------- Categorização ----------------
 -- item está numa categoria "de verdade" (manual ou conjunto de equipamento)?
 -- exceção: jogar item manualmente em "Lixo" (filtro junk) NÃO protege de venda
-local function IsCategorized(itemID)
+local function IsCategorized(itemID, link)
   local a = DB.assignments[itemID]
   if a then
     local entry = CatEntryByName(a)
     if entry and entry.filter ~= "junk" then return true end
   end
-  if equipSetByItem[itemID] then return true end
+  if link and equipSetByVariant[VariantKey(link)] then return true end
   return false
 end
 
--- protegido = favorito OU (opção ligada E está numa categoria de verdade)
-local function IsProtected(itemID)
-  if DB.favorites[itemID] then return true end -- favorito = protegido
-  if equipSetByItem[itemID] then return true end -- item de Conjunto de Equipamento = SEMPRE protegido (favorito automático)
-  if DB.settings and DB.settings.autoProtectCategorized and IsCategorized(itemID) then return true end
+-- protegido = variação favoritada OU peça EXATA de Conjunto de Equipamento OU (opção ligada E categoria de verdade)
+-- SEGURANÇA DE VENDA (CRÍTICO): sem link (cache frio) não dá pra determinar a variação →
+-- tratar como protegido, nunca vender por engano.
+local function IsProtected(itemID, link)
+  if not link then return true end
+  if IsFavorited(itemID, link) then return true end -- favorito = protegido
+  if equipSetByVariant[VariantKey(link)] then return true end -- peça exata de Conjunto de Equipamento = SEMPRE protegida (favorito automático)
+  if DB.settings and DB.settings.autoProtectCategorized and IsCategorized(itemID, link) then return true end
   return false
 end
 
@@ -932,7 +984,7 @@ ResolveCat = function(it)
   local itemID = it.itemID
   local a = DB.assignments[itemID]
   if a and CategoryExists(a) then return a end
-  local s = equipSetByItem[itemID]
+  local s = it.link and equipSetByVariant[VariantKey(it.link)]
   if s then return s end
   for _, c in ipairs(DB.catList) do
     if c.rule and c.rule ~= "" then
@@ -940,7 +992,7 @@ ResolveCat = function(it)
       if m and m(it) then return c.name end
     elseif c.filter then
       local fn = PRESET_FILTERS[c.filter]
-      if fn and fn(itemID, it.quality, it.bag, it.slot) then return c.name end
+      if fn and fn(itemID, it.quality, it.bag, it.slot, it.link) then return c.name end
     end
   end
   return "Diversos"
@@ -1086,8 +1138,8 @@ OpenItemMenu = function(self)
     end
 
     root:CreateDivider()
-    root:CreateButton(DB.favorites[itemID] and L.MENU_UNFAVORITE or L.MENU_FAVORITE, function()
-      DB.favorites[itemID] = (not DB.favorites[itemID]) or nil; Refresh()
+    root:CreateButton(IsFavorited(itemID, self.link) and L.MENU_UNFAVORITE or L.MENU_FAVORITE, function()
+      ToggleFavorite(itemID, self.link)
     end)
   end)
 end
@@ -1146,11 +1198,22 @@ local function OpenCategoryMenu(h)
     if items and #items > 0 then
       root:CreateDivider()
       root:CreateButton(L.MENU_FAV_ALL, function()
-        for _, it in ipairs(items) do if it.itemID then DB.favorites[it.itemID] = true end end
+        for _, it in ipairs(items) do
+          if it.itemID then
+            local key = it.link and VariantKey(it.link)
+            if key then DB.favorites[key] = true else DB.favorites[it.itemID] = true end
+          end
+        end
         Refresh()
       end)
       root:CreateButton(L.MENU_UNFAV_ALL, function()
-        for _, it in ipairs(items) do if it.itemID then DB.favorites[it.itemID] = nil end end
+        for _, it in ipairs(items) do
+          if it.itemID then
+            local key = it.link and VariantKey(it.link)
+            if key then DB.favorites[key] = nil end
+            DB.favorites[it.itemID] = nil -- compat: limpa também o favorito legado
+          end
+        end
         Refresh()
       end)
       if atBank and mode == "bags" then
@@ -1172,7 +1235,8 @@ local function AssignCursorToCategory(cat)
   if not itemID then return end
   local entry = CatEntryByName(cat)
   if entry and entry.filter == "favorites" then
-    DB.favorites[itemID] = true
+    local key = link and VariantKey(link)
+    if key then DB.favorites[key] = true else DB.favorites[itemID] = true end
   elseif entry and entry.filter == "new" then
     DB.recem[itemID] = true; DB.assignments[itemID] = nil -- joga de volta pra Recém-obtidos
   elseif cat == "Diversos" then
@@ -1215,9 +1279,22 @@ OnEnter = function(self)
   GameTooltip:Show()
 end
 
-local function ToggleFavorite(itemID)
+-- Favoritar/desfavoritar uma VARIAÇÃO. Grava por VariantKey; ao desfavoritar limpa a chave
+-- de variação E a chave numérica legada (itemID) pra um favorito antigo sair de vez. Sem link
+-- (variação indeterminável): cai no toggle legado por itemID.
+ToggleFavorite = function(itemID, link)
   if not itemID then return end
-  DB.favorites[itemID] = (not DB.favorites[itemID]) or nil -- favorito = protegido
+  local key = link and VariantKey(link)
+  if not key then
+    DB.favorites[itemID] = (not DB.favorites[itemID]) or nil -- favorito = protegido (legado)
+    Refresh(); return
+  end
+  if IsFavorited(itemID, link) then
+    DB.favorites[key] = nil
+    DB.favorites[itemID] = nil -- compat: tira o favorito legado junto
+  else
+    DB.favorites[key] = true
+  end
   Refresh()
 end
 
@@ -1295,10 +1372,11 @@ AcquireButton = function(i)
     star.tex:SetAtlas("PetJournal-FavoritesIcon")
     b.kbStar = star
     local function updateStar()
-      local setFav = b.itemID and equipSetByItem[b.itemID] -- item de Conjunto de Equipamento: favorito automático
-      if b.itemID and (DB.favorites[b.itemID] or setFav) then
+      local setFav = b.itemID and b.link and equipSetByVariant[VariantKey(b.link)] -- peça exata de Conjunto de Equipamento: favorito automático
+      local fav = b.itemID and IsFavorited(b.itemID, b.link)
+      if b.itemID and (fav or setFav) then
         star:Show(); star.tex:SetDesaturated(false); star.tex:SetAlpha(1)
-        if setFav and not DB.favorites[b.itemID] then star.tex:SetVertexColor(0.5, 0.8, 1) -- azulado = auto (Gerenciador de Equipamento)
+        if setFav and not fav then star.tex:SetVertexColor(0.5, 0.8, 1) -- azulado = auto (Gerenciador de Equipamento)
         else star.tex:SetVertexColor(1, 1, 1) end
       elseif b.itemID and b:IsMouseOver() then
         star:Show(); star.tex:SetDesaturated(true); star.tex:SetAlpha(0.4); star.tex:SetVertexColor(1, 1, 1)
@@ -1311,14 +1389,14 @@ AcquireButton = function(i)
       local id = b.itemID
       if not id then return end
       if mb == "RightButton" then OpenItemMenu(b)
-      elseif equipSetByItem[id] then
+      elseif b.link and equipSetByVariant[VariantKey(b.link)] then
         print(KB_PREFIX .. L.MSG_EQUIPSET_AUTOFAV)
-      else ToggleFavorite(id) end
+      else ToggleFavorite(id, b.link) end
     end)
     star:SetScript("OnEnter", function(s)
       updateStar()
       GameTooltip:SetOwner(s, "ANCHOR_RIGHT")
-      if b.itemID and equipSetByItem[b.itemID] then
+      if b.itemID and b.link and equipSetByVariant[VariantKey(b.link)] then
         GameTooltip:SetText(L.TIP_STAR_AUTOFAV)
       else
         GameTooltip:SetText(L.TIP_STAR_ACTIONS)
@@ -1579,6 +1657,7 @@ local function FillButton(b, bag, slot)
   local info = C_Container.GetContainerItemInfo(bag, slot)
   if info and info.itemID then
     b.itemID = info.itemID
+    b.link = info.hyperlink -- variação exata (bonusIDs): favoritar/proteger casa só esta peça
     b.itemName = C_Item.GetItemInfo(info.hyperlink) or ""
     b:SetItemButtonTexture(info.iconFileID)
     SetItemButtonCount(b, info.stackCount or 1)
@@ -1589,13 +1668,13 @@ local function FillButton(b, bag, slot)
     end
     if b.kbUpdateStar then b.kbUpdateStar() end
     DecorateBadges(b, bag, slot, info.itemID, info.quality, GetIlvl(info.hyperlink), info.isBound)
-    if MerchantFrame and MerchantFrame:IsShown() and IsProtected(info.itemID) then
+    if MerchantFrame and MerchantFrame:IsShown() and IsProtected(info.itemID, info.hyperlink) then
       b:RegisterForClicks("LeftButtonUp")               -- favorito não vende (sem clique direito)
     else
       b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     end
   else
-    b.itemID, b.itemName = nil, nil
+    b.itemID, b.itemName, b.link = nil, nil, nil
     b:SetItemButtonTexture(nil)
     SetItemButtonCount(b, 0)
     if b.IconBorder then b.IconBorder:Hide() end
@@ -1625,6 +1704,7 @@ local function FillButtonCached(b, it)
   if b.NewItemTexture then b.NewItemTexture:Hide() end
   if b.BattlepayItemTexture then b.BattlepayItemTexture:Hide() end
   b.itemID = it.itemID
+  b.link = it.link
   b.itemName = it.name or ""
   b:SetItemButtonTexture(it.icon)
   SetItemButtonCount(b, it.count or 1)
@@ -1733,8 +1813,8 @@ local function SearchTermPred(tok)
     consumable = function(it) return classOf(it.itemID) == 0 end,
     novo = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
     new = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
-    favorito = function(it) return DB.favorites[it.itemID] and true or false end,
-    fav = function(it) return DB.favorites[it.itemID] and true or false end,
+    favorito = function(it) return IsFavorited(it.itemID, it.link) and true or false end,
+    fav = function(it) return IsFavorited(it.itemID, it.link) and true or false end,
   }
   if KW[low] then return KW[low] end
   return function(it) return it.name ~= "" and it.name:lower():find(low, 1, true) ~= nil end
@@ -1932,7 +2012,8 @@ local function SellMatches(list)
       -- dispara em BAG_UPDATE) entre abrir o popup e confirmar. Só vende se o slot ainda contém
       -- o MESMO item e ele NÃO está protegido (rede de segurança contra vender item trocado/favorito).
       local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
-      if info and info.itemID == it.itemID and not IsProtected(it.itemID) then
+      -- revalida pela variação ATUAL do slot (info.hyperlink); link nil → IsProtected devolve true (não vende)
+      if info and info.itemID == it.itemID and not IsProtected(it.itemID, info.hyperlink) then
         C_Container.UseContainerItem(it.bag, it.slot); n = n + 1
       end
     end
@@ -1950,7 +2031,7 @@ local function TransferBySearch()
   if atMerchant then
     local sellable = {}
     for _, it in ipairs(matches) do
-      if it.bag and it.slot and not IsProtected(it.itemID) then sellable[#sellable + 1] = it end
+      if it.bag and it.slot and not IsProtected(it.itemID, it.link) then sellable[#sellable + 1] = it end
     end
     if #sellable == 0 then return end
     KB_transferSellList = sellable
