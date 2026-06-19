@@ -169,6 +169,8 @@ local EN = {
   READY_KEYSTONE = "M+ Keystone", READY_MISSING = "missing", READY_NONE = "none",
   -- tooltip de contagem nos alts
   WARBAND_LABEL = "Warband",
+  -- valor pela Auction House (tooltip + total por categoria)
+  MARKET_VALUE = "Market (AH)", SELL_VALUE = "Sell price",
   -- painel de ouro por personagem (hover no rodapé)
   GOLD_PANEL_TITLE = "Gold per character", GOLD_WARBAND = "Warband bank", GOLD_TOTAL = "Total",
   -- ajuda / limpar busca
@@ -332,6 +334,7 @@ local PT = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Pedra de Vida", READY_RUNE = "Runa/encantamento",
   READY_KEYSTONE = "Pedra-chave M+", READY_MISSING = "falta", READY_NONE = "nenhuma",
   WARBAND_LABEL = "Brigada",
+  MARKET_VALUE = "Mercado (AH)", SELL_VALUE = "Preço de venda",
   GOLD_PANEL_TITLE = "Ouro por personagem", GOLD_WARBAND = "Banco da Brigada", GOLD_TOTAL = "Total",
   TIP_HELP = "Ajuda",
   TIP_SEARCH_CLEAR = "Limpar busca",
@@ -492,6 +495,7 @@ local ES = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Piedra de salud", READY_RUNE = "Runa/encantamiento",
   READY_KEYSTONE = "Piedra angular M+", READY_MISSING = "falta", READY_NONE = "ninguna",
   WARBAND_LABEL = "Banda de guerra",
+  MARKET_VALUE = "Mercado (CA)", SELL_VALUE = "Precio de venta",
   GOLD_PANEL_TITLE = "Oro por personaje", GOLD_WARBAND = "Banco de la banda de guerra", GOLD_TOTAL = "Total",
   TIP_HELP = "Ayuda",
   TIP_SEARCH_CLEAR = "Limpiar búsqueda",
@@ -925,6 +929,41 @@ GetIlvl = function(link)
   if C_Item.GetDetailedItemLevelInfo then return C_Item.GetDetailedItemLevelInfo(link) or 0 end
   if GetDetailedItemLevelInfo then return GetDetailedItemLevelInfo(link) or 0 end
   return 0
+end
+
+-- ---------------- Valor pela Auction House ----------------
+-- Lê o valor de mercado de um item via Auctionator (cache da última varredura = menor buyout)
+-- ou TSM (dbmarket). Sem nenhum dos dois, cai pro sellPrice (preço de venda ao vendedor).
+-- Tudo cacheado por itemID por sessão; pcall protege contra error() de tipo errado nas APIs.
+local CALLER = "KrononBags"
+local kbMarketCache = {} -- [itemID] = {v=copper, src="ah"|"sell"} | false (sem valor)
+local kbHasMarketSrc = nil -- detecta Auctionator/TSM 1x (lazy)
+local function GetMarketValue(itemID, link)
+  if not itemID then return nil end
+  local c = kbMarketCache[itemID]
+  if c ~= nil then if c then return c.v, c.src else return nil end end
+  local v, src
+  if Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID then
+    local ok, p = pcall(Auctionator.API.v1.GetAuctionPriceByItemID, CALLER, itemID)
+    if ok and type(p) == "number" and p > 0 then v, src = p, "ah" end
+  end
+  if not v and TSM_API and TSM_API.GetCustomPriceValue then
+    local ok, p = pcall(TSM_API.GetCustomPriceValue, "dbmarket", "i:" .. itemID)
+    if ok and type(p) == "number" and p > 0 then v, src = p, "ah" end
+  end
+  if not v then
+    local sp = select(11, C_Item.GetItemInfo(link or itemID))
+    if sp and sp > 0 then v, src = sp, "sell" end
+  end
+  kbMarketCache[itemID] = v and { v = v, src = src } or false
+  return v, src
+end
+local function HasMarketSource()
+  if kbHasMarketSrc == nil then
+    kbHasMarketSrc = (Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID and true)
+      or (TSM_API and TSM_API.GetCustomPriceValue and true) or false
+  end
+  return kbHasMarketSrc
 end
 
 -- ---------------- Expansão de origem do item (sub-grupos por expansão) ----------------
@@ -2099,7 +2138,17 @@ Refresh = function()
       h:SetSize(contentW, 16)
       h:ClearAllPoints(); h:SetPoint("TOPLEFT", 0, yOff)
       local sign = collapsed and "Interface\\Buttons\\UI-PlusButton-Up" or "Interface\\Buttons\\UI-MinusButton-Up"
-      h.label:SetText("|T" .. sign .. ":14:14:0:0|t |cfff0d98c" .. CatDisplay(cat) .. "|r  |cff999999(" .. #g .. ")|r")
+      local lbl = "|T" .. sign .. ":14:14:0:0|t |cfff0d98c" .. CatDisplay(cat) .. "|r  |cff999999(" .. #g .. ")|r"
+      -- valor total da categoria pela Auction House (só com fonte real de AH, fora da visão grade)
+      if HasMarketSource() and not DB.settings.gridView then
+        local total = 0
+        for _, it in ipairs(g) do
+          local v = GetMarketValue(it.itemID, it.link)
+          if v then total = total + v * (it.count or 1) end
+        end
+        if total > 0 then lbl = lbl .. "  |cffffd700" .. GetCoinTextureString(total) .. "|r" end
+      end
+      h.label:SetText(lbl)
       h:Show()
       local setID = equipSetIDByName[cat]
       if setID then
@@ -3862,10 +3911,21 @@ local function AddCountsToTooltip(tooltip, itemID)
   if wb and wb > 0 then lines[#lines + 1] = "|cff00ccff" .. L.WARBAND_LABEL .. "|r: " .. wb end
   if #lines > 0 then tooltip:AddLine("|cfff0d98cKronon|r  " .. table.concat(lines, "   "), 1, 1, 1) end
 end
+-- valor pela Auction House no tooltip (sempre que houver fonte/sellPrice; nil = não mostra nada)
+local function AddMarketValueToTooltip(tooltip, itemID)
+  if not itemID then return end
+  local v, src = GetMarketValue(itemID)
+  if v then
+    tooltip:AddDoubleLine(src == "ah" and L.MARKET_VALUE or L.SELL_VALUE, GetCoinTextureString(v), 1, 0.82, 0, 1, 1, 1)
+  end
+end
 -- registra o hook de tooltip (API moderna do 12.0); silencioso se ausente
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
   TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-    if tooltip == GameTooltip and data and data.id then AddCountsToTooltip(tooltip, data.id) end
+    if tooltip == GameTooltip and data and data.id then
+      AddCountsToTooltip(tooltip, data.id)
+      AddMarketValueToTooltip(tooltip, data.id)
+    end
   end)
 end
 
@@ -3965,6 +4025,10 @@ f:SetScript("OnEvent", function(_, event, arg1)
   elseif event == "PLAYER_LOGIN" then
     SuppressDefaultBank() -- esconde o banco nativo (se a opção estiver ligada)
     ReplaceGameBags()     -- B / clique na bolsa / atalho passam a abrir o KrononBags
+    -- invalida o cache de valor de mercado quando o Auctionator termina uma varredura
+    if Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.RegisterForDBUpdate then
+      pcall(Auctionator.API.v1.RegisterForDBUpdate, CALLER, function() wipe(kbMarketCache) end)
+    end
   elseif event == "PLAYER_LOGOUT" then
     CaptureBags() -- snapshot da mochila pra contagem nos alts
   elseif event == "PLAYER_MONEY" or event == "CURRENCY_DISPLAY_UPDATE" then

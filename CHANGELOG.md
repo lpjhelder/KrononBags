@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.31.0
+**Português**
+- **Valor pela Auction House** — o tooltip do item passa a mostrar o valor de mercado (menor preço na AH) usando o Auctionator ou o TSM, com fallback pro preço de venda quando não há cotação.
+- **Total por categoria** — o cabeçalho de cada categoria soma o valor de mercado dos itens dela (só aparece com Auctionator ou TSM instalado).
+- **Requisito** — o valor de mercado precisa do Auctionator ou do TradeSkillMaster instalado; sem eles, aparece só o preço de venda ao vendedor.
+
+**English**
+- **Auction House value** — the item tooltip now shows the market value (lowest AH price) using Auctionator or TSM, falling back to the vendor sell price when there is no listing.
+- **Per-category total** — each category header sums the market value of its items (only shown with Auctionator or TSM installed).
+- **Requirement** — market value needs Auctionator or TradeSkillMaster installed; without them, only the vendor sell price is shown.
+
+**Español**
+- **Valor por la Casa de Subastas** — el tooltip del objeto ahora muestra el valor de mercado (precio más bajo en la CA) usando Auctionator o TSM, con respaldo al precio de venta cuando no hay oferta.
+- **Total por categoría** — el encabezado de cada categoría suma el valor de mercado de sus objetos (solo aparece con Auctionator o TSM instalado).
+- **Requisito** — el valor de mercado necesita Auctionator o TradeSkillMaster instalado; sin ellos, solo se muestra el precio de venta al vendedor.
+
 ## 0.30.0
 **Português**
 - **Histórico de entradas/saídas** — um botão de relógio no cabeçalho abre um painel com o que entrou (+N) e saiu (−N) da mochila recentemente, com o horário de cada mudança.
