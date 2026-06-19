@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.32.0
+**Português**
+- **Comparar com o equipado** — no tooltip de uma peça de equipamento aparece a comparação com o que você já tem no mesmo slot: diferença de item level e o delta dos atributos secundários (crítico, aceleração, maestria, versatilidade).
+- **Anel, berloque e arma** — quando há duas peças equipadas no slot, a comparação usa a de menor item level (a que você provavelmente trocaria).
+- **Upgrade do Pawn** — se o Pawn estiver instalado, mostra também a porcentagem de melhoria pela sua escala. Sem o Pawn, a linha simplesmente não aparece.
+
+**English**
+- **Compare with equipped** — the tooltip of a gear piece now shows the comparison with what you already have in the same slot: item level difference and the secondary-stat delta (crit, haste, mastery, versatility).
+- **Ring, trinket and weapon** — when two pieces are equipped in the slot, the comparison uses the lower item level one (the piece you would likely swap).
+- **Pawn upgrade** — if Pawn is installed, it also shows the upgrade percentage for your scale. Without Pawn, the line simply does not appear.
+
+**Español**
+- **Comparar con lo equipado** — el tooltip de una pieza de equipo ahora muestra la comparación con lo que ya tienes en la misma ranura: diferencia de nivel de objeto y el delta de los atributos secundarios (crítico, celeridad, maestría, versatilidad).
+- **Anillo, abalorio y arma** — cuando hay dos piezas equipadas en la ranura, la comparación usa la de menor nivel de objeto (la que probablemente cambiarías).
+- **Mejora de Pawn** — si Pawn está instalado, también muestra el porcentaje de mejora según tu escala. Sin Pawn, la línea simplemente no aparece.
+
 ## 0.31.0
 **Português**
 - **Valor pela Auction House** — o tooltip do item passa a mostrar o valor de mercado (menor preço na AH) usando o Auctionator ou o TSM, com fallback pro preço de venda quando não há cotação.

@@ -221,6 +221,8 @@ local EN = {
   FTIP_VALUE = "Set the value to match.",
   -- v0.30.0: histórico de entradas/saídas
   HIST_BTN = "History", HIST_TITLE = "Recent changes", HIST_EMPTY = "No recent changes",
+  -- v0.32.0: comparação com o equipado no tooltip
+  CMP_HEADER = "vs. equipped", CMP_PAWN = "Pawn upgrade",
 }
 
 local PT = {
@@ -382,6 +384,8 @@ local PT = {
   FTIP_VALUE = "Defina o valor a casar.",
   -- v0.30.0: histórico de entradas/saídas
   HIST_BTN = "Histórico", HIST_TITLE = "Mudanças recentes", HIST_EMPTY = "Nenhuma mudança recente",
+  -- v0.32.0: comparação com o equipado no tooltip
+  CMP_HEADER = "vs. equipado", CMP_PAWN = "Upgrade (Pawn)",
 }
 
 local ES = {
@@ -543,6 +547,8 @@ local ES = {
   FTIP_VALUE = "Define el valor a coincidir.",
   -- v0.30.0: historial de entradas/salidas
   HIST_BTN = "Historial", HIST_TITLE = "Cambios recientes", HIST_EMPTY = "Sin cambios recientes",
+  -- v0.32.0: comparación con lo equipado en el tooltip
+  CMP_HEADER = "vs. equipado", CMP_PAWN = "Mejora (Pawn)",
 }
 
 for k, v in pairs(EN) do L[k] = v end
@@ -3919,12 +3925,98 @@ local function AddMarketValueToTooltip(tooltip, itemID)
     tooltip:AddDoubleLine(src == "ah" and L.MARKET_VALUE or L.SELL_VALUE, GetCoinTextureString(v), 1, 0.82, 0, 1, 1, 1)
   end
 end
+-- ---------------- v0.32.0: comparação com o equipado no tooltip ----------------
+-- Só-leitura: mostra ilvl vs. equipado, delta de secundários e % do Pawn (se houver).
+-- mapa invType (4º retorno de GetItemInfoInstant) → slot(s) de inventário.
+local INVTYPE_SLOT = {
+  INVTYPE_HEAD = { 1 }, INVTYPE_NECK = { 2 }, INVTYPE_SHOULDER = { 3 }, INVTYPE_CHEST = { 5 },
+  INVTYPE_ROBE = { 5 }, INVTYPE_WAIST = { 6 }, INVTYPE_LEGS = { 7 }, INVTYPE_FEET = { 8 },
+  INVTYPE_WRIST = { 9 }, INVTYPE_HAND = { 10 }, INVTYPE_FINGER = { 11, 12 }, INVTYPE_TRINKET = { 13, 14 },
+  INVTYPE_CLOAK = { 15 }, INVTYPE_WEAPON = { 16, 17 }, INVTYPE_WEAPONMAINHAND = { 16 },
+  INVTYPE_2HWEAPON = { 16 }, INVTYPE_RANGED = { 16 }, INVTYPE_RANGEDRIGHT = { 16 },
+  INVTYPE_WEAPONOFFHAND = { 17 }, INVTYPE_SHIELD = { 17 }, INVTYPE_HOLDABLE = { 17 },
+}
+-- retorna o itemLink equipado a comparar (o de MENOR ilvl quando há 2 slots), ou nil
+local function GetEquippedForCompare(itemID)
+  if not (itemID and C_Item and C_Item.GetItemInfoInstant) then return nil end
+  local _, _, _, invType = C_Item.GetItemInfoInstant(itemID)
+  local slots = invType and INVTYPE_SLOT[invType]
+  if not slots then return nil end
+  local bestLink, bestIlvl
+  for i = 1, #slots do
+    local eq = GetInventoryItemLink and GetInventoryItemLink("player", slots[i])
+    if eq then
+      local ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(eq)) or 0
+      if (not bestLink) or ilvl < bestIlvl then bestLink, bestIlvl = eq, ilvl end
+    end
+  end
+  return bestLink
+end
+-- adiciona ao tooltip a comparação com a peça equipada (ilvl, secundários, Pawn)
+local function AddUpgradeCompareToTooltip(tooltip, itemID, link)
+  if not (link and itemID and C_Item) then return end
+  local eqLink = GetEquippedForCompare(itemID)
+  if not eqLink then return end       -- não é equipável OU o slot está vazio
+  if link == eqLink then return end   -- não compara o item consigo mesmo
+  -- diferença de item level
+  local a = C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(link)
+  local b = C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(eqLink)
+  if a and b then
+    local diff = a - b
+    local r, g, bl
+    if diff > 0 then r, g, bl = 0.2, 1, 0.2
+    elseif diff < 0 then r, g, bl = 1, 0.3, 0.3
+    else r, g, bl = 0.6, 0.6, 0.6 end
+    tooltip:AddDoubleLine(L.CMP_HEADER, "ilvl " .. a .. " (" .. (diff >= 0 and "+" or "") .. diff .. ")",
+      1, 0.82, 0, r, g, bl)
+  end
+  -- delta de atributos secundários (GetItemStatDelta; senão calcula via GetItemStats)
+  local d
+  if C_Item.GetItemStatDelta then
+    d = C_Item.GetItemStatDelta(link, eqLink)
+  else
+    local gs = C_Item.GetItemStats or GetItemStats
+    if gs then
+      local s1, s2 = gs(link), gs(eqLink)
+      if type(s1) == "table" or type(s2) == "table" then
+        d, s1, s2 = {}, s1 or {}, s2 or {}
+        for k, v in pairs(s1) do d[k] = v - (s2[k] or 0) end
+        for k, v in pairs(s2) do if d[k] == nil then d[k] = -v end end
+      end
+    end
+  end
+  if type(d) == "table" then
+    local keys = { "ITEM_MOD_CRIT_RATING", "ITEM_MOD_HASTE_RATING", "ITEM_MOD_MASTERY_RATING", "ITEM_MOD_VERSATILITY" }
+    local parts = {}
+    for i = 1, #keys do
+      local v = d[keys[i]]
+      if v and v ~= 0 then
+        local nm = _G[keys[i]] or keys[i]
+        parts[#parts + 1] = (v > 0 and ("|cff33ff33+" .. v) or ("|cffff5555" .. v)) .. " " .. nm .. "|r"
+      end
+    end
+    if #parts > 0 then tooltip:AddLine(table.concat(parts, "  "), 1, 1, 1, true) end
+  end
+  -- % de upgrade pelo Pawn (100% opcional; protegido por existência + pcall)
+  if PawnGetItemData and PawnIsItemAnUpgrade then
+    local ok, up = pcall(function()
+      local pitem = PawnGetItemData(link)
+      if pitem then return PawnIsItemAnUpgrade(pitem) end
+    end)
+    if ok and type(up) == "table" and up[1] and up[1].PercentUpgrade then
+      local pct = math.floor(up[1].PercentUpgrade * 100 + 0.5)
+      local scale = up[1].LocalizedScaleName and (" " .. up[1].LocalizedScaleName) or ""
+      tooltip:AddDoubleLine(L.CMP_PAWN, "+" .. pct .. "%" .. scale, 1, 0.82, 0, 0.2, 1, 0.2)
+    end
+  end
+end
 -- registra o hook de tooltip (API moderna do 12.0); silencioso se ausente
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType then
   TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
     if tooltip == GameTooltip and data and data.id then
       AddCountsToTooltip(tooltip, data.id)
       AddMarketValueToTooltip(tooltip, data.id)
+      AddUpgradeCompareToTooltip(tooltip, data.id, select(2, C_Item.GetItemInfo(data.id)))
     end
   end)
 end
