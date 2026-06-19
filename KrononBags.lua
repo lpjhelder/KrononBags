@@ -13,6 +13,12 @@ local Refresh, RenderGrid, OnEnter, AcquireButton, Categorize, GetIlvl, Toggle, 
 local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney, UpdateTabs, UpdateModeBar, SearchMatcher, RefreshConfigCats
 local CreateFilterBuilder
 
+-- Histórico de entradas/saídas (rastreio sempre ligado; painel opt-in pelo botão de relógio)
+local RenderHistory          -- definida dentro de CreateUI (acessa o pool/painel)
+local kbHistory = {}         -- eventos recentes, mais novo no índice 1 (cap 50)
+local kbLastCounts = {}      -- itemID -> contagem total nas bolsas (último snapshot)
+local kbHistInit = false     -- o 1º snapshot só calibra (não despeja o inventário inteiro)
+
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- mochila + 4 bolsas + bolsa de reagentes
 local COLS = 14
 local COLS_MIN, COLS_MAX = 6, 28 -- faixa de colunas (slider + redimensionar pela alça)
@@ -211,6 +217,8 @@ local EN = {
   FTIP_COND = "How to compare the value.", FTIP_BETWEEN = "Between two values.",
   FTIP_NOT = "Excludes what matches.", FTIP_REMOVE = "Remove this filter.",
   FTIP_VALUE = "Set the value to match.",
+  -- v0.30.0: histórico de entradas/saídas
+  HIST_BTN = "History", HIST_TITLE = "Recent changes", HIST_EMPTY = "No recent changes",
 }
 
 local PT = {
@@ -369,6 +377,8 @@ local PT = {
   FTIP_COND = "Como comparar o valor.", FTIP_BETWEEN = "Entre dois valores.",
   FTIP_NOT = "Exclui o que bate.", FTIP_REMOVE = "Remove este filtro.",
   FTIP_VALUE = "Defina o valor a casar.",
+  -- v0.30.0: histórico de entradas/saídas
+  HIST_BTN = "Histórico", HIST_TITLE = "Mudanças recentes", HIST_EMPTY = "Nenhuma mudança recente",
 }
 
 local ES = {
@@ -527,6 +537,8 @@ local ES = {
   FTIP_COND = "Cómo comparar el valor.", FTIP_BETWEEN = "Entre dos valores.",
   FTIP_NOT = "Excluye lo que coincide.", FTIP_REMOVE = "Quitar este filtro.",
   FTIP_VALUE = "Define el valor a coincidir.",
+  -- v0.30.0: historial de entradas/salidas
+  HIST_BTN = "Historial", HIST_TITLE = "Cambios recientes", HIST_EMPTY = "Sin cambios recientes",
 }
 
 for k, v in pairs(EN) do L[k] = v end
@@ -2717,11 +2729,12 @@ CreateUI = function()
   end)
 
   local logoPath = "Interface\\AddOns\\KrononBags\\Media\\KrononLogo.tga"
-  local ctrlY, gearAnchorX
+  local ctrlY, gearAnchorX, clockX, clockY
 
   if blizzard then
     -- moldura NATIVA (igual à bag combinada): portrait + barra de título + X + inset
     UI.kbMargin, UI.kbTop, UI.kbBottom, ctrlY, gearAnchorX = 13, 60, 40, -32, -10
+    clockX, clockY = 70, -32 -- à direita do portrait, fora do título centralizado
     if UI.SetTitle then UI:SetTitle("KrononBags") end
     local portrait = (UI.PortraitContainer and UI.PortraitContainer.portrait) or UI.portrait
     if portrait then
@@ -2732,6 +2745,7 @@ CreateUI = function()
   else
     -- estilo ESCURO (atual): backdrop preto + header próprio (logo + título + X)
     UI.kbMargin, UI.kbTop, UI.kbBottom, ctrlY, gearAnchorX = MARGIN, 34, MARGIN + 22, -6, -28
+    clockX, clockY = 152, -4 -- logo após o título "KrononBags", à esquerda (longe da fileira de controles)
     if UI.SetBackdrop then
       UI:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -3228,6 +3242,107 @@ CreateUI = function()
     UI:ClearAllPoints()
     UI:SetPoint(sp[1], UIParent, sp[2] or sp[1], sp[3] or 0, sp[4] or 0)
   end
+
+  -- ====== Histórico de entradas/saídas: painel flutuante + botão de relógio ======
+  -- O rastreio roda sempre (BAG_UPDATE_DELAYED → HistorySnapshotDiff); o painel é só
+  -- exibição. Lista os primeiros eventos de kbHistory (mais novos primeiro): +N entrou,
+  -- −N saiu, com o horário.
+  local histPanel = CreateFrame("Frame", "KrononBagsHistory", UIParent, "BackdropTemplate")
+  histPanel:SetSize(300, 360)
+  histPanel:SetPoint("CENTER")
+  histPanel:SetFrameStrata("DIALOG")
+  histPanel:SetMovable(true); histPanel:EnableMouse(true); histPanel:RegisterForDrag("LeftButton")
+  histPanel:SetScript("OnDragStart", histPanel.StartMoving)
+  histPanel:SetScript("OnDragStop", histPanel.StopMovingOrSizing)
+  histPanel:SetAttribute("nodeignore", true) -- fora da navegação por controle; só mouse
+  if histPanel.SetBackdrop then
+    histPanel:SetBackdrop({
+      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 16, edgeSize = 16,
+      insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    histPanel:SetBackdropColor(0, 0, 0, 0.95)
+  end
+  local histTitle = histPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  histTitle:SetPoint("TOP", 0, -12); histTitle:SetText("|cfff0d98c" .. L.HIST_TITLE .. "|r")
+  local histClose = CreateFrame("Button", nil, histPanel, "UIPanelCloseButton")
+  histClose:SetPoint("TOPRIGHT", 2, 2)
+  local histEmpty = histPanel:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+  histEmpty:SetPoint("CENTER", 0, 0); histEmpty:SetText(L.HIST_EMPTY); histEmpty:Hide()
+  histPanel:Hide()
+  UI.histPanel = histPanel
+  tinsert(UISpecialFrames, "KrononBagsHistory") -- ESC fecha
+
+  -- pool de linhas: ícone (16) + nome (esquerda) + delta/hora (direita). Sem ghost.
+  local histRowPool = {}
+  local HIST_ROWS = 16
+  local function AcquireHistRow(i)
+    local row = histRowPool[i]
+    if not row then
+      row = CreateFrame("Frame", nil, histPanel)
+      row:SetSize(272, 18)
+      if i == 1 then
+        row:SetPoint("TOPLEFT", histPanel, "TOPLEFT", 14, -44)
+      else
+        row:SetPoint("TOPLEFT", histRowPool[i - 1], "BOTTOMLEFT", 0, -1)
+      end
+      row.icon = row:CreateTexture(nil, "ARTWORK")
+      row.icon:SetSize(16, 16); row.icon:SetPoint("LEFT", 0, 0)
+      row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0); row.name:SetJustifyH("LEFT")
+      row.info = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      row.info:SetPoint("RIGHT", row, "RIGHT", 0, 0); row.info:SetJustifyH("RIGHT")
+      row.name:SetPoint("RIGHT", row.info, "LEFT", -4, 0) -- nome não invade o delta/hora
+      histRowPool[i] = row
+    end
+    return row
+  end
+
+  RenderHistory = function()
+    if not UI or not UI.histPanel then return end
+    local n = #kbHistory
+    if n == 0 then
+      for _, row in ipairs(histRowPool) do row:Hide() end
+      histEmpty:Show()
+      return
+    end
+    histEmpty:Hide()
+    local shown = math.min(n, HIST_ROWS)
+    for i = 1, shown do
+      local ev = kbHistory[i]
+      local row = AcquireHistRow(i)
+      local iconID = select(5, C_Item.GetItemInfoInstant(ev.id))
+      row.icon:SetTexture(iconID or "Interface\\Icons\\INV_Misc_QuestionMark")
+      row.name:SetText(C_Item.GetItemInfo(ev.id) or "...")
+      local deltaStr
+      if ev.delta > 0 then deltaStr = "|cff33ff33+" .. ev.delta .. "|r"
+      else deltaStr = "|cffff5555" .. ev.delta .. "|r" end
+      local hora = ""
+      if date and ev.t and ev.t > 0 then
+        local ok, s = pcall(date, "%H:%M", ev.t)
+        if ok and s then hora = s end
+      end
+      row.info:SetText(deltaStr .. "  " .. hora)
+      row:Show()
+    end
+    for i = shown + 1, #histRowPool do histRowPool[i]:Hide() end -- esconde sobras (sem ghost)
+  end
+
+  -- botão de relógio: alterna o painel. À esquerda, perto do título (longe da fileira cheia).
+  local histBtn = CreateFrame("Button", nil, UI)
+  histBtn:SetSize(20, 20)
+  histBtn:SetPoint("TOPLEFT", UI, "TOPLEFT", clockX, clockY)
+  histBtn:SetAttribute("nodeignore", true) -- só mouse
+  histBtn:SetNormalTexture("Interface\\ICONS\\INV_Misc_PocketWatch_01")
+  histBtn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  histBtn:SetScript("OnClick", function()
+    if histPanel:IsShown() then histPanel:Hide()
+    else RenderHistory(); histPanel:Show() end
+  end)
+  histBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_BOTTOM"); GameTooltip:SetText(L.HIST_BTN); GameTooltip:Show() end)
+  histBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.histBtn = histBtn
 
   ApplyOpacity()
   UI:Hide()
@@ -3794,6 +3909,41 @@ local function KB_ExpacRefreshSoon()
   end)
 end
 
+-- Histórico: compara um snapshot da mochila (itemID -> contagem total nas bolsas 0..5)
+-- com o anterior e registra os deltas. O 1º snapshot só calibra (kbHistInit), pra não
+-- despejar o inventário inteiro como "+N" no login/primeira abertura.
+local function HistorySnapshotDiff()
+  local cur = {}
+  for _, bag in ipairs(BAGS) do
+    local slots = C_Container.GetContainerNumSlots(bag)
+    if slots and slots > 0 then
+      for slot = 1, slots do
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if info and info.itemID then
+          cur[info.itemID] = (cur[info.itemID] or 0) + (info.stackCount or 1)
+        end
+      end
+    end
+  end
+  if not kbHistInit then
+    kbLastCounts = cur
+    kbHistInit = true
+    return
+  end
+  local seen = {}
+  for id in pairs(cur) do seen[id] = true end
+  for id in pairs(kbLastCounts) do seen[id] = true end
+  for id in pairs(seen) do
+    local delta = (cur[id] or 0) - (kbLastCounts[id] or 0)
+    if delta ~= 0 then
+      tinsert(kbHistory, 1, { id = id, delta = delta, t = (time and time()) or 0 })
+    end
+  end
+  kbLastCounts = cur
+  while #kbHistory > 50 do tremove(kbHistory) end -- cap de 50 eventos
+  if UI and UI.histPanel and UI.histPanel:IsShown() and RenderHistory then RenderHistory() end
+end
+
 local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
@@ -3854,6 +4004,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- "Abrir tudo" é assíncrono: depois que um recipiente abre, BAG_UPDATE_DELAYED dispara
     -- e a gente abre o próximo, até não sobrar nenhum (OpenAllOpenables zera openingAll).
     if event == "BAG_UPDATE_DELAYED" and UI and UI.openingAll then OpenAllOpenables() end
+    if event == "BAG_UPDATE_DELAYED" then HistorySnapshotDiff() end -- rastreia entradas/saídas (BAG_UPDATE_DELAYED já é throttled)
     Refresh(); RefreshReady()
     if DB and atBank then CaptureBank() end -- snapshot do banco fresco (base da consulta de longe), sempre que no banco
     if DB and DB.settings and DB.settings.altCounts then CaptureBags() end -- contagem da mochila nos alts (se ligado)

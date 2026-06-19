@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.30.0
+**Português**
+- **Histórico de entradas/saídas** — um botão de relógio no cabeçalho abre um painel com o que entrou (+N) e saiu (−N) da mochila recentemente, com o horário de cada mudança.
+- **Sempre rastreando** — as mudanças são registradas em segundo plano; o painel só mostra o resultado (ícone, nome e a quantidade colorida em verde/vermelho).
+
+**English**
+- **In/out history** — a clock button in the header opens a panel showing what came into (+N) and left (−N) your backpack recently, with the time of each change.
+- **Always tracking** — changes are recorded in the background; the panel just shows the result (icon, name and the amount colored green/red).
+
+**Español**
+- **Historial de entradas/salidas** — un botón de reloj en el encabezado abre un panel con lo que entró (+N) y salió (−N) de la mochila recientemente, con la hora de cada cambio.
+- **Siempre rastreando** — los cambios se registran en segundo plano; el panel solo muestra el resultado (icono, nombre y la cantidad coloreada en verde/rojo).
+
 ## 0.29.0
 **Português**
 - **Construtor de busca visual** — um botão "Filtrar" ao lado da caixa de busca abre um painel onde você monta o filtro em passos (campo, condição e valor), com explicação no hover de cada parte.
