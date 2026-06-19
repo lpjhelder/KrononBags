@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27.1
+**Português**
+- **Corrigido: seta de upgrade do Pawn** — a seta verde voltou a aparecer no ícone (a função do Pawn que usávamos foi descontinuada; agora usamos o ponto de entrada atual).
+
+**English**
+- **Fixed: Pawn upgrade arrow** — the green arrow shows on the icon again (the Pawn function we used was discontinued; now using the current entry point).
+
+**Español**
+- **Corregido: flecha de mejora de Pawn** — la flecha verde vuelve a aparecer en el icono (la función de Pawn que usábamos fue descontinuada; ahora usamos el punto de entrada actual).
+
 ## 0.27.0
 **Português**
 - **Agrupar por expansão** — uma opção nova que, dentro de cada categoria, sub-agrupa os itens pela expansão de origem, com um sub-cabeçalho por expansão (a mais nova primeiro). Desligada por padrão; liga em Configurações → Comportamento.

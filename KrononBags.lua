@@ -1361,9 +1361,19 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
   -- mas ficou SEM textura (API removida em 10.0.2), então mostrá-la não desenha nada.
   do
     local up = false
-    if bag and slot and _G.PawnIsContainerItemAnUpgrade then
-      local ok, res = pcall(_G.PawnIsContainerItemAnUpgrade, bag, slot)
-      up = (ok and res) and true or false
+    -- PawnIsContainerItemAnUpgrade (que usávamos) foi descontinuada no Pawn atual → era nil
+    -- e a seta nunca aparecia. O entrypoint atual é PawnShouldItemLinkHaveUpgradeArrow(link)
+    -- (booleano, já throttled). Precisa do link do item.
+    if _G.PawnShouldItemLinkHaveUpgradeArrow then
+      local link = b.cachedLink
+      if (not link) and bag and slot then
+        local ci = C_Container.GetContainerItemInfo(bag, slot)
+        link = ci and ci.hyperlink
+      end
+      if link then
+        local ok, res = pcall(_G.PawnShouldItemLinkHaveUpgradeArrow, link)
+        up = (ok and res) and true or false
+      end
     end
     if b.UpgradeIcon then b.UpgradeIcon:Hide() end -- não confiar na nativa (sem textura)
     if b.kbUpgrade then b.kbUpgrade:SetShown(up) end
