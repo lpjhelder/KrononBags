@@ -162,6 +162,8 @@ local EN = {
   READY_KEYSTONE = "M+ Keystone", READY_MISSING = "missing", READY_NONE = "none",
   -- tooltip de contagem nos alts
   WARBAND_LABEL = "Warband",
+  -- painel de ouro por personagem (hover no rodapé)
+  GOLD_PANEL_TITLE = "Gold per character", GOLD_WARBAND = "Warband bank", GOLD_TOTAL = "Total",
   -- ajuda / limpar busca
   TIP_HELP = "Help",
   TIP_SEARCH_CLEAR = "Clear search",
@@ -303,6 +305,7 @@ local PT = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Pedra de Vida", READY_RUNE = "Runa/encantamento",
   READY_KEYSTONE = "Pedra-chave M+", READY_MISSING = "falta", READY_NONE = "nenhuma",
   WARBAND_LABEL = "Brigada",
+  GOLD_PANEL_TITLE = "Ouro por personagem", GOLD_WARBAND = "Banco da Brigada", GOLD_TOTAL = "Total",
   TIP_HELP = "Ajuda",
   TIP_SEARCH_CLEAR = "Limpar busca",
   HELP_TITLE = "KrononBags — Ajuda",
@@ -442,6 +445,7 @@ local ES = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Piedra de salud", READY_RUNE = "Runa/encantamiento",
   READY_KEYSTONE = "Piedra angular M+", READY_MISSING = "falta", READY_NONE = "ninguna",
   WARBAND_LABEL = "Banda de guerra",
+  GOLD_PANEL_TITLE = "Oro por personaje", GOLD_WARBAND = "Banco de la banda de guerra", GOLD_TOTAL = "Total",
   TIP_HELP = "Ayuda",
   TIP_SEARCH_CLEAR = "Limpiar búsqueda",
   HELP_TITLE = "KrononBags — Ayuda",
@@ -1260,6 +1264,9 @@ local function DrawEmpty(yOff)
   return yOff - (BTN + PAD) - 6
 end
 
+-- arredonda um tamanho final pra grade de pixel real (bordas/ícones nítidos em qualquer UI scale)
+local function PX(v) local s = UIParent:GetEffectiveScale(); if not s or s == 0 then return v end return math.floor(v * s + 0.5) / s end
+
 -- aplica tamanho da janela/scroll/conteúdo e atualiza a barra de rolagem.
 -- contentH = altura total do conteúdo; viewport limita à altura máxima e o resto rola.
 local function FinishLayout(contentH)
@@ -1271,13 +1278,13 @@ local function FinishLayout(contentH)
   local contentW = cols * (BTN + PAD) - PAD
   local maxH = (DB.settings and DB.settings.maxHeight) or 520
   local viewportH = math.max(80, math.min(contentH, maxH))
-  UI:SetWidth(contentW + M * 2 + SBW)
-  UI:SetHeight(TOP + viewportH + BOT)
+  UI:SetWidth(PX(contentW + M * 2 + SBW))
+  UI:SetHeight(PX(TOP + viewportH + BOT))
   if UI.scroll then
     UI.scroll:ClearAllPoints()
-    UI.scroll:SetPoint("TOPLEFT", M, -TOP)
-    UI.scroll:SetSize(contentW, viewportH)
-    UI.content:SetSize(contentW, math.max(contentH, viewportH))
+    UI.scroll:SetPoint("TOPLEFT", PX(M), PX(-TOP))
+    UI.scroll:SetSize(PX(contentW), PX(viewportH))
+    UI.content:SetSize(PX(contentW), PX(math.max(contentH, viewportH)))
     local range = math.max(0, contentH - viewportH)
     if UI.sb then
       UI.sb:SetMinMaxValues(0, range)
@@ -2524,6 +2531,51 @@ CreateUI = function()
   currencyText:SetPoint("BOTTOMLEFT", UI, "BOTTOMLEFT", blizzard and 12 or 8, blizzard and 12 or 7)
   currencyText:SetPoint("RIGHT", goldText, "LEFT", -10, 0)
 
+  -- frame invisível por cima do ouro: hover abre o painel de ouro por personagem (+ Brigada).
+  -- nodeignore tira da navegação por controle; só mouse.
+  UI.goldHover = CreateFrame("Frame", nil, UI)
+  UI.goldHover:SetAttribute("nodeignore", true)
+  UI.goldHover:EnableMouse(true)
+  UI.goldHover:SetAllPoints(goldText)
+  UI.goldHover:SetScript("OnEnter", function(self)
+    if not (DB and DB.settings and DB.settings.altCounts) then return end
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText(L.GOLD_PANEL_TITLE)
+    local meKey = CharKey()
+    local total = 0
+    local function addGold(nm, classToken, amount)
+      if classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classToken] then
+        local col = RAID_CLASS_COLORS[classToken]
+        nm = string.format("|cff%02x%02x%02x%s|r", col.r * 255, col.g * 255, col.b * 255, nm)
+      end
+      GameTooltip:AddDoubleLine(nm, GetCoinTextureString(amount), 1, 1, 1, 1, 1, 1)
+      total = total + amount
+    end
+    -- char atual SEMPRE aparece, com ouro ao vivo (mesmo antes da 1ª captura)
+    local me = DB.charItems[meKey]
+    addGold((me and me.name) or meKey, me and me.class, GetMoney())
+    -- demais personagens (ouro salvo no logout)
+    for k, data in pairs(DB.charItems) do
+      if k ~= meKey and type(data) == "table" and data.gold then
+        addGold(data.name or k, data.class, data.gold)
+      end
+    end
+    -- Brigada (warband): defensivo — só mostra se a API existir e devolver um número > 0
+    local wb
+    if C_Bank and C_Bank.FetchDepositedMoney and Enum and Enum.BankType then
+      local ok, amount = pcall(C_Bank.FetchDepositedMoney, Enum.BankType.Account)
+      if ok and type(amount) == "number" then wb = amount end
+    end
+    if wb and wb > 0 then
+      GameTooltip:AddDoubleLine("|cff00ccff" .. L.GOLD_WARBAND .. "|r", GetCoinTextureString(wb), 1, 1, 1, 1, 1, 1)
+      total = total + wb
+    end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddDoubleLine(L.GOLD_TOTAL, GetCoinTextureString(total), 1, 0.85, 0, 1, 1, 1)
+    GameTooltip:Show()
+  end)
+  UI.goldHover:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
   -- seção "Vazio": 2 slots grandes (geral + reagentes). A troca de modo é pela
   -- barra lateral de visualização (modeBar); /kb grade alterna direto.
 
@@ -3250,6 +3302,7 @@ local function CaptureBags()
   DB.charItems[k].name = UnitName("player")
   DB.charItems[k].class = select(2, UnitClass("player"))
   DB.charItems[k].bags = ScanCounts(BAGS)
+  if DB.settings and DB.settings.altCounts then DB.charItems[k].gold = GetMoney() end -- painel de ouro por personagem
 end
 -- snapshot rico (display por slot ocupado) pra consultar o banco de longe + slots livres
 local function SnapList(bagList)

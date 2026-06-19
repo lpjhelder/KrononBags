@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.28.0
+**Português**
+- **Bordas e ícones nítidos** — a janela e a área de rolagem agora alinham seus tamanhos à grade de pixels real, deixando bordas e ícones mais limpos em qualquer escala de interface.
+- **Ouro por personagem no rodapé** — passe o mouse sobre o ouro pra ver um painel com o ouro de cada personagem (cor da classe), o Banco da Brigada quando disponível e o total geral.
+
+**English**
+- **Crisp borders and icons** — the window and the scroll area now snap their sizes to the real pixel grid, giving cleaner borders and icons at any UI scale.
+- **Gold per character in the footer** — hover the gold to see a panel with each character's gold (class-colored), the Warband bank when available, and the grand total.
+
+**Español**
+- **Bordes e iconos nítidos** — la ventana y el área de desplazamiento ahora ajustan sus tamaños a la rejilla de píxeles real, con bordes e iconos más limpios en cualquier escala de interfaz.
+- **Oro por personaje en el pie** — pasa el ratón por el oro para ver un panel con el oro de cada personaje (color de clase), el Banco de la banda de guerra cuando esté disponible y el total general.
+
 ## 0.27.1
 **Português**
 - **Corrigido: seta de upgrade do Pawn** — a seta verde voltou a aparecer no ícone (a função do Pawn que usávamos foi descontinuada; agora usamos o ponto de entrada atual).
