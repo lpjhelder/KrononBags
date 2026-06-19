@@ -4044,15 +4044,31 @@ local function ToggleReady()
 end
 
 -- ---------------- Substituir o banco nativo ----------------
--- Reparenta o BankFrame pra um frame escondido: some da tela SEM disparar OnHide
--- (que fecharia a sessão do banco). A sessão segue aberta no servidor, então
--- C_Bank/C_Container continuam respondendo e nós desenhamos o banco na nossa janela.
-local bankHider
+-- Esconde o banco nativo SEM reparentar e SEM :Hide(). Reparentar o BankFrame pra um frame
+-- de addon TAINTA o PurchaseBankTab (comprar aba dava ADDON_ACTION_FORBIDDEN); :Hide() fecharia
+-- a sessão. Alpha 0 + sem mouse/teclado deixa invisível e não-clicável, a sessão segue aberta
+-- (C_Bank/C_Container respondem) e desenhamos o banco na nossa janela. Padrão BetterBags/ElvUI.
+local kbBankHooked = {}
+local function kbBankSet(frame, shown)
+  if not frame then return end
+  frame:SetAlpha(shown and 1 or 0)
+  if frame.EnableMouse then frame:EnableMouse(shown) end
+  if frame.EnableKeyboard then frame:EnableKeyboard(shown) end
+end
+local function kbHookBank(frame)
+  if not frame or kbBankHooked[frame] then return end
+  kbBankHooked[frame] = true -- reaplica o esconde se a Blizzard reexibir o painel (troca de aba)
+  frame:HookScript("OnShow", function(self)
+    if DB and DB.settings and DB.settings.bankReplace then kbBankSet(self, false) end
+  end)
+end
 local function SuppressDefaultBank()
   if not (DB and DB.settings and DB.settings.bankReplace) then return end
-  if not BankFrame then return end
-  if not bankHider then bankHider = CreateFrame("Frame"); bankHider:Hide() end
-  pcall(function() BankFrame:SetParent(bankHider) end)
+  kbBankSet(BankFrame, false); kbBankSet(BankPanel, false); kbBankSet(AccountBankPanel, false)
+  kbHookBank(BankFrame); kbHookBank(BankPanel); kbHookBank(AccountBankPanel)
+end
+local function RestoreDefaultBank() -- bankReplace desligado: volta o banco nativo visível
+  kbBankSet(BankFrame, true); kbBankSet(BankPanel, true); kbBankSet(AccountBankPanel, true)
 end
 
 -- ---------------- Substituir a bag do jogo (tecla B / botão da bolsa) ----------------
@@ -4390,6 +4406,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
       atBank = true; SuppressDefaultBank(); mode = "bank"
       AutoShow(); if UI then UpdateTabs() end; Refresh()
     else
+      RestoreDefaultBank() -- garante o banco nativo visível (caso tenha sido escondido antes)
       AutoShow() -- banco nativo cuida do banco; só abrimos a mochila
     end
   elseif event == "BANKFRAME_CLOSED" then

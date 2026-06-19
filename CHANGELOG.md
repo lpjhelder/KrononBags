@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.38.0
+**Português**
+- **Corrigido:** comprar aba de banco com "substituir banco" ligado dava erro (ADDON_ACTION_FORBIDDEN no PurchaseBankTab). O banco nativo agora é escondido sem reparentar, então a compra de aba volta a funcionar.
+
+**English**
+- **Fixed:** buying a bank tab with "replace bank" enabled threw an error (ADDON_ACTION_FORBIDDEN on PurchaseBankTab). The native bank is now hidden without reparenting, so buying tabs works again.
+
+**Español**
+- **Corregido:** comprar una pestaña de banco con "reemplazar banco" activado daba error (ADDON_ACTION_FORBIDDEN en PurchaseBankTab). El banco nativo ahora se oculta sin reparentar, así que comprar pestañas vuelve a funcionar.
+
 ## 0.37.0
 **Português**
 - **Tutorial repaginado:** o botão de ajuda virou um **"i"**.
