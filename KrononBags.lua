@@ -3296,19 +3296,18 @@ CreateUI = function()
   tabBar:Hide()
 
   -- tutorial em COACH-MARKS NÃO-MODAIS no botão "i": espalha marcadores "i" pelos controles.
-  -- Passar o mouse num marcador destaca aquele controle (glow dourado) e abre um balão com a dica.
+  -- Com o tutorial aberto, todo alvo válido ganha uma borda dourada suave (mostra a que cada "i" se refere).
+  -- Passar o mouse num marcador reforça a borda daquele controle e abre um balão com a dica.
   -- Sem escurecer a tela e sem capturar o mouse: a bag segue 100% usável com os marcadores ligados.
   local tour = CreateFrame("Frame", "KrononBagsTour", UIParent)
   tour:SetFrameStrata("FULLSCREEN_DIALOG")
   tour:SetAllPoints(UIParent)
   tour:SetAttribute("nodeignore", true) -- overlay: fora da navegação por controle
-  -- glow dourado que envolve o alvo do marcador sob o mouse
-  tour.glow = tour:CreateTexture(nil, "ARTWORK")
-  tour.glow:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); tour.glow:SetBlendMode("ADD")
-  tour.glow:SetVertexColor(1, 0.82, 0, 1); tour.glow:Hide()
   tour:Hide()
   UI.tour = tour
   tour.markers = {}
+  tour.glows = {}        -- pool de bordas douradas (uma por alvo válido); por baixo dos marcadores
+  tour.activeGlow = nil  -- glow reforçado sob o mouse (volta ao tom suave no OnLeave)
 
   -- balão da dica (estilo Blizzard): fundo escuro, borda dourada e uma setinha apontando pro controle
   local box = CreateFrame("Frame", nil, tour, "BackdropTemplate")
@@ -3376,18 +3375,24 @@ CreateUI = function()
     end
   end
   local function hideTip()
-    tour.glow:Hide(); box:Hide()
+    -- volta o glow reforçado ao tom suave (os demais continuam visíveis) e fecha o balão
+    if tour.activeGlow then
+      tour.activeGlow:SetVertexColor(1, 0.82, 0); tour.activeGlow:SetAlpha(0.30)
+      tour.activeGlow = nil
+    end
+    box:Hide()
   end
-  local function showTip(stepIndex)
+  local function showTip(stepIndex, marker)
     local step = steps[stepIndex]
     if not step then return end
     local target = step.getTarget()
     if not target then return end
     local gt = glowTargetOf(target)
-    tour.glow:ClearAllPoints()
-    tour.glow:SetPoint("TOPLEFT", gt, "TOPLEFT", -4, 4)
-    tour.glow:SetPoint("BOTTOMRIGHT", gt, "BOTTOMRIGHT", 4, -4)
-    tour.glow:Show()
+    -- reforça a borda DESTE alvo (mais viva); as outras seguem no tom suave
+    if marker and marker.glow then
+      tour.activeGlow = marker.glow
+      marker.glow:SetVertexColor(1, 0.92, 0.4); marker.glow:SetAlpha(1)
+    end
     box.title:SetText(step.title or "")
     box.body:SetText(step.body or "")
     local bodyH = math.max(28, box.body:GetStringHeight() or 28)
@@ -3404,32 +3409,52 @@ CreateUI = function()
       m:SetAttribute("nodeignore", true) -- marcador: só mouse, fora da navegação por controle
       m:SetNormalTexture("Interface\\Common\\help-i")   -- "i" dourado (SWAPPÁVEL: troque a textura aqui)
       m:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-      m:SetScript("OnEnter", function(self) showTip(self.stepIndex) end)
+      m:SetScript("OnEnter", function(self) showTip(self.stepIndex, self) end)
       m:SetScript("OnLeave", function() hideTip() end)
       tour.markers[i] = m
     end
     return m
+  end
+  -- pool de glows: borda dourada por alvo, criada lazy (igual ao getMarker), por baixo dos marcadores
+  local function getGlow(i)
+    local g = tour.glows[i]
+    if not g then
+      g = tour:CreateTexture(nil, "ARTWORK")
+      g:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); g:SetBlendMode("ADD")
+      g:SetVertexColor(1, 0.82, 0); g:Hide()
+      tour.glows[i] = g
+    end
+    return g
   end
   local function layoutMarkers()
     local n = 0
     for idx, s in ipairs(steps) do
       if stepValid(s) then
         n = n + 1
+        local gt = glowTargetOf(s.getTarget())
         local m = getMarker(n)
         m.stepIndex = idx
         m:ClearAllPoints()
-        m:SetPoint("CENTER", glowTargetOf(s.getTarget()), "TOPRIGHT", 0, 0) -- "i" no canto sup. direito do controle
+        m:SetPoint("CENTER", gt, "TOPRIGHT", 0, 0) -- "i" no canto sup. direito do controle
         m:Show()
+        -- borda suave SEMPRE visível com o tutorial aberto (mostra a que cada "i" se refere)
+        local g = getGlow(n)
+        g:ClearAllPoints()
+        g:SetPoint("TOPLEFT", gt, "TOPLEFT", -4, 4)
+        g:SetPoint("BOTTOMRIGHT", gt, "BOTTOMRIGHT", 4, -4)
+        g:SetVertexColor(1, 0.82, 0); g:SetAlpha(0.30); g:Show()
+        m.glow = g -- o hover usa esta referência pra reforçar só este alvo
       end
     end
     for k = n + 1, #tour.markers do tour.markers[k]:Hide() end -- esconde sobras (pool sem ghost)
+    for k = n + 1, #tour.glows do tour.glows[k]:Hide() end     -- glows sobrando: escondidos (sem ghost)
   end
   local function setHelpShown(on)
     hideTip()
     if on then
-      layoutMarkers(); tour:Show()   -- mostra os marcadores; glow/balão só aparecem no hover
+      layoutMarkers(); tour:Show()   -- mostra marcadores + bordas suaves; reforço/balão só no hover
     else
-      tour:Hide()                    -- esconde marcadores + glow + balão (todos filhos do overlay)
+      tour:Hide()                    -- esconde marcadores + todos os glows + balão (filhos do overlay)
     end
   end
   UI.ToggleHelp = function() setHelpShown(not tour:IsShown()) end

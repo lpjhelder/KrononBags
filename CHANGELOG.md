@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.40.0
+**Português**
+- **Melhorado:** com o tutorial aberto, todos os controles ganham uma **borda suave** (mostra a que cada "i" se refere).
+- Ao passar o mouse num "i", a borda daquele controle fica **mais viva** e aparece a **dica**.
+
+**English**
+- **Improved:** with the tutorial open, every control gets a **soft border** (shows what each "i" points to).
+- Hovering an "i" makes that control's border **brighter** and shows the **tip**.
+
+**Español**
+- **Mejorado:** con el tutorial abierto, todos los controles tienen un **borde suave** (muestra a qué se refiere cada "i").
+- Al pasar el ratón por una "i", el borde de ese control se vuelve **más vivo** y aparece el **consejo**.
+
 ## 0.39.0
 **Português**
 - **Corrigido:** vender lixo (automático e manual) agora respeita a proteção. Itens cinza **favoritados** ou em **categoria protegida** não são mais vendidos.
