@@ -11,6 +11,7 @@ local UI, CFG
 local goldText, currencyText, freeBox, freeNum, reagentBox, reagentNum, emptyHeader
 local Refresh, RenderGrid, OnEnter, AcquireButton, Categorize, GetIlvl, Toggle, CreateUI, OpenItemMenu, ResolveCat
 local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney, UpdateTabs, UpdateModeBar, SearchMatcher, RefreshConfigCats
+local CreateFilterBuilder
 
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- mochila + 4 bolsas + bolsa de reagentes
 local COLS = 14
@@ -192,6 +193,24 @@ local EN = {
   TUT_CATEGORIES_BODY = "Items auto-sort into categories. Drag an item onto a category header to assign it; right-click the header for actions.",
   TUT_FOOTER_TITLE = "Footer",
   TUT_FOOTER_BODY = "Gold, currencies and free slots show here.",
+  -- v0.29.0: construtor de busca modular
+  FILTER_BTN = "Filter", FILTER_TITLE = "Search builder",
+  FILTER_ADD = "Add filter", FILTER_APPLY = "Apply", FILTER_CLEAR = "Clear",
+  FILTER_ALL = "Match all (AND)", FILTER_ANY = "Match any (OR)", FILTER_NOT = "NOT",
+  FIELD_ILVL = "Item level", FIELD_QUALITY = "Quality", FIELD_TYPE = "Type",
+  FIELD_BIND = "Bind", FIELD_FLAG = "Marker", FIELD_NAME = "Name",
+  COND_GT = "greater than", COND_LT = "less than", COND_GE = "at least", COND_LE = "at most",
+  COND_EQ = "equal to", COND_BETWEEN = "between", COND_IS = "is", COND_ATLEAST = "at least",
+  FTYPE_EQUIP = "Gear", FTYPE_CONSUM = "Consumable", FTYPE_QUEST = "Quest", FTYPE_JUNK = "Junk",
+  FBIND_BOE = "BoE", FBIND_BOU = "BoU", FBIND_WB = "Warband", FBIND_BOUND = "Soulbound",
+  FFLAG_NEW = "New", FFLAG_FAV = "Favorite",
+  FILTER_HINT = "Pick a field, set the value, Apply. It builds the search for you.",
+  FTIP_ILVL = "Filters by item level.", FTIP_QUALITY = "Filters by item quality.",
+  FTIP_TYPE = "Filters by item type.", FTIP_BIND = "Filters by bind type.",
+  FTIP_FLAG = "Filters by marker (new / favorite).", FTIP_NAME = "Filters by part of the name.",
+  FTIP_COND = "How to compare the value.", FTIP_BETWEEN = "Between two values.",
+  FTIP_NOT = "Excludes what matches.", FTIP_REMOVE = "Remove this filter.",
+  FTIP_VALUE = "Set the value to match.",
 }
 
 local PT = {
@@ -332,6 +351,24 @@ local PT = {
   TUT_CATEGORIES_BODY = "Os itens se organizam em categorias. Arraste um item pro cabeçalho de uma categoria pra atribuí-lo; clique-direito no cabeçalho pra ações.",
   TUT_FOOTER_TITLE = "Rodapé",
   TUT_FOOTER_BODY = "Ouro, currencies e slots livres aparecem aqui.",
+  -- v0.29.0: construtor de busca modular
+  FILTER_BTN = "Filtrar", FILTER_TITLE = "Construtor de busca",
+  FILTER_ADD = "Adicionar filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpar",
+  FILTER_ALL = "Todos (E)", FILTER_ANY = "Qualquer (OU)", FILTER_NOT = "NÃO",
+  FIELD_ILVL = "Item level", FIELD_QUALITY = "Qualidade", FIELD_TYPE = "Tipo",
+  FIELD_BIND = "Vínculo", FIELD_FLAG = "Marcador", FIELD_NAME = "Nome",
+  COND_GT = "maior que", COND_LT = "menor que", COND_GE = "pelo menos", COND_LE = "no máximo",
+  COND_EQ = "igual a", COND_BETWEEN = "entre", COND_IS = "é", COND_ATLEAST = "pelo menos",
+  FTYPE_EQUIP = "Equipamento", FTYPE_CONSUM = "Consumível", FTYPE_QUEST = "Missão", FTYPE_JUNK = "Lixo",
+  FBIND_BOE = "BoE", FBIND_BOU = "BoU", FBIND_WB = "Brigada", FBIND_BOUND = "Vinculado",
+  FFLAG_NEW = "Novo", FFLAG_FAV = "Favorito",
+  FILTER_HINT = "Escolha um campo, defina o valor e Aplique. Ele monta a busca pra você.",
+  FTIP_ILVL = "Filtra pelo item level.", FTIP_QUALITY = "Filtra pela qualidade do item.",
+  FTIP_TYPE = "Filtra pelo tipo do item.", FTIP_BIND = "Filtra pelo tipo de vínculo.",
+  FTIP_FLAG = "Filtra pelo marcador (novo / favorito).", FTIP_NAME = "Filtra por parte do nome.",
+  FTIP_COND = "Como comparar o valor.", FTIP_BETWEEN = "Entre dois valores.",
+  FTIP_NOT = "Exclui o que bate.", FTIP_REMOVE = "Remove este filtro.",
+  FTIP_VALUE = "Defina o valor a casar.",
 }
 
 local ES = {
@@ -472,6 +509,24 @@ local ES = {
   TUT_CATEGORIES_BODY = "Los objetos se ordenan en categorías. Arrastra un objeto al encabezado de una categoría para asignarlo; clic derecho en el encabezado para acciones.",
   TUT_FOOTER_TITLE = "Pie",
   TUT_FOOTER_BODY = "Oro, monedas y espacios libres se muestran aquí.",
+  -- v0.29.0: constructor de búsqueda modular
+  FILTER_BTN = "Filtrar", FILTER_TITLE = "Constructor de búsqueda",
+  FILTER_ADD = "Añadir filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpiar",
+  FILTER_ALL = "Todos (Y)", FILTER_ANY = "Cualquiera (O)", FILTER_NOT = "NO",
+  FIELD_ILVL = "Nivel de objeto", FIELD_QUALITY = "Calidad", FIELD_TYPE = "Tipo",
+  FIELD_BIND = "Vínculo", FIELD_FLAG = "Marcador", FIELD_NAME = "Nombre",
+  COND_GT = "mayor que", COND_LT = "menor que", COND_GE = "al menos", COND_LE = "como máximo",
+  COND_EQ = "igual a", COND_BETWEEN = "entre", COND_IS = "es", COND_ATLEAST = "al menos",
+  FTYPE_EQUIP = "Equipo", FTYPE_CONSUM = "Consumible", FTYPE_QUEST = "Misión", FTYPE_JUNK = "Basura",
+  FBIND_BOE = "BoE", FBIND_BOU = "BoU", FBIND_WB = "Banda de guerra", FBIND_BOUND = "Vinculado",
+  FFLAG_NEW = "Nuevo", FFLAG_FAV = "Favorito",
+  FILTER_HINT = "Elige un campo, define el valor y Aplica. Construye la búsqueda por ti.",
+  FTIP_ILVL = "Filtra por el nivel de objeto.", FTIP_QUALITY = "Filtra por la calidad del objeto.",
+  FTIP_TYPE = "Filtra por el tipo de objeto.", FTIP_BIND = "Filtra por el tipo de vínculo.",
+  FTIP_FLAG = "Filtra por el marcador (nuevo / favorito).", FTIP_NAME = "Filtra por parte del nombre.",
+  FTIP_COND = "Cómo comparar el valor.", FTIP_BETWEEN = "Entre dos valores.",
+  FTIP_NOT = "Excluye lo que coincide.", FTIP_REMOVE = "Quitar este filtro.",
+  FTIP_VALUE = "Define el valor a coincidir.",
 }
 
 for k, v in pairs(EN) do L[k] = v end
@@ -1572,6 +1627,10 @@ local function SearchTermPred(tok)
     local _, itype, isub = C_Item.GetItemInfoInstant(it.itemID)
     return ((itype or ""):lower():find(tp, 1, true) or (isub or ""):lower():find(tp, 1, true)) ~= nil
   end end
+  -- nome:texto / name:texto — força busca por NOME (o construtor de busca usa isto pra
+  -- texto livre não colidir com palavra-chave/operador, ex: nome:novo, nome:não)
+  local nmq = low:match("^nome[:=](.+)$") or low:match("^name[:=](.+)$")
+  if nmq then return function(it) return it.name ~= "" and it.name:lower():find(nmq, 1, true) ~= nil end end
   local KW = {
     boe = function(it) return bindTypeOf(it.itemID) == 2 end,
     bou = function(it) return bindTypeOf(it.itemID) == 3 end,
@@ -2312,6 +2371,337 @@ UpdateTabs = function()
   end
 end
 
+-- ---------------- Construtor de busca modular ----------------
+-- Painel visual pra quem não conhece a sintaxe da busca. Cada linha é um filtro
+-- (campo + condição + valor) e, ao Aplicar, geramos a STRING que o parser já
+-- entende (SearchMatcher) e fazemos sb:SetText(query). Reaproveita 100% o parser:
+-- só produzimos tokens canônicos (ilvl>200, q:epico, equip, !boe…).
+CreateFilterBuilder = function(sb, sortBtn)
+  -- tokens canônicos por índice de qualidade (0-6), reconhecidos pelo QMAP em qualquer idioma
+  local QUAL_TOKEN = { [0] = "pobre", [1] = "comum", [2] = "incomum", [3] = "raro", [4] = "epico", [5] = "lendario", [6] = "artefato" }
+  local function qualName(i) return _G["ITEM_QUALITY" .. i .. "_DESC"] or QUAL_TOKEN[i] end
+
+  -- rótulos (lidos de L, já resolvido no load)
+  local FIELD_ORDER = { "ilvl", "quality", "type", "bind", "flag", "name" }
+  local FIELD_LABEL = { ilvl = L.FIELD_ILVL, quality = L.FIELD_QUALITY, type = L.FIELD_TYPE, bind = L.FIELD_BIND, flag = L.FIELD_FLAG, name = L.FIELD_NAME }
+  local FIELD_TIP   = { ilvl = L.FTIP_ILVL, quality = L.FTIP_QUALITY, type = L.FTIP_TYPE, bind = L.FTIP_BIND, flag = L.FTIP_FLAG, name = L.FTIP_NAME }
+  local COND_LABEL  = { GT = L.COND_GT, LT = L.COND_LT, GE = L.COND_GE, LE = L.COND_LE, EQ = L.COND_EQ, BETWEEN = L.COND_BETWEEN, IS = L.COND_IS, ATLEAST = L.COND_ATLEAST }
+  local ILVL_OP     = { GT = ">", LT = "<", GE = ">=", LE = "<=" }
+  local ILVL_CONDS  = { "GT", "LT", "GE", "LE", "EQ", "BETWEEN" }
+  local QUAL_CONDS  = { "IS", "ATLEAST" }
+  -- opções que viram palavra-chave (token solto) — mais confiável que tipo:
+  local TYPE_OPTS = { { "equip", L.FTYPE_EQUIP }, { "consumivel", L.FTYPE_CONSUM }, { "missao", L.FTYPE_QUEST }, { "lixo", L.FTYPE_JUNK } }
+  local BIND_OPTS = { { "boe", L.FBIND_BOE }, { "bou", L.FBIND_BOU }, { "wb", L.FBIND_WB }, { "vinculado", L.FBIND_BOUND } }
+  local FLAG_OPTS = { { "novo", L.FFLAG_NEW }, { "favorito", L.FFLAG_FAV } }
+
+  local ROWS_TOP, ROWH = 64, 28
+  local panelRows, freePool = {}, {}
+  local FB, footer
+  local addRow, removeRow, relayout, setField, setCond, layoutRow, acquireRow, releaseRow
+
+  -- monta o TERMO de uma linha (ou nil se incompleta)
+  local function rowToTerm(r)
+    local f, term = r.field, nil
+    if f == "ilvl" then
+      if r.cond == "BETWEEN" then
+        local a, b = tonumber(r.valEdit:GetText()), tonumber(r.valEdit2:GetText())
+        if not a or not b then return nil end
+        if a > b then a, b = b, a end
+        term = "ilvl:" .. a .. "-" .. b
+      else
+        local n = tonumber(r.valEdit:GetText())
+        if not n then return nil end
+        if r.cond == "EQ" then term = "ilvl:" .. n
+        else term = "ilvl" .. (ILVL_OP[r.cond] or ">") .. n end
+      end
+    elseif f == "quality" then
+      if r.qIndex == nil then return nil end
+      if r.cond == "ATLEAST" then term = "q>=" .. r.qIndex
+      else term = "q:" .. (QUAL_TOKEN[r.qIndex] or "epico") end
+    elseif f == "type" or f == "bind" or f == "flag" then
+      if not r.token or r.token == "" then return nil end
+      term = r.token
+    elseif f == "name" then
+      -- 1ª palavra (o parser casa substring sem espaço), sem metacaracteres que quebrariam
+      -- o tokenizer, e com prefixo nome: pra NÃO colidir com palavra-chave/operador
+      -- (ex: nome "novo"/"não" vira nome:novo / nome:não, não a flag/operador).
+      local t = (r.valEdit:GetText() or ""):lower():match("^%s*(%S+)")
+      if t then t = t:gsub("[&|!()]", "") end
+      if not t or t == "" then return nil end
+      term = "nome:" .. t
+    end
+    if not term then return nil end
+    if r.negate then term = "!" .. term end
+    return term
+  end
+
+  local function buildQuery()
+    local terms = {}
+    for _, r in ipairs(panelRows) do
+      local t = rowToTerm(r)
+      if t then terms[#terms + 1] = t end
+    end
+    if #terms == 0 then return "" end
+    return table.concat(terms, FB.junctionAll and " & " or " | ")
+  end
+
+  -- helpers de widget (todos nodeignore: chrome do painel, fora da navegação por controle)
+  local function fbDropdown(parent, w)
+    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    b:SetSize(w, 20); b:SetAttribute("nodeignore", true)
+    return b
+  end
+  local function fbEdit(parent, w)
+    local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    e:SetSize(w, 20); e:SetAutoFocus(false); e:SetAttribute("nodeignore", true)
+    e:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    return e
+  end
+
+  -- menus de contexto (mesmo padrão MenuUtil do resto do addon)
+  local function openFieldMenu(r)
+    if not MenuUtil then return end
+    MenuUtil.CreateContextMenu(r.fieldBtn, function(owner, root)
+      root:CreateTitle(L.FIELD_NAME)
+      for _, f in ipairs(FIELD_ORDER) do
+        root:CreateButton(FIELD_LABEL[f], function() setField(r, f); relayout() end)
+      end
+    end)
+  end
+  local function openCondMenu(r)
+    if not MenuUtil then return end
+    local conds = (r.field == "ilvl") and ILVL_CONDS or (r.field == "quality") and QUAL_CONDS
+    if not conds then return end
+    MenuUtil.CreateContextMenu(r.condBtn, function(owner, root)
+      for _, c in ipairs(conds) do
+        root:CreateButton(COND_LABEL[c], function() setCond(r, c); relayout() end)
+      end
+    end)
+  end
+  local function openValueMenu(r)
+    if not MenuUtil then return end
+    local f = r.field
+    MenuUtil.CreateContextMenu(r.valBtn, function(owner, root)
+      if f == "quality" then
+        root:CreateTitle(L.FIELD_QUALITY)
+        for i = 0, 6 do
+          root:CreateButton(qualName(i), function() r.qIndex = i; r.valBtn:SetText(qualName(i)) end)
+        end
+      else
+        local opts = (f == "type" and TYPE_OPTS) or (f == "bind" and BIND_OPTS) or (f == "flag" and FLAG_OPTS)
+        if not opts then return end
+        root:CreateTitle(FIELD_LABEL[f])
+        for _, o in ipairs(opts) do
+          root:CreateButton(o[2], function() r.token = o[1]; r.valBtn:SetText(o[2]) end)
+        end
+      end
+    end)
+  end
+
+  local function NewRowFrame()
+    local r = CreateFrame("Frame", nil, FB)
+    r:SetSize(416, 24); r:SetAttribute("nodeignore", true)
+    -- NÃO (prefixa ! no termo)
+    r.notCheck = CreateFrame("CheckButton", nil, r, "UICheckButtonTemplate")
+    r.notCheck:SetSize(22, 22); r.notCheck:SetPoint("LEFT", 0, 0); r.notCheck:SetAttribute("nodeignore", true)
+    r.notCheck:SetScript("OnClick", function(self) r.negate = self:GetChecked() and true or false end)
+    r.notCheck:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(L.FILTER_NOT)
+      GameTooltip:AddLine(L.FTIP_NOT, 0.8, 0.8, 0.8, true); GameTooltip:Show()
+    end)
+    r.notCheck:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- Campo
+    r.fieldBtn = fbDropdown(r, 86); r.fieldBtn:SetPoint("LEFT", r.notCheck, "RIGHT", 2, 0)
+    r.fieldBtn:SetScript("OnClick", function() openFieldMenu(r) end)
+    r.fieldBtn:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(FIELD_LABEL[r.field] or L.FIELD_NAME)
+      GameTooltip:AddLine(FIELD_TIP[r.field] or "", 0.8, 0.8, 0.8, true); GameTooltip:Show()
+    end)
+    r.fieldBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- Condição (só ilvl/qualidade)
+    r.condBtn = fbDropdown(r, 88); r.condBtn:SetPoint("LEFT", r.fieldBtn, "RIGHT", 4, 0)
+    r.condBtn:SetScript("OnClick", function() openCondMenu(r) end)
+    r.condBtn:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(COND_LABEL[r.cond] or L.COND_EQ)
+      GameTooltip:AddLine(r.cond == "BETWEEN" and L.FTIP_BETWEEN or L.FTIP_COND, 0.8, 0.8, 0.8, true); GameTooltip:Show()
+    end)
+    r.condBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- Valor: edit (número/nome), edit2 (máx do "entre") e dropdown (qualidade/tipo/vínculo/marcador)
+    r.valEdit = fbEdit(r, 44)
+    r.dash = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); r.dash:SetText("–")
+    r.valEdit2 = fbEdit(r, 44)
+    r.valBtn = fbDropdown(r, 150)
+    r.valBtn:SetScript("OnClick", function() openValueMenu(r) end)
+    local function valTip(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(L.FTIP_VALUE); GameTooltip:Show()
+    end
+    r.valBtn:SetScript("OnEnter", valTip);  r.valBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    r.valEdit:SetScript("OnEnter", valTip); r.valEdit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- × remover
+    r.removeBtn = CreateFrame("Button", nil, r, "UIPanelCloseButton")
+    r.removeBtn:SetSize(24, 24); r.removeBtn:SetPoint("RIGHT", 0, 0); r.removeBtn:SetAttribute("nodeignore", true)
+    r.removeBtn:SetScript("OnClick", function() removeRow(r) end)
+    r.removeBtn:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(L.FTIP_REMOVE); GameTooltip:Show()
+    end)
+    r.removeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return r
+  end
+
+  -- define o campo e os defaults (já deixa a linha válida quando possível)
+  setField = function(r, f)
+    r.field = f
+    r.fieldBtn:SetText(FIELD_LABEL[f])
+    r.token, r.qIndex = nil, nil
+    r.valEdit:SetText(""); r.valEdit2:SetText("")
+    if f == "ilvl" then
+      r.cond = "GT"; r.valEdit:SetNumeric(true); r.valEdit2:SetNumeric(true)
+    elseif f == "quality" then
+      r.cond = "IS"; r.qIndex = 4; r.valBtn:SetText(qualName(4))
+    elseif f == "name" then
+      r.cond = nil; r.valEdit:SetNumeric(false)
+    elseif f == "type" then
+      r.cond = nil; r.token = TYPE_OPTS[1][1]; r.valBtn:SetText(TYPE_OPTS[1][2])
+    elseif f == "bind" then
+      r.cond = nil; r.token = BIND_OPTS[1][1]; r.valBtn:SetText(BIND_OPTS[1][2])
+    elseif f == "flag" then
+      r.cond = nil; r.token = FLAG_OPTS[1][1]; r.valBtn:SetText(FLAG_OPTS[1][2])
+    end
+    if r.cond then r.condBtn:SetText(COND_LABEL[r.cond]) end
+  end
+
+  setCond = function(r, c) r.cond = c; r.condBtn:SetText(COND_LABEL[c]) end
+
+  -- posiciona os widgets da linha conforme campo/condição
+  layoutRow = function(r)
+    local f = r.field
+    local hasCond = (f == "ilvl" or f == "quality")
+    r.condBtn:SetShown(hasCond)
+    local anchor = hasCond and r.condBtn or r.fieldBtn
+    r.valEdit:Hide(); r.valEdit2:Hide(); r.dash:Hide(); r.valBtn:Hide()
+    if f == "ilvl" then
+      r.valEdit:SetWidth(44); r.valEdit:SetNumeric(true)
+      r.valEdit:ClearAllPoints(); r.valEdit:SetPoint("LEFT", anchor, "RIGHT", 12, 0); r.valEdit:Show()
+      if r.cond == "BETWEEN" then
+        r.dash:ClearAllPoints(); r.dash:SetPoint("LEFT", r.valEdit, "RIGHT", 5, 0); r.dash:Show()
+        r.valEdit2:SetWidth(44)
+        r.valEdit2:ClearAllPoints(); r.valEdit2:SetPoint("LEFT", r.dash, "RIGHT", 8, 0); r.valEdit2:Show()
+      end
+    elseif f == "name" then
+      r.valEdit:SetWidth(150); r.valEdit:SetNumeric(false)
+      r.valEdit:ClearAllPoints(); r.valEdit:SetPoint("LEFT", anchor, "RIGHT", 12, 0); r.valEdit:Show()
+    else
+      r.valBtn:ClearAllPoints(); r.valBtn:SetPoint("LEFT", anchor, "RIGHT", 12, 0); r.valBtn:Show()
+    end
+  end
+
+  acquireRow = function()
+    local r = table.remove(freePool) or NewRowFrame()
+    r.notCheck:SetChecked(false); r.negate = false
+    r:Show()
+    return r
+  end
+  releaseRow = function(r) r:Hide(); freePool[#freePool + 1] = r end
+
+  relayout = function()
+    local y = -ROWS_TOP
+    for _, r in ipairs(panelRows) do
+      r:ClearAllPoints()
+      r:SetPoint("TOPLEFT", FB, "TOPLEFT", 12, y)
+      r:SetPoint("RIGHT", FB, "RIGHT", -12, 0)
+      layoutRow(r); r:Show()
+      y = y - ROWH
+    end
+    footer:ClearAllPoints(); footer:SetPoint("TOPLEFT", FB, "TOPLEFT", 12, y - 6)
+    FB:SetHeight(ROWS_TOP + #panelRows * ROWH + 6 + 54 + 12)
+  end
+
+  addRow = function()
+    local r = acquireRow()
+    panelRows[#panelRows + 1] = r
+    setField(r, "ilvl")
+    relayout()
+  end
+  removeRow = function(r)
+    for i, rr in ipairs(panelRows) do if rr == r then table.remove(panelRows, i); break end end
+    releaseRow(r)
+    if #panelRows == 0 then addRow() else relayout() end
+  end
+
+  -- ===== painel =====
+  FB = CreateFrame("Frame", "KrononBagsFilter", UIParent, "BackdropTemplate")
+  FB:SetSize(440, 220)
+  FB:SetFrameStrata("DIALOG")
+  FB:SetPoint("TOPLEFT", UI, "TOPRIGHT", 6, 0)
+  FB:SetMovable(true); FB:EnableMouse(true); FB:RegisterForDrag("LeftButton")
+  FB:SetScript("OnDragStart", FB.StartMoving)
+  FB:SetScript("OnDragStop", FB.StopMovingOrSizing)
+  FB:SetAttribute("nodeignore", true) -- painel inteiro fora da navegação por controle
+  if FB.SetBackdrop then
+    FB:SetBackdrop({
+      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 16, edgeSize = 16,
+      insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    FB:SetBackdropColor(0, 0, 0, 0.95)
+  end
+  FB.junctionAll = true
+  FB:Hide()
+  UI.filterBuilder = FB
+  tinsert(UISpecialFrames, "KrononBagsFilter") -- ESC fecha o construtor
+
+  local ftitle = FB:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  ftitle:SetPoint("TOP", 0, -12); ftitle:SetText("|cfff0d98c" .. L.FILTER_TITLE .. "|r")
+  local fclose = CreateFrame("Button", nil, FB, "UIPanelCloseButton")
+  fclose:SetPoint("TOPRIGHT", 2, 2); fclose:SetAttribute("nodeignore", true)
+  local fhint = FB:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  fhint:SetPoint("TOPLEFT", 14, -36); fhint:SetPoint("TOPRIGHT", -14, -36)
+  fhint:SetJustifyH("LEFT"); fhint:SetText(L.FILTER_HINT)
+
+  -- rodapé: junção (E/OU), + adicionar, aplicar, limpar
+  footer = CreateFrame("Frame", nil, FB)
+  footer:SetSize(416, 54); footer:SetAttribute("nodeignore", true)
+  local junctionBtn = fbDropdown(footer, 150); junctionBtn:SetPoint("TOPLEFT", 0, 0); junctionBtn:SetHeight(22)
+  local function updJunction() junctionBtn:SetText(FB.junctionAll and L.FILTER_ALL or L.FILTER_ANY) end
+  junctionBtn:SetScript("OnClick", function() FB.junctionAll = not FB.junctionAll; updJunction() end)
+  updJunction()
+  local addBtn = fbDropdown(footer, 140); addBtn:SetPoint("LEFT", junctionBtn, "RIGHT", 8, 0); addBtn:SetHeight(22)
+  addBtn:SetText("+ " .. L.FILTER_ADD)
+  addBtn:SetScript("OnClick", function() addRow() end)
+  local applyBtn = fbDropdown(footer, 120); applyBtn:SetPoint("TOPLEFT", 0, -26); applyBtn:SetHeight(22)
+  applyBtn:SetText(L.FILTER_APPLY)
+  applyBtn:SetScript("OnClick", function() sb:SetText(buildQuery()); sb:ClearFocus() end)
+  local clearBtn = fbDropdown(footer, 120); clearBtn:SetPoint("LEFT", applyBtn, "RIGHT", 8, 0); clearBtn:SetHeight(22)
+  clearBtn:SetText(L.FILTER_CLEAR)
+  clearBtn:SetScript("OnClick", function()
+    for i = #panelRows, 1, -1 do releaseRow(panelRows[i]); panelRows[i] = nil end
+    addRow(); sb:SetText("")
+  end)
+
+  -- ===== botão "Filtrar" no cabeçalho, à esquerda da caixa de busca =====
+  local filterBtn = CreateFrame("Button", nil, UI, "UIPanelButtonTemplate")
+  filterBtn:SetSize(54, 20)
+  filterBtn:SetText(L.FILTER_BTN)
+  filterBtn:SetAttribute("nodeignore", true) -- só mouse
+  filterBtn:SetPoint("RIGHT", sb, "LEFT", -6, 0)
+  sortBtn:ClearAllPoints(); sortBtn:SetPoint("RIGHT", filterBtn, "LEFT", -6, 0) -- a vassoura desce pra esquerda do "Filtrar"
+  filterBtn:SetScript("OnClick", function()
+    if FB:IsShown() then
+      FB:Hide()
+    else
+      if #panelRows == 0 then addRow() end
+      FB:Show()
+    end
+  end)
+  filterBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOM"); GameTooltip:SetText(L.FILTER_TITLE)
+    GameTooltip:AddLine(L.FILTER_HINT, 0.8, 0.8, 0.8, true); GameTooltip:Show()
+  end)
+  filterBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.filterBtn = filterBtn
+end
+
 CreateUI = function()
   local blizzard = (DB.settings.frameStyle == "blizzard")
   UI = CreateFrame("Frame", "KrononBagsFrame", UIParent, blizzard and "ButtonFrameTemplate" or "BackdropTemplate")
@@ -2460,6 +2850,9 @@ CreateUI = function()
   end)
   sortBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_AUTOSORT); GameTooltip:Show() end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- botão "Filtrar" + construtor visual de busca (gera a string que o parser já entende)
+  CreateFilterBuilder(sb, sortBtn)
 
   -- barra de modos de visualização (à ESQUERDA, FORA da janela: não mexe na largura/scroll)
   local modeBar = CreateFrame("Frame", nil, UI)

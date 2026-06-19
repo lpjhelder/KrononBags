@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.29.0
+**Português**
+- **Construtor de busca visual** — um botão "Filtrar" ao lado da caixa de busca abre um painel onde você monta o filtro em passos (campo, condição e valor), com explicação no hover de cada parte.
+- **Sem decorar sintaxe** — escolha "Item level / maior que / 200", "Qualidade / é / Épico" ou "Tipo / Equipamento" e clique Aplicar; o painel gera a busca pronta pra você.
+- **Várias condições** — adicione quantas linhas quiser, marque "NÃO" pra excluir e junte tudo com "Todos (E)" ou "Qualquer (OU)".
+
+**English**
+- **Visual search builder** — a "Filter" button next to the search box opens a panel where you assemble the filter in steps (field, condition and value), with a hover explanation for each part.
+- **No syntax to memorize** — pick "Item level / greater than / 200", "Quality / is / Epic" or "Type / Gear" and hit Apply; the panel builds the search for you.
+- **Multiple conditions** — add as many rows as you want, check "NOT" to exclude, and join them with "Match all (AND)" or "Match any (OR)".
+
+**Español**
+- **Constructor de búsqueda visual** — un botón "Filtrar" junto al cuadro de búsqueda abre un panel donde armas el filtro por pasos (campo, condición y valor), con explicación al pasar el ratón por cada parte.
+- **Sin memorizar sintaxis** — elige "Nivel de objeto / mayor que / 200", "Calidad / es / Épico" o "Tipo / Equipo" y pulsa Aplicar; el panel construye la búsqueda por ti.
+- **Varias condiciones** — añade tantas filas como quieras, marca "NO" para excluir y únelas con "Todos (Y)" o "Cualquiera (O)".
+
 ## 0.28.0
 **Português**
 - **Bordas e ícones nítidos** — a janela e a área de rolagem agora alinham seus tamanhos à grade de pixels real, deixando bordas e ícones mais limpos em qualquer escala de interface.

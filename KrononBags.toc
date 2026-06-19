@@ -4,7 +4,7 @@
 ## Notes-ptBR: Bag unificada da guilda Kronon — botões nativos (usar/equipar/abrir/vender), categorias ordenáveis, abas recolhíveis, ilvl no ícone, selo BoE/Brigada, item novo, cooldown, valor do lixo, auto-abrir e organizar automático.
 ## Notes-esES: Bolsa unificada del clan Kronon — botones nativos (usar/equipar/abrir/vender), categorías ordenables, pestañas plegables, ilvl en el icono, sello BoE/Banda de guerra, objeto nuevo, reutilización, valor de la basura, auto-abrir y organización automática.
 ## Author: Kronon
-## Version: 0.28.0
+## Version: 0.29.0
 ## SavedVariables: KrononBagsDB
 ## OptionalDeps: Masque, Pawn
 ## X-Curse-Project-ID: 1577314
