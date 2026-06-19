@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.39.0
+**Português**
+- **Corrigido:** vender lixo (automático e manual) agora respeita a proteção. Itens cinza **favoritados** ou em **categoria protegida** não são mais vendidos.
+- **Melhorado:** a venda de lixo varre as bolsas e confere cada item antes de vender, em vez de usar a venda em massa do jogo.
+
+**English**
+- **Fixed:** selling junk (automatic and manual) now respects protection. Gray items that are **favorited** or in a **protected category** are no longer sold.
+- **Improved:** junk selling scans your bags and checks each item before selling, instead of using the game's bulk sell.
+
+**Español**
+- **Corregido:** vender basura (automático y manual) ahora respeta la protección. Los objetos grises **marcados como favoritos** o en una **categoría protegida** ya no se venden.
+- **Mejorado:** la venta de basura recorre las bolsas y comprueba cada objeto antes de venderlo, en lugar de usar la venta masiva del juego.
+
 ## 0.38.0
 **Português**
 - **Corrigido:** comprar aba de banco com "substituir banco" ligado dava erro (ADDON_ACTION_FORBIDDEN no PurchaseBankTab). O banco nativo agora é escondido sem reparentar, então a compra de aba volta a funcionar.

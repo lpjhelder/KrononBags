@@ -2034,6 +2034,41 @@ local function SellMatches(list)
   if UI and UI:IsShown() then Refresh() end
 end
 
+-- vende lixo (cinza) RESPEITANDO a proteção do addon. Substitui C_MerchantFrame.SellAllJunkItems,
+-- que vende todo item cinza ignorando favoritos / Conjunto de Equipamento / categoria protegida.
+-- CRÍTICO (caminho de venda):
+--  - só roda com o vendedor aberto: sem ele, UseContainerItem NÃO vende (pode até USAR o item) → guarda obrigatória.
+--  - só vende quality 0 (cinza) COM valor de venda (info.hasNoValue false e sellPrice > 0).
+--  - NUNCA vende item protegido (IsProtected) nem não-verificável (info/link nil → pula).
+--  - revalida o MESMO slot imediatamente antes de cada venda (bolsas mudam ao vender).
+--  - varre de trás pra frente (slot maior primeiro): vender não desloca os índices ainda não visitados.
+local function SellJunkItems()
+  if InCombatLockdown() then return end
+  if not (MerchantFrame and MerchantFrame:IsShown()) then return end -- guarda obrigatória: sem vendedor, não vende
+  if not (C_Container and C_Container.GetContainerItemInfo and C_Container.UseContainerItem) then return end
+  for _, bag in ipairs(BAGS) do
+    local slots = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = slots, 1, -1 do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      -- quality 0 = Enum.ItemQuality.Poor (cinza); hasNoValue false = tem valor de venda (sellPrice > 0)
+      if info and info.itemID and info.quality == 0 and not info.hasNoValue then
+        local link = info.hyperlink
+        local sellPrice = link and select(11, C_Item.GetItemInfo(link)) or nil
+        -- só vende com link válido, valor de venda confirmado (>0 quando conhecido) e NÃO protegido
+        if link and (sellPrice == nil or sellPrice > 0) and not IsProtected(info.itemID, link) then
+          -- REVALIDAÇÃO: relê o slot na hora exata da venda. Tem de ser o MESMO item, ainda cinza,
+          -- ainda com valor, com link e ainda NÃO protegido. Qualquer divergência/nil → não vende.
+          local now = C_Container.GetContainerItemInfo(bag, slot)
+          if now and now.itemID == info.itemID and now.quality == 0 and not now.hasNoValue
+             and now.hyperlink and not IsProtected(now.itemID, now.hyperlink) then
+            C_Container.UseContainerItem(bag, slot)
+          end
+        end
+      end
+    end
+  end
+end
+
 -- botão "Transferir": vende no vendedor (com confirmação) ou deposita no banco (direto)
 local function TransferBySearch()
   if InCombatLockdown() then print(KB_PREFIX .. L.MSG_NO_EQUIP_COMBAT); return end
@@ -3082,11 +3117,9 @@ CreateUI = function()
   sellJunk:SetText(L.BTN_SELL_JUNK)
   sellJunk:SetScript("OnClick", function()
     if InCombatLockdown() then return end
-    if C_MerchantFrame and C_MerchantFrame.SellAllJunkItems then
-      C_MerchantFrame.SellAllJunkItems()
-    else
-      print(KB_PREFIX .. L.MSG_SELLJUNK_UNAVAIL)
-    end
+    -- varredura própria que respeita a proteção (favoritos/Conjunto/categoria) em vez de
+    -- C_MerchantFrame.SellAllJunkItems, que venderia até cinza favoritado/protegido.
+    SellJunkItems()
   end)
   sellJunk:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -4283,13 +4316,13 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and
 end
 
 -- ---------------- Auto-vendedor: vender lixo + reparar ----------------
--- Roda no MERCHANT_SHOW. Usa APIs nativas chamáveis por addon (sem taint):
--- C_MerchantFrame.SellAllJunkItems / RepairAllItems / GetRepairAllCost.
+-- Roda no MERCHANT_SHOW. Vender lixo usa varredura própria (SellJunkItems) que respeita a
+-- proteção do addon — NÃO C_MerchantFrame.SellAllJunkItems, que ignora favoritos/categorias.
 -- Reparo: tenta fundos da guilda primeiro (se houver permissão e saldo), senão ouro próprio.
 local function AutoVendor()
   if not (DB and DB.settings) then return end
-  if DB.settings.autoSellJunk and C_MerchantFrame and C_MerchantFrame.SellAllJunkItems then
-    pcall(C_MerchantFrame.SellAllJunkItems)
+  if DB.settings.autoSellJunk then
+    pcall(SellJunkItems)
   end
   if DB.settings.autoRepair and CanMerchantRepair and CanMerchantRepair() then
     local cost = GetRepairAllCost and select(1, GetRepairAllCost()) or 0
