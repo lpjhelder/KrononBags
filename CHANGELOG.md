@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.41.0
+**Português**
+- **Melhorado:** o painel de **Histórico** agora mostra o **tooltip do item** ao passar o mouse (como no inventário).
+- **Novo:** nome **colorido por qualidade** e **borda de qualidade** no ícone.
+- **Novo:** **Shift-clique** numa linha **linka o item no chat**.
+- Realce de hover por linha e visual mais polido.
+
+**English**
+- **Improved:** the **History** panel now shows the **item tooltip** on hover (like in your bags).
+- **New:** name **colored by quality** and a **quality border** on the icon.
+- **New:** **Shift-click** a row to **link the item in chat**.
+- Per-row hover highlight and a more polished look.
+
+**Español**
+- **Mejorado:** el panel de **Historial** ahora muestra el **tooltip del objeto** al pasar el ratón (como en las bolsas).
+- **Nuevo:** nombre **coloreado por calidad** y **borde de calidad** en el icono.
+- **Nuevo:** **Shift-clic** en una fila para **enlazar el objeto en el chat**.
+- Resaltado al pasar el ratón por fila y un aspecto más pulido.
+
 ## 0.40.0
 **Português**
 - **Melhorado:** com o tutorial aberto, todos os controles ganham uma **borda suave** (mostra a que cada "i" se refere).

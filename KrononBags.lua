@@ -18,6 +18,7 @@ local CreateFilterBuilder
 local RenderHistory          -- definida dentro de CreateUI (acessa o pool/painel)
 local kbHistory = {}         -- eventos recentes, mais novo no índice 1 (cap 50)
 local kbLastCounts = {}      -- itemID -> contagem total nas bolsas (último snapshot)
+local kbLastLink = {}        -- itemID -> link representativo (pra itens que saíram das bolsas)
 local kbHistInit = false     -- o 1º snapshot só calibra (não despeja o inventário inteiro)
 
 local BAGS = { 0, 1, 2, 3, 4, 5 } -- mochila + 4 bolsas + bolsa de reagentes
@@ -231,6 +232,7 @@ local EN = {
   FTIP_VALUE = "Set the value to match.",
   -- v0.30.0: histórico de entradas/saídas
   HIST_BTN = "History", HIST_TITLE = "Recent changes", HIST_EMPTY = "No recent changes",
+  HIST_HINT = "Shift-click to link in chat",
   -- v0.32.0: comparação com o equipado no tooltip
   CMP_HEADER = "vs. equipped", CMP_PAWN = "Pawn upgrade",
 }
@@ -403,6 +405,7 @@ local PT = {
   FTIP_VALUE = "Defina o valor a casar.",
   -- v0.30.0: histórico de entradas/saídas
   HIST_BTN = "Histórico", HIST_TITLE = "Mudanças recentes", HIST_EMPTY = "Nenhuma mudança recente",
+  HIST_HINT = "Shift-clique para linkar no chat",
   -- v0.32.0: comparação com o equipado no tooltip
   CMP_HEADER = "vs. equipado", CMP_PAWN = "Upgrade (Pawn)",
 }
@@ -575,6 +578,7 @@ local ES = {
   FTIP_VALUE = "Define el valor a coincidir.",
   -- v0.30.0: historial de entradas/salidas
   HIST_BTN = "Historial", HIST_TITLE = "Cambios recientes", HIST_EMPTY = "Sin cambios recientes",
+  HIST_HINT = "Shift-clic para enlazar en el chat",
   -- v0.32.0: comparación con lo equipado en el tooltip
   CMP_HEADER = "vs. equipado", CMP_PAWN = "Mejora (Pawn)",
 }
@@ -3527,7 +3531,7 @@ CreateUI = function()
   -- exibição. Lista os primeiros eventos de kbHistory (mais novos primeiro): +N entrou,
   -- −N saiu, com o horário.
   local histPanel = CreateFrame("Frame", "KrononBagsHistory", UIParent, "BackdropTemplate")
-  histPanel:SetSize(300, 360)
+  histPanel:SetSize(300, 432)
   histPanel:SetPoint("CENTER")
   histPanel:SetFrameStrata("DIALOG")
   histPanel:SetMovable(true); histPanel:EnableMouse(true); histPanel:RegisterForDrag("LeftButton")
@@ -3553,26 +3557,64 @@ CreateUI = function()
   UI.histPanel = histPanel
   tinsert(UISpecialFrames, "KrononBagsHistory") -- ESC fecha
 
-  -- pool de linhas: ícone (16) + nome (esquerda) + delta/hora (direita). Sem ghost.
+  -- rodapé com a dica de shift-clique (deixa o painel menos "pobre" e ensina o atalho)
+  local histHint = histPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  histHint:SetPoint("BOTTOM", 0, 10); histHint:SetText(L.HIST_HINT)
+
+  -- pool de linhas: ícone (18, com borda de qualidade) + nome colorido + delta/hora.
+  -- Cada linha tem mouse: hover mostra tooltip e realce; shift-clique linka no chat. Sem ghost.
   local histRowPool = {}
-  local HIST_ROWS = 16
+  local HIST_ROWS = 18
   local function AcquireHistRow(i)
     local row = histRowPool[i]
     if not row then
-      row = CreateFrame("Frame", nil, histPanel)
-      row:SetSize(272, 18)
+      row = CreateFrame("Button", nil, histPanel) -- Button: precisa de OnClick/RegisterForClicks
+      row:SetSize(272, 19)
       if i == 1 then
         row:SetPoint("TOPLEFT", histPanel, "TOPLEFT", 14, -44)
       else
         row:SetPoint("TOPLEFT", histRowPool[i - 1], "BOTTOMLEFT", 0, -1)
       end
+      row:SetAttribute("nodeignore", true) -- fora da navegação por controle; só mouse
+      row:EnableMouse(true)
+      row:RegisterForClicks("AnyUp")
+      -- realce sutil de hover
+      row.hl = row:CreateTexture(nil, "BACKGROUND")
+      row.hl:SetAllPoints(row)
+      row.hl:SetColorTexture(1, 1, 1, 0.08)
+      row.hl:Hide()
       row.icon = row:CreateTexture(nil, "ARTWORK")
-      row.icon:SetSize(16, 16); row.icon:SetPoint("LEFT", 0, 0)
+      row.icon:SetSize(18, 18); row.icon:SetPoint("LEFT", 0, 0)
+      -- borda de qualidade ao redor do ícone (cor definida no render conforme o link)
+      row.border = row:CreateTexture(nil, "OVERLAY")
+      row.border:SetTexture("Interface\\Common\\WhiteIconFrame")
+      row.border:SetPoint("CENTER", row.icon, "CENTER", 0, 0)
+      row.border:SetSize(20, 20)
+      row.border:Hide()
       row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
       row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0); row.name:SetJustifyH("LEFT")
       row.info = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
       row.info:SetPoint("RIGHT", row, "RIGHT", 0, 0); row.info:SetJustifyH("RIGHT")
       row.name:SetPoint("RIGHT", row.info, "LEFT", -4, 0) -- nome não invade o delta/hora
+      row:SetScript("OnEnter", function(self)
+        local ev = self.ev
+        if not ev then return end
+        self.hl:Show()
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        if ev.link then GameTooltip:SetHyperlink(ev.link)
+        else GameTooltip:SetItemByID(ev.id) end
+        GameTooltip:Show()
+      end)
+      row:SetScript("OnLeave", function(self)
+        self.hl:Hide()
+        GameTooltip:Hide()
+      end)
+      row:SetScript("OnClick", function(self)
+        local ev = self.ev
+        if ev and ev.link and IsShiftKeyDown() then
+          HandleModifiedItemClick(ev.link)
+        end
+      end)
       histRowPool[i] = row
     end
     return row
@@ -3582,7 +3624,7 @@ CreateUI = function()
     if not UI or not UI.histPanel then return end
     local n = #kbHistory
     if n == 0 then
-      for _, row in ipairs(histRowPool) do row:Hide() end
+      for _, row in ipairs(histRowPool) do row.ev = nil; row:Hide() end
       histEmpty:Show()
       return
     end
@@ -3591,9 +3633,17 @@ CreateUI = function()
     for i = 1, shown do
       local ev = kbHistory[i]
       local row = AcquireHistRow(i)
+      row.ev = ev
       local iconID = select(5, C_Item.GetItemInfoInstant(ev.id))
       row.icon:SetTexture(iconID or "Interface\\Icons\\INV_Misc_QuestionMark")
-      row.name:SetText(C_Item.GetItemInfo(ev.id) or "...")
+      -- nome: o link já vem colorido por qualidade; sem link, cai no nome simples
+      if ev.link then row.name:SetText(ev.link)
+      else row.name:SetText(C_Item.GetItemInfo(ev.id) or "...") end
+      -- borda de qualidade no ícone (só quando há link com qualidade conhecida)
+      local q = ev.link and select(3, C_Item.GetItemInfo(ev.link))
+      local c = q and q >= 0 and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+      if c then row.border:SetVertexColor(c.r, c.g, c.b); row.border:Show()
+      else row.border:Hide() end
       local deltaStr
       if ev.delta > 0 then deltaStr = "|cff33ff33+" .. ev.delta .. "|r"
       else deltaStr = "|cffff5555" .. ev.delta .. "|r" end
@@ -3603,9 +3653,10 @@ CreateUI = function()
         if ok and s then hora = s end
       end
       row.info:SetText(deltaStr .. "  " .. hora)
+      row.hl:Hide()
       row:Show()
     end
-    for i = shown + 1, #histRowPool do histRowPool[i]:Hide() end -- esconde sobras (sem ghost)
+    for i = shown + 1, #histRowPool do histRowPool[i].ev = nil; histRowPool[i]:Hide() end -- esconde sobras (sem ghost)
   end
 
   -- botão de relógio: alterna o painel. À esquerda, perto do título (longe da fileira cheia).
@@ -4385,13 +4436,19 @@ end
 -- despejar o inventário inteiro como "+N" no login/primeira abertura.
 local function HistorySnapshotDiff()
   local cur = {}
+  local curLink = {}
   for _, bag in ipairs(BAGS) do
     local slots = C_Container.GetContainerNumSlots(bag)
     if slots and slots > 0 then
       for slot = 1, slots do
         local info = C_Container.GetContainerItemInfo(bag, slot)
         if info and info.itemID then
-          cur[info.itemID] = (cur[info.itemID] or 0) + (info.stackCount or 1)
+          local id = info.itemID
+          cur[id] = (cur[id] or 0) + (info.stackCount or 1)
+          if not curLink[id] then
+            local link = C_Container.GetContainerItemLink(bag, slot)
+            if link then curLink[id] = link; kbLastLink[id] = link end
+          end
         end
       end
     end
@@ -4407,7 +4464,8 @@ local function HistorySnapshotDiff()
   for id in pairs(seen) do
     local delta = (cur[id] or 0) - (kbLastCounts[id] or 0)
     if delta ~= 0 then
-      tinsert(kbHistory, 1, { id = id, delta = delta, t = (time and time()) or 0 })
+      -- link representativo: o capturado neste scan ou o último conhecido (item que saiu)
+      tinsert(kbHistory, 1, { id = id, delta = delta, t = (time and time()) or 0, link = curLink[id] or kbLastLink[id] })
     end
   end
   kbLastCounts = cur
