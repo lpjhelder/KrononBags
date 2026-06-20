@@ -13,6 +13,7 @@ local Refresh, RenderGrid, OnEnter, AcquireButton, Categorize, GetIlvl, Toggle, 
 local ToggleFavorite -- usada em OpenItemMenu (definida acima da implementação)
 local ApplyOpacity, CreateConfig, ToggleConfig, UpdateMoney, UpdateTabs, UpdateModeBar, SearchMatcher, RefreshConfigCats
 local CreateFilterBuilder
+local KB_THEMES, KB_Accent, KB_AccentHex -- temas de cor + accent (definidos antes da janela; usados em headers/sub-headers/título)
 
 -- Histórico de entradas/saídas (rastreio sempre ligado; painel opt-in pelo botão de relógio)
 local RenderHistory          -- definida dentro de CreateUI (acessa o pool/painel)
@@ -132,6 +133,7 @@ local EN = {
   -- config: rótulos de grupo (sub-títulos)
   GRP_WINDOW = "Window", GRP_ORGANIZE = "Organization", GRP_SEARCH = "Search", GRP_PROTECT = "Protection & Alts",
   THEME_DARK = "Dark", THEME_SLATE = "Slate", THEME_GOLD = "Gold", THEME_KRONON = "Kronon", THEME_DRUID = "Druid", THEME_RUBY = "Ruby",
+  THEME_NEEDS_DARK = "Turn off the Blizzard frame to use color themes.",
   OPT_SHOW_ILVL = "Show item level", OPT_ILVL_RARITY = "Color item level by rarity",
   OPT_GEAR_TRACK = "Show upgrade track",
   OPT_PROTECT = "Protect items (don't sell)", OPT_AUTOOPEN = "Open at vendor/bank",
@@ -318,6 +320,7 @@ local PT = {
   THEME_LABEL = "Tema",
   GRP_WINDOW = "Janela", GRP_ORGANIZE = "Organização", GRP_SEARCH = "Busca", GRP_PROTECT = "Proteção & Alts",
   THEME_DARK = "Escuro", THEME_SLATE = "Ardósia", THEME_GOLD = "Dourado", THEME_KRONON = "Kronon", THEME_DRUID = "Druida", THEME_RUBY = "Rubi",
+  THEME_NEEDS_DARK = "Desative a Moldura Blizzard para usar temas de cor.",
   OPT_SHOW_ILVL = "Mostrar item level", OPT_ILVL_RARITY = "Colorir item level pela raridade",
   OPT_GEAR_TRACK = "Mostrar trilha de upgrade",
   OPT_PROTECT = "Proteger itens (não vender)", OPT_AUTOOPEN = "Abrir no vendedor/banco",
@@ -494,6 +497,7 @@ local ES = {
   THEME_LABEL = "Tema",
   GRP_WINDOW = "Ventana", GRP_ORGANIZE = "Organización", GRP_SEARCH = "Búsqueda", GRP_PROTECT = "Protección y Alts",
   THEME_DARK = "Oscuro", THEME_SLATE = "Pizarra", THEME_GOLD = "Dorado", THEME_KRONON = "Kronon", THEME_DRUID = "Druida", THEME_RUBY = "Rubí",
+  THEME_NEEDS_DARK = "Desactiva el Marco Blizzard para usar temas de color.",
   OPT_SHOW_ILVL = "Mostrar nivel de objeto", OPT_ILVL_RARITY = "Colorear nivel de objeto por rareza",
   OPT_GEAR_TRACK = "Mostrar nivel de mejora",
   OPT_PROTECT = "Proteger objetos (no vender)", OPT_AUTOOPEN = "Abrir en vendedor/banco",
@@ -1475,9 +1479,11 @@ local function AcquireSubHeader(i)
     sh:SetAttribute("nodeignore", true)
     sh.label = sh:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     sh.label:SetPoint("LEFT", 0, 0)
-    sh.label:SetTextColor(0.80, 0.72, 0.52) -- cinza-dourado suave
     subHeaderPool[i] = sh
   end
+  -- versão suave do accent do tema atual; re-setado a cada uso (pool é reaproveitado entre temas)
+  local r, g, b = KB_Accent()
+  sh.label:SetTextColor(r * 0.85, g * 0.85, b * 0.85)
   return sh
 end
 
@@ -1492,7 +1498,7 @@ local function DrawEmpty(yOff)
     return yOff - 22
   end
   emptyHeader:ClearAllPoints(); emptyHeader:SetPoint("TOPLEFT", 0, yOff)
-  emptyHeader:SetText("|cfff0d98c" .. L.EMPTY .. "|r"); emptyHeader:Show()
+  emptyHeader:SetText("|cff" .. KB_AccentHex() .. L.EMPTY .. "|r"); emptyHeader:Show()
   yOff = yOff - 18
   freeBox:SetSize(BTN, BTN); freeBox:ClearAllPoints(); freeBox:SetPoint("TOPLEFT", 0, yOff); freeBox:Show()
   if mode == "bags" and (C_Container.GetContainerNumSlots(5) or 0) > 0 then
@@ -2312,7 +2318,7 @@ Refresh = function()
       h:SetSize(contentW, 16)
       h:ClearAllPoints(); h:SetPoint("TOPLEFT", 0, yOff)
       local sign = collapsed and "Interface\\Buttons\\UI-PlusButton-Up" or "Interface\\Buttons\\UI-MinusButton-Up"
-      local lbl = "|T" .. sign .. ":14:14:0:0|t |cfff0d98c" .. CatDisplay(cat) .. "|r  |cff999999(" .. #g .. ")|r"
+      local lbl = "|T" .. sign .. ":14:14:0:0|t |cff" .. KB_AccentHex() .. CatDisplay(cat) .. "|r  |cff999999(" .. #g .. ")|r"
       -- valor total da categoria pela Auction House (só com fonte real de AH, fora da visão grade)
       if HasMarketSource() and not DB.settings.gridView then
         local total = 0
@@ -2563,25 +2569,46 @@ StaticPopupDialogs["KRONONBAGS_TRANSFER_SELL"] = {
 
 -- ---------------- Temas de cor ----------------
 -- Lista ordenada (dropdown da config) E indexável por chave (KB_THEMES[key]).
-local KB_THEMES = {
-  { key = "dark",   name = L.THEME_DARK,   bg = { 0, 0, 0 },          border = { 0.4, 0.4, 0.4 } },
-  { key = "slate",  name = L.THEME_SLATE,  bg = { 0.10, 0.11, 0.14 }, border = { 0.3, 0.35, 0.45 } },
-  { key = "gold",   name = L.THEME_GOLD,   bg = { 0.05, 0.04, 0.01 }, border = { 1, 0.82, 0 } },
-  { key = "kronon", name = L.THEME_KRONON, bg = { 0.07, 0.04, 0.12 }, border = { 0.6, 0.3, 0.9 } },
-  { key = "druid",  name = L.THEME_DRUID,  bg = { 0.03, 0.07, 0.04 }, border = { 0.35, 0.8, 0.45 } },
-  { key = "ruby",   name = L.THEME_RUBY,   bg = { 0.09, 0.02, 0.03 }, border = { 0.85, 0.25, 0.3 } },
+KB_THEMES = {
+  { key = "dark",   name = L.THEME_DARK,   bg = { 0, 0, 0 },          border = { 0.4, 0.4, 0.4 },   accent = { 0.94, 0.85, 0.55 } },
+  { key = "slate",  name = L.THEME_SLATE,  bg = { 0.10, 0.11, 0.14 }, border = { 0.3, 0.35, 0.45 },  accent = { 0.55, 0.70, 0.95 } },
+  { key = "gold",   name = L.THEME_GOLD,   bg = { 0.05, 0.04, 0.01 }, border = { 1, 0.82, 0 },       accent = { 1, 0.82, 0 } },
+  { key = "kronon", name = L.THEME_KRONON, bg = { 0.07, 0.04, 0.12 }, border = { 0.6, 0.3, 0.9 },    accent = { 0.78, 0.60, 0.95 } },
+  { key = "druid",  name = L.THEME_DRUID,  bg = { 0.03, 0.07, 0.04 }, border = { 0.35, 0.8, 0.45 },  accent = { 0.55, 0.90, 0.60 } },
+  { key = "ruby",   name = L.THEME_RUBY,   bg = { 0.09, 0.02, 0.03 }, border = { 0.85, 0.25, 0.3 },  accent = { 1, 0.50, 0.55 } },
 }
 for _, t in ipairs(KB_THEMES) do KB_THEMES[t.key] = t end -- acesso por chave sem perder a ordem (ipairs)
 
--- Re-skin ao vivo: aplica a cor do tema (bg + alpha do slider) e a borda na janela escura.
+-- accent (cor de destaque) do tema atual: cabeçalhos, título, "Vazio", sub-grupos.
+KB_Accent = function()
+  local t = KB_THEMES[(DB and DB.settings and DB.settings.theme) or "dark"] or KB_THEMES.dark
+  local a = t.accent or { 0.94, 0.85, 0.55 }
+  return a[1], a[2], a[3]
+end
+-- mesma cor em hex "rrggbb" pra usar inline em |cff..|r
+KB_AccentHex = function()
+  local r, g, b = KB_Accent()
+  return string.format("%02x%02x%02x", math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+end
+
+-- Re-skin ao vivo: aplica a cor do tema (bg + alpha do slider), a borda e o accent na janela escura.
+local KB_lastAccentTheme -- evita Refresh redundante quando só a opacidade muda (mesmo tema)
 local function ApplyTheme(key)
   local t = KB_THEMES[key] or KB_THEMES.dark
-  if DB and DB.settings and DB.settings.frameStyle == "blizzard" then return end -- moldura nativa controla o fundo
+  if DB and DB.settings and DB.settings.frameStyle == "blizzard" then return end -- moldura nativa controla o fundo/título
   if not (UI and UI.SetBackdropColor) then return end
   local op = (DB and DB.settings and DB.settings.opacity) or 0.92
   UI:SetBackdropColor(t.bg[1], t.bg[2], t.bg[3], op)
   if UI.SetBackdropBorderColor then
     UI:SetBackdropBorderColor(t.border[1], t.border[2], t.border[3], 1)
+  end
+  local a = t.accent or { 0.94, 0.85, 0.55 }
+  if UI.titleFS then UI.titleFS:SetTextColor(a[1], a[2], a[3]) end -- título no estilo escuro
+  -- remonta cabeçalhos de categoria/sub-headers (eles leem KB_AccentHex/KB_Accent no Refresh).
+  -- só quando o tema realmente muda — não a cada tick do slider de opacidade. Refresh NÃO chama ApplyTheme (sem recursão).
+  if t.key ~= KB_lastAccentTheme then
+    KB_lastAccentTheme = t.key
+    if Refresh then Refresh() end
   end
 end
 
@@ -3047,7 +3074,9 @@ CreateUI = function()
     logo:SetSize(24, 24); logo:SetPoint("TOPLEFT", MARGIN - 2, -5)
     logo:SetTexture(logoPath)
     local title = UI:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("LEFT", logo, "RIGHT", 5, -1); title:SetText("|cfff0d98cKrononBags|r")
+    title:SetPoint("LEFT", logo, "RIGHT", 5, -1); title:SetText("KrononBags")
+    title:SetTextColor(KB_Accent()) -- accent do tema (recolorido pelo ApplyTheme)
+    UI.titleFS = title
     local divider = UI:CreateTexture(nil, "ARTWORK")
     divider:SetColorTexture(0.45, 0.45, 0.5, 0.5); divider:SetHeight(1)
     divider:SetPoint("TOPLEFT", UI, "TOPLEFT", MARGIN, -31)
@@ -3906,6 +3935,7 @@ CreateConfig = function()
   groupLabel(apP, -32, L.GRP_WINDOW)
   check(apP, "KrononBagsFrameStyleCheck", 4, -50, L.OPT_BLIZZ_FRAME, function() return DB.settings.frameStyle == "blizzard" end, function(v)
     DB.settings.frameStyle = v and "blizzard" or "dark"
+    if CFG.updateThemeBtnState then CFG.updateThemeBtnState() end -- liga/desliga o seletor de tema na hora
     print(KB_PREFIX .. L.MSG_RELOAD_VISUAL)
   end, "TIP_OPT_BLIZZ_FRAME")
   -- grupo: Tema (dropdown de cor, mais abaixo) — dropdown de TEMA com pré-visualização ao vivo (hover = preview, clique = aplica)
@@ -3919,6 +3949,7 @@ CreateConfig = function()
   themeBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText(L.THEME_LABEL)
+    if DB.settings.frameStyle == "blizzard" then GameTooltip:AddLine(L.THEME_NEEDS_DARK, 1, 0.5, 0.5, true) end
     GameTooltip:Show()
   end)
   themeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -3938,6 +3969,19 @@ CreateConfig = function()
   themeList:Hide()
   -- fechar sem escolher (toggle pelo botão / config fecha) restaura o tema salvo
   themeList:SetScript("OnHide", function() ApplyTheme(DB.settings.theme) end)
+
+  -- gate: o tema de cor não afeta a moldura nativa, então o seletor fica desabilitado nela
+  CFG.themeBtn = themeBtn
+  local function updateThemeBtnState()
+    if DB.settings.frameStyle == "blizzard" then
+      themeList:Hide()
+      themeBtn:Disable()
+    else
+      themeBtn:Enable()
+    end
+  end
+  CFG.updateThemeBtnState = updateThemeBtnState
+  updateThemeBtnState()
 
   for i, th in ipairs(KB_THEMES) do
     local row = CreateFrame("Button", nil, themeList)
@@ -3960,7 +4004,7 @@ CreateConfig = function()
     end)
   end
 
-  themeBtn:SetScript("OnShow", setThemeBtnLabel) -- reflete o tema atual ao reabrir a config
+  themeBtn:SetScript("OnShow", function() setThemeBtnLabel(); updateThemeBtnState() end) -- reflete tema + estado do gate ao reabrir
   themeBtn:SetScript("OnClick", function()
     if themeList:IsShown() then themeList:Hide()
     else setThemeBtnLabel(); themeList:Show() end

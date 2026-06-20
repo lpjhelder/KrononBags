@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.44.0
+**Português**
+- **Melhorado:** os **temas de cor** agora mudam também a **cor de destaque** — cabeçalhos de categoria, título da janela, "Vazio" e sub-grupos — não só o fundo.
+- **Corrigido:** o **seletor de tema** fica **desativado** quando a **Moldura Blizzard** está ligada (o tema de cor não se aplica à moldura nativa).
+
+**English**
+- **Improved:** **color themes** now also change the **accent color** — category headers, window title, "Empty" and sub-groups — not just the background.
+- **Fixed:** the **theme picker** is now **disabled** while the **Blizzard frame** is on (color themes don't apply to the native frame).
+
+**Español**
+- **Mejorado:** los **temas de color** ahora también cambian el **color de acento** — encabezados de categoría, título de la ventana, "Vacío" y subgrupos — no solo el fondo.
+- **Corregido:** el **selector de tema** ahora se **desactiva** cuando el **Marco Blizzard** está activado (los temas de color no se aplican al marco nativo).
+
 ## 0.43.0
 **Português**
 - **Melhorado:** janela de **configuração reorganizada** com **sub-títulos de grupo** e espaçamento mais claro.
