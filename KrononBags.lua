@@ -52,7 +52,7 @@ local EN = {
   BTN_EXPORT = "Export", BTN_DELETE = "Delete", BTN_RULE = "Rule", BTN_PRESET = "Preset…",
   BTN_SELL_JUNK = "Sell Junk", BTN_DEPOSIT = "Deposit Items",
   -- v0.23.0: transferir pela busca + categoria Abríveis
-  CAT_OPENABLE = "Openable",
+  CAT_OPENABLE = "Openable", CAT_MOUNTS = "Mounts",
   BTN_OPEN_ALL = "Open all",
   TIP_TRANSFER_SELL_TITLE = "Sell filtered",
   TIP_TRANSFER_SELL_BODY = "Sell all items matching the current search (asks to confirm).",
@@ -252,7 +252,7 @@ local PT = {
   BTN_CANCEL = "Cancelar", BTN_SAVE = "Salvar", BTN_CLOSE = "Fechar", BTN_IMPORT = "Importar",
   BTN_EXPORT = "Exportar", BTN_DELETE = "Excluir", BTN_RULE = "Regra", BTN_PRESET = "Pré-pronta…",
   BTN_SELL_JUNK = "Vender lixo", BTN_DEPOSIT = "Depositar itens",
-  CAT_OPENABLE = "Abríveis",
+  CAT_OPENABLE = "Abríveis", CAT_MOUNTS = "Montarias",
   BTN_OPEN_ALL = "Abrir tudo",
   TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
   TIP_TRANSFER_SELL_BODY = "Vende todos os itens que batem com a busca atual (pede confirmação).",
@@ -429,7 +429,7 @@ local ES = {
   BTN_CANCEL = "Cancelar", BTN_SAVE = "Guardar", BTN_CLOSE = "Cerrar", BTN_IMPORT = "Importar",
   BTN_EXPORT = "Exportar", BTN_DELETE = "Eliminar", BTN_RULE = "Regla", BTN_PRESET = "Predefinida…",
   BTN_SELL_JUNK = "Vender basura", BTN_DEPOSIT = "Depositar objetos",
-  CAT_OPENABLE = "Para abrir",
+  CAT_OPENABLE = "Para abrir", CAT_MOUNTS = "Monturas",
   BTN_OPEN_ALL = "Abrir todo",
   TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
   TIP_TRANSFER_SELL_BODY = "Vende todos los objetos que coinciden con la búsqueda actual (pide confirmación).",
@@ -608,7 +608,7 @@ local CAT_DISPLAY_KEY = {
   ["Recém-obtidos"] = "CAT_NEW", ["Favoritos"] = "CAT_FAVORITES", ["Pedra-chave"] = "CAT_KEYSTONE",
   ["Equipamento"] = "CAT_EQUIP", ["Consumíveis"] = "CAT_CONSUMABLE", ["Reagentes"] = "CAT_REAGENT",
   ["Materiais"] = "CAT_TRADE", ["Missão"] = "CAT_QUEST", ["Lixo"] = "CAT_JUNK", ["Diversos"] = "CAT_MISC",
-  ["Abríveis"] = "CAT_OPENABLE",
+  ["Abríveis"] = "CAT_OPENABLE", ["Montarias"] = "CAT_MOUNTS",
 }
 local function CatDisplay(name)
   if name == nil then return nil end
@@ -679,6 +679,7 @@ local KB_PRESETS = {
   { name = "Favoritos",   filter = "favorites" },
   { name = "Pedra-chave", filter = "keystone" },
   { name = "Equipamento", filter = "equip" },
+  { name = "Montarias",   filter = "mounts" },
   { name = "Consumíveis", filter = "consumable" },
   { name = "Reagentes",   filter = "reagentbag" },
   { name = "Materiais",   filter = "trade" },
@@ -928,6 +929,7 @@ local PRESET_FILTERS = {
   keystone   = function(id, q, bag) return isKeystone(id) end,                                -- Pedra-chave
   reagentbag = function(id, q, bag) return bag == 5 end,                                       -- bolsa de reagentes (loc)
   equip      = function(id, q, bag) local c = classOf(id); return c == 2 or c == 4 end,        -- arma / armadura
+  mounts     = function(id) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id); return c == 15 and sub == 5 end, -- montaria (Diversos / subclasse Montaria)
   consumable = function(id, q, bag) return classOf(id) == 0 end,                               -- consumível
   trade      = function(id, q, bag) local c = classOf(id); return c == 7 or c == 8 or c == 3 or c == 5 end, -- mats/gema/reagente
   quest      = function(id, q, bag) return classOf(id) == 12 end,                              -- missão
@@ -1846,6 +1848,9 @@ local function SearchTermPred(tok)
     consumivel = function(it) return classOf(it.itemID) == 0 end,
     ["consumível"] = function(it) return classOf(it.itemID) == 0 end,
     consumable = function(it) return classOf(it.itemID) == 0 end,
+    montaria = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 5 end,
+    mount = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 5 end,
+    montura = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 5 end,
     novo = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
     new = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
     favorito = function(it) return IsFavorited(it.itemID, it.link) and true or false end,

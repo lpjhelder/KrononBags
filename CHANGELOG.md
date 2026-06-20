@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.45.0
+**Português**
+- **Novo:** categoria **Montarias** — separa as montarias das demais categorias.
+- **Busca** agora reconhece a palavra-chave **montaria** (também **mount**/**montura**).
+
+**English**
+- **New:** **Mounts** category — keeps mounts in their own group.
+- **Search** now recognizes the **mount** keyword (also **montaria**/**montura**).
+
+**Español**
+- **Nuevo:** categoría **Monturas** — separa las monturas del resto.
+- La **búsqueda** ahora reconoce la palabra clave **montura** (también **montaria**/**mount**).
+
 ## 0.44.0
 **Português**
 - **Melhorado:** os **temas de cor** agora mudam também a **cor de destaque** — cabeçalhos de categoria, título da janela, "Vazio" e sub-grupos — não só o fundo.
