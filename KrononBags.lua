@@ -128,6 +128,8 @@ local EN = {
   SEC_ICONS = "Icons", SEC_VENDOR = "Vendor", SEC_BANK = "Bank", SEC_ABOUT = "About",
   -- config: opções
   OPT_BLIZZ_FRAME = "Blizzard frame", OPT_BLIZZ_COLORS = "Blizzard colors (dark)",
+  THEME_LABEL = "Theme",
+  THEME_DARK = "Dark", THEME_SLATE = "Slate", THEME_GOLD = "Gold", THEME_KRONON = "Kronon", THEME_DRUID = "Druid", THEME_RUBY = "Ruby",
   OPT_SHOW_ILVL = "Show item level", OPT_ILVL_RARITY = "Color item level by rarity",
   OPT_GEAR_TRACK = "Show upgrade track",
   OPT_PROTECT = "Protect items (don't sell)", OPT_AUTOOPEN = "Open at vendor/bank",
@@ -311,6 +313,8 @@ local PT = {
   SEC_APPEARANCE = "Aparência", SEC_BEHAVIOR = "Comportamento", SEC_CATEGORIES = "Categorias",
   SEC_ICONS = "Ícones", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Sobre",
   OPT_BLIZZ_FRAME = "Moldura Blizzard", OPT_BLIZZ_COLORS = "Cores Blizzard (escuro)",
+  THEME_LABEL = "Tema",
+  THEME_DARK = "Escuro", THEME_SLATE = "Ardósia", THEME_GOLD = "Dourado", THEME_KRONON = "Kronon", THEME_DRUID = "Druida", THEME_RUBY = "Rubi",
   OPT_SHOW_ILVL = "Mostrar item level", OPT_ILVL_RARITY = "Colorir item level pela raridade",
   OPT_GEAR_TRACK = "Mostrar trilha de upgrade",
   OPT_PROTECT = "Proteger itens (não vender)", OPT_AUTOOPEN = "Abrir no vendedor/banco",
@@ -484,6 +488,8 @@ local ES = {
   SEC_APPEARANCE = "Apariencia", SEC_BEHAVIOR = "Comportamiento", SEC_CATEGORIES = "Categorías",
   SEC_ICONS = "Iconos", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Acerca de",
   OPT_BLIZZ_FRAME = "Marco Blizzard", OPT_BLIZZ_COLORS = "Colores Blizzard (oscuro)",
+  THEME_LABEL = "Tema",
+  THEME_DARK = "Oscuro", THEME_SLATE = "Pizarra", THEME_GOLD = "Dorado", THEME_KRONON = "Kronon", THEME_DRUID = "Druida", THEME_RUBY = "Rubí",
   OPT_SHOW_ILVL = "Mostrar nivel de objeto", OPT_ILVL_RARITY = "Colorear nivel de objeto por rareza",
   OPT_GEAR_TRACK = "Mostrar nivel de mejora",
   OPT_PROTECT = "Proteger objetos (no vender)", OPT_AUTOOPEN = "Abrir en vendedor/banco",
@@ -707,6 +713,9 @@ local function InitDB()
   if KrononBagsDB.settings.opacity == nil then KrononBagsDB.settings.opacity = 0.92 end
   if KrononBagsDB.settings.autoProtectCategorized == nil then KrononBagsDB.settings.autoProtectCategorized = true end
   if KrononBagsDB.settings.blizzardStyle == nil then KrononBagsDB.settings.blizzardStyle = false end
+  if KrononBagsDB.settings.theme == nil then -- migra do antigo blizzardStyle (cor): true => ardósia, senão escuro
+    KrononBagsDB.settings.theme = KrononBagsDB.settings.blizzardStyle and "slate" or "dark"
+  end
   if KrononBagsDB.settings.cols == nil then KrononBagsDB.settings.cols = 14 end
   if KrononBagsDB.settings.gridView == nil then KrononBagsDB.settings.gridView = false end
   if KrononBagsDB.settings.autoOpen == nil then KrononBagsDB.settings.autoOpen = true end
@@ -2548,17 +2557,34 @@ StaticPopupDialogs["KRONONBAGS_TRANSFER_SELL"] = {
   timeout = 0, whileDead = true, hideOnEscape = true,
 }
 
--- ---------------- Janela ----------------
-ApplyOpacity = function()
+-- ---------------- Temas de cor ----------------
+-- Lista ordenada (dropdown da config) E indexável por chave (KB_THEMES[key]).
+local KB_THEMES = {
+  { key = "dark",   name = L.THEME_DARK,   bg = { 0, 0, 0 },          border = { 0.4, 0.4, 0.4 } },
+  { key = "slate",  name = L.THEME_SLATE,  bg = { 0.10, 0.11, 0.14 }, border = { 0.3, 0.35, 0.45 } },
+  { key = "gold",   name = L.THEME_GOLD,   bg = { 0.05, 0.04, 0.01 }, border = { 1, 0.82, 0 } },
+  { key = "kronon", name = L.THEME_KRONON, bg = { 0.07, 0.04, 0.12 }, border = { 0.6, 0.3, 0.9 } },
+  { key = "druid",  name = L.THEME_DRUID,  bg = { 0.03, 0.07, 0.04 }, border = { 0.35, 0.8, 0.45 } },
+  { key = "ruby",   name = L.THEME_RUBY,   bg = { 0.09, 0.02, 0.03 }, border = { 0.85, 0.25, 0.3 } },
+}
+for _, t in ipairs(KB_THEMES) do KB_THEMES[t.key] = t end -- acesso por chave sem perder a ordem (ipairs)
+
+-- Re-skin ao vivo: aplica a cor do tema (bg + alpha do slider) e a borda na janela escura.
+local function ApplyTheme(key)
+  local t = KB_THEMES[key] or KB_THEMES.dark
   if DB and DB.settings and DB.settings.frameStyle == "blizzard" then return end -- moldura nativa controla o fundo
   if not (UI and UI.SetBackdropColor) then return end
-  local s = DB and DB.settings
-  local op = (s and s.opacity) or 0.92
-  if s and s.blizzardStyle then
-    UI:SetBackdropColor(0.10, 0.11, 0.14, op) -- cinza-azulado (slate) estilo Blizzard
-  else
-    UI:SetBackdropColor(0, 0, 0, op)          -- preto (dark)
+  local op = (DB and DB.settings and DB.settings.opacity) or 0.92
+  UI:SetBackdropColor(t.bg[1], t.bg[2], t.bg[3], op)
+  if UI.SetBackdropBorderColor then
+    UI:SetBackdropBorderColor(t.border[1], t.border[2], t.border[3], 1)
   end
+end
+
+-- ---------------- Janela ----------------
+ApplyOpacity = function()
+  -- o alpha do fundo agora usa a COR do tema atual; ApplyTheme respeita frameStyle/UI prontos
+  ApplyTheme(DB and DB.settings and DB.settings.theme or "dark")
 end
 
 UpdateMoney = function()
@@ -3865,9 +3891,62 @@ CreateConfig = function()
     DB.settings.frameStyle = v and "blizzard" or "dark"
     print(KB_PREFIX .. L.MSG_RELOAD_VISUAL)
   end, "TIP_OPT_BLIZZ_FRAME")
-  check(apP, "KrononBagsBlizzColorsCheck", 4, -58, L.OPT_BLIZZ_COLORS, function() return DB.settings.blizzardStyle end, function(v)
-    DB.settings.blizzardStyle = v; ApplyOpacity()
-  end, "TIP_OPT_BLIZZ_COLORS")
+  -- dropdown de TEMA de cor com pré-visualização ao vivo (hover = preview, clique = aplica)
+  local themeBtn = CreateFrame("Button", "KrononBagsThemeDropdown", apP, "UIPanelButtonTemplate")
+  themeBtn:SetSize(180, 24); themeBtn:SetPoint("TOPLEFT", 8, -58)
+  themeBtn:SetAttribute("nodeignore", true) -- só mouse; fora da navegação por controle
+  local function themeOf(key) return KB_THEMES[key] or KB_THEMES.dark end
+  local function setThemeBtnLabel() themeBtn:SetText(L.THEME_LABEL .. ": " .. themeOf(DB.settings.theme).name) end
+  setThemeBtnLabel()
+  themeBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(L.THEME_LABEL)
+    GameTooltip:Show()
+  end)
+  themeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  local themeList = CreateFrame("Frame", "KrononBagsThemeList", themeBtn, "BackdropTemplate")
+  themeList:SetPoint("TOPLEFT", themeBtn, "BOTTOMLEFT", 0, -2)
+  themeList:SetSize(180, #KB_THEMES * 22 + 8)
+  themeList:SetFrameStrata("DIALOG")
+  themeList:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+  })
+  themeList:SetBackdropColor(0, 0, 0, 0.95)
+  themeList:EnableMouse(true)
+  themeList:Hide()
+  -- fechar sem escolher (toggle pelo botão / config fecha) restaura o tema salvo
+  themeList:SetScript("OnHide", function() ApplyTheme(DB.settings.theme) end)
+
+  for i, th in ipairs(KB_THEMES) do
+    local row = CreateFrame("Button", nil, themeList)
+    row:SetSize(168, 20)
+    row:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 22)
+    row:SetAttribute("nodeignore", true)
+    local hl = row:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.18)
+    local swatch = row:CreateTexture(nil, "ARTWORK")
+    swatch:SetSize(12, 12); swatch:SetPoint("LEFT", 2, 0)
+    swatch:SetColorTexture(th.border[1], th.border[2], th.border[3], 1)
+    local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fs:SetPoint("LEFT", swatch, "RIGHT", 8, 0); fs:SetText(th.name)
+    row:SetScript("OnEnter", function() ApplyTheme(th.key) end) -- PREVIEW ao vivo (não grava em DB)
+    row:SetScript("OnClick", function()
+      DB.settings.theme = th.key      -- commit ANTES de esconder (OnHide reaplica o salvo)
+      ApplyTheme(th.key)
+      setThemeBtnLabel()
+      themeList:Hide()
+    end)
+  end
+
+  themeBtn:SetScript("OnShow", setThemeBtnLabel) -- reflete o tema atual ao reabrir a config
+  themeBtn:SetScript("OnClick", function()
+    if themeList:IsShown() then themeList:Hide()
+    else setThemeBtnLabel(); themeList:Show() end
+  end)
 
   local opLabel = apP:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   opLabel:SetPoint("TOPLEFT", 8, -90)

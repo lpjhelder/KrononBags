@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.42.0
+**Português**
+- **Novo:** **temas de cor** — Escuro, Ardósia, Dourado, Kronon, Druida e Rubi.
+- Escolha num **menu suspenso** com **pré-visualização ao vivo**: passe o mouse pra ver antes de aplicar.
+- Substitui a antiga opção "Cores Blizzard"; a "Moldura Blizzard" continua separada.
+
+**English**
+- **New:** **color themes** — Dark, Slate, Gold, Kronon, Druid and Ruby.
+- Pick from a **dropdown** with **live preview**: hover to see it before applying.
+- Replaces the old "Blizzard colors" option; "Blizzard frame" stays separate.
+
+**Español**
+- **Nuevo:** **temas de color** — Oscuro, Pizarra, Dorado, Kronon, Druida y Rubí.
+- Elige en un **menú desplegable** con **vista previa en vivo**: pasa el ratón para verlo antes de aplicar.
+- Reemplaza la antigua opción "Colores Blizzard"; el "Marco Blizzard" sigue aparte.
+
 ## 0.41.0
 **Português**
 - **Melhorado:** o painel de **Histórico** agora mostra o **tooltip do item** ao passar o mouse (como no inventário).
