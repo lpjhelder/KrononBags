@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.46.0
+**Português**
+- **Corrigido:** comprar aba do banco com **"Substituir banco"** ligado não dá mais erro (era um taint causado ao tocar o banco no login).
+- **Novo:** botão **"Comprar aba"** na janela do banco — compre abas sem desligar a substituição.
+
+**English**
+- **Fixed:** buying a bank tab with **"Replace bank"** on no longer errors (it was taint from touching the bank at login).
+- **New:** **"Buy tab"** button in the bank window — buy tabs without turning off the replacement.
+
+**Español**
+- **Corregido:** comprar una pestaña del banco con **"Reemplazar banco"** activado ya no da error (era un taint por tocar el banco al iniciar sesión).
+- **Nuevo:** botón **"Comprar pestaña"** en la ventana del banco — compra pestañas sin desactivar el reemplazo.
+
 ## 0.45.0
 **Português**
 - **Novo:** categoria **Montarias** — separa as montarias das demais categorias.

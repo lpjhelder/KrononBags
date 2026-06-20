@@ -51,6 +51,7 @@ local EN = {
   BTN_CANCEL = "Cancel", BTN_SAVE = "Save", BTN_CLOSE = "Close", BTN_IMPORT = "Import",
   BTN_EXPORT = "Export", BTN_DELETE = "Delete", BTN_RULE = "Rule", BTN_PRESET = "Preset…",
   BTN_SELL_JUNK = "Sell Junk", BTN_DEPOSIT = "Deposit Items",
+  BUY_TAB = "Buy tab", TIP_BUY_TAB = "Purchase a new tab for this bank.",
   -- v0.23.0: transferir pela busca + categoria Abríveis
   CAT_OPENABLE = "Openable", CAT_MOUNTS = "Mounts",
   BTN_OPEN_ALL = "Open all",
@@ -157,7 +158,7 @@ local EN = {
   TIP_OPT_ALT_COUNTS = "In the item tooltip, show how many your other characters have.",
   TIP_OPT_AUTOSELL = "Sell all gray items automatically when you open a vendor.",
   TIP_OPT_AUTOREPAIR = "Repair everything at a vendor (uses guild funds when possible).",
-  TIP_OPT_BANK_REPLACE = "Replace the native bank and Warband bank with KrononBags. Needs /reload. (To buy bank tabs, turn this off + /reload.)",
+  TIP_OPT_BANK_REPLACE = "Replace the native bank and Warband bank with KrononBags. Needs /reload.",
   TIP_OPT_OPACITY = "Window transparency.",
   TIP_OPT_COLS = "How many item columns the window shows.",
   TIP_OPT_SORT = "How items are ordered inside each category.",
@@ -252,6 +253,7 @@ local PT = {
   BTN_CANCEL = "Cancelar", BTN_SAVE = "Salvar", BTN_CLOSE = "Fechar", BTN_IMPORT = "Importar",
   BTN_EXPORT = "Exportar", BTN_DELETE = "Excluir", BTN_RULE = "Regra", BTN_PRESET = "Pré-pronta…",
   BTN_SELL_JUNK = "Vender lixo", BTN_DEPOSIT = "Depositar itens",
+  BUY_TAB = "Comprar aba", TIP_BUY_TAB = "Compra uma nova aba pra este banco.",
   CAT_OPENABLE = "Abríveis", CAT_MOUNTS = "Montarias",
   BTN_OPEN_ALL = "Abrir tudo",
   TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
@@ -343,7 +345,7 @@ local PT = {
   TIP_OPT_ALT_COUNTS = "No tooltip do item, mostra quanto seus outros personagens têm dele.",
   TIP_OPT_AUTOSELL = "Vende todos os itens cinza automaticamente ao abrir o vendedor.",
   TIP_OPT_AUTOREPAIR = "Repara tudo ao abrir o vendedor (usa fundos da guilda quando dá).",
-  TIP_OPT_BANK_REPLACE = "Substitui o banco e o banco da Brigada nativos pelo KrononBags. Precisa de /reload. (Pra comprar abas do banco, desligue + /reload.)",
+  TIP_OPT_BANK_REPLACE = "Substitui o banco e o banco da Brigada nativos pelo KrononBags. Precisa de /reload.",
   TIP_OPT_OPACITY = "Transparência da janela.",
   TIP_OPT_COLS = "Quantas colunas de itens a janela mostra.",
   TIP_OPT_SORT = "Como os itens são ordenados dentro de cada categoria.",
@@ -429,6 +431,7 @@ local ES = {
   BTN_CANCEL = "Cancelar", BTN_SAVE = "Guardar", BTN_CLOSE = "Cerrar", BTN_IMPORT = "Importar",
   BTN_EXPORT = "Exportar", BTN_DELETE = "Eliminar", BTN_RULE = "Regla", BTN_PRESET = "Predefinida…",
   BTN_SELL_JUNK = "Vender basura", BTN_DEPOSIT = "Depositar objetos",
+  BUY_TAB = "Comprar pestaña", TIP_BUY_TAB = "Compra una nueva pestaña para este banco.",
   CAT_OPENABLE = "Para abrir", CAT_MOUNTS = "Monturas",
   BTN_OPEN_ALL = "Abrir todo",
   TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
@@ -520,7 +523,7 @@ local ES = {
   TIP_OPT_ALT_COUNTS = "En la información del objeto, muestra cuántos tienen tus otros personajes.",
   TIP_OPT_AUTOSELL = "Vende todos los objetos grises automáticamente al abrir un vendedor.",
   TIP_OPT_AUTOREPAIR = "Repara todo en el vendedor (usa fondos del clan cuando es posible).",
-  TIP_OPT_BANK_REPLACE = "Reemplaza el banco y el banco de la banda de guerra nativos por KrononBags. Requiere /reload. (Para comprar pestañas, desactiva + /reload.)",
+  TIP_OPT_BANK_REPLACE = "Reemplaza el banco y el banco de la banda de guerra nativos por KrononBags. Requiere /reload.",
   TIP_OPT_OPACITY = "Transparencia de la ventana.",
   TIP_OPT_COLS = "Cuántas columnas de objetos muestra la ventana.",
   TIP_OPT_SORT = "Cómo se ordenan los objetos dentro de cada categoría.",
@@ -2694,6 +2697,16 @@ UpdateTabs = function()
   end
   -- depositar só vale no banco de verdade
   if UI.depositBtn then UI.depositBtn:SetShown(atBank and (mode == "bank" or mode == "warband")) end
+  -- "Comprar aba": visível só no banco de verdade na aba Banco/Brigada. SetShown/SetAttribute
+  -- num frame seguro só FORA de combate (banco não é usável em combate, então é seguro pular).
+  if UI.buyTabBtn and not InCombatLockdown() then
+    local showBuy = atBank and (mode == "bank" or mode == "warband")
+    UI.buyTabBtn:SetShown(showBuy)
+    if showBuy then
+      -- aba Banco → banco do personagem; aba Brigada → banco da conta (warband)
+      UI.buyTabBtn:SetAttribute("overrideBankType", (mode == "warband") and BANK_ACCT or BANK_CHAR)
+    end
+  end
   if UI.sellJunkBtn then UI.sellJunkBtn:SetShown((MerchantFrame and MerchantFrame:IsShown()) and mode == "bags") end
   -- "Transferir": só com busca ativa E (vendedor aberto OU no banco)
   if UI.transferBtn then
@@ -3361,6 +3374,28 @@ CreateUI = function()
   end)
   dep:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.depositBtn = dep
+
+  -- Botão "Comprar aba": usa o template SEGURO da Blizzard. O OnClick nativo do template
+  -- faz toda a compra (custo + popup + PurchaseBankTab) por clique de HARDWARE — nunca por
+  -- Lua. NÃO adicionamos OnClick próprio (chamar PurchaseBankTab por Lua taintaria). O tipo
+  -- de banco vem do atributo seguro "overrideBankType", reaplicado em UpdateTabs FORA de combate.
+  local okBuy, buy = pcall(CreateFrame, "Button", "KrononBagsBuyTab", UI, "BankPanelPurchaseButtonScriptTemplate")
+  if okBuy and buy then
+    buy:SetSize(110, 18)
+    buy:SetPoint("LEFT", dep, "RIGHT", 6, 0)
+    if buy.SetText then buy:SetText(L.BUY_TAB) end
+    if not InCombatLockdown() then buy:SetAttribute("nodeignore", true) end -- fora da navegação por controle
+    buy:HookScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      GameTooltip:SetText(L.BUY_TAB)
+      GameTooltip:AddLine(L.TIP_BUY_TAB, 0.8, 0.8, 0.8, true)
+      GameTooltip:Show()
+    end)
+    buy:HookScript("OnLeave", function() GameTooltip:Hide() end)
+    buy:Hide()
+    UI.buyTabBtn = buy
+  end
+
   tabBar:Hide()
 
   -- tutorial em COACH-MARKS NÃO-MODAIS no botão "i": espalha marcadores "i" pelos controles.
@@ -4317,6 +4352,12 @@ local function kbBankSet(frame, shown)
   frame:SetAlpha(shown and 1 or 0)
   if frame.EnableMouse then frame:EnableMouse(shown) end
   if frame.EnableKeyboard then frame:EnableKeyboard(shown) end
+  -- Os painéis (BankPanel/AccountBankPanel) precisam ficar SHOWN, mesmo invisíveis,
+  -- pra GetActiveBankType funcionar e a compra de aba operar (doc do BetterBags).
+  -- NÃO dar :Hide() (fecharia a sessão). No BankFrame raiz só mexemos em alpha/mouse.
+  if not shown and (frame == BankPanel or frame == AccountBankPanel) and frame.Show then
+    frame:Show()
+  end
 end
 local function kbHookBank(frame)
   if not frame or kbBankHooked[frame] then return end
@@ -4646,7 +4687,9 @@ f:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" then
     if arg1 == ADDON_NAME then InitDB() end
   elseif event == "PLAYER_LOGIN" then
-    SuppressDefaultBank() -- esconde o banco nativo (se a opção estiver ligada)
+    -- NÃO tocar o BankPanel no login: mexer no painel do banco no init tainta a sessão
+    -- PERMANENTE e faz PurchaseBankTab dar ADDON_ACTION_FORBIDDEN o resto da sessão.
+    -- O banco só é suprimido quando ABRE (BANKFRAME_OPENED), nunca aqui.
     ReplaceGameBags()     -- B / clique na bolsa / atalho passam a abrir o KrononBags
     -- invalida o cache de valor de mercado quando o Auctionator termina uma varredura
     if Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.RegisterForDBUpdate then
