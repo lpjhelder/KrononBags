@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.47.0
+**Português**
+- **Novo:** o valor de mercado agora usa o **KrononMarket** (do ecossistema Kronon) como fonte preferida.
+- **Alternativa:** **Auctionator** e **TSM** continuam como fontes alternativas; **preço de venda** como fallback.
+
+**English**
+- **New:** market value now uses **KrononMarket** (from the Kronon ecosystem) as the preferred source.
+- **Fallback:** **Auctionator** and **TSM** remain as alternative sources; **vendor sell price** as fallback.
+
+**Español**
+- **Nuevo:** el valor de mercado ahora usa **KrononMarket** (del ecosistema Kronon) como fuente preferida.
+- **Alternativa:** **Auctionator** y **TSM** siguen como fuentes alternativas; **precio de venta** como reserva.
+
 ## 0.46.0
 **Português**
 - **Corrigido:** comprar aba do banco com **"Substituir banco"** ligado não dá mais erro (era um taint causado ao tocar o banco no login).

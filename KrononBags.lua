@@ -1055,7 +1055,13 @@ local function GetMarketValue(itemID, link)
   local c = kbMarketCache[itemID]
   if c ~= nil then if c then return c.v, c.src else return nil end end
   local v, src
-  if Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID then
+  -- 1) KrononMarket (ecossistema Kronon) — fonte preferida
+  if KrononMarket and KrononMarket.GetPrice then
+    local ok, p = pcall(KrononMarket.GetPrice, itemID)
+    if ok and type(p) == "number" and p > 0 then v, src = p, "ah" end
+  end
+  -- 2) Auctionator — só se ainda não achou
+  if not v and Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID then
     local ok, p = pcall(Auctionator.API.v1.GetAuctionPriceByItemID, CALLER, itemID)
     if ok and type(p) == "number" and p > 0 then v, src = p, "ah" end
   end
@@ -1072,7 +1078,8 @@ local function GetMarketValue(itemID, link)
 end
 local function HasMarketSource()
   if kbHasMarketSrc == nil then
-    kbHasMarketSrc = (Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID and true)
+    kbHasMarketSrc = (KrononMarket and KrononMarket.GetPrice and true)
+      or (Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID and true)
       or (TSM_API and TSM_API.GetCustomPriceValue and true) or false
   end
   return kbHasMarketSrc
@@ -4694,6 +4701,10 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- invalida o cache de valor de mercado quando o Auctionator termina uma varredura
     if Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.RegisterForDBUpdate then
       pcall(Auctionator.API.v1.RegisterForDBUpdate, CALLER, function() wipe(kbMarketCache) end)
+    end
+    -- invalida o cache também quando o KrononMarket termina uma varredura
+    if KrononMarket and KrononMarket.RegisterForUpdate then
+      pcall(KrononMarket.RegisterForUpdate, function() wipe(kbMarketCache) end)
     end
   elseif event == "PLAYER_LOGOUT" then
     CaptureBags() -- snapshot da mochila pra contagem nos alts
