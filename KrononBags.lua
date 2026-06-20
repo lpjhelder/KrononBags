@@ -129,6 +129,8 @@ local EN = {
   -- config: opções
   OPT_BLIZZ_FRAME = "Blizzard frame", OPT_BLIZZ_COLORS = "Blizzard colors (dark)",
   THEME_LABEL = "Theme",
+  -- config: rótulos de grupo (sub-títulos)
+  GRP_WINDOW = "Window", GRP_ORGANIZE = "Organization", GRP_SEARCH = "Search", GRP_PROTECT = "Protection & Alts",
   THEME_DARK = "Dark", THEME_SLATE = "Slate", THEME_GOLD = "Gold", THEME_KRONON = "Kronon", THEME_DRUID = "Druid", THEME_RUBY = "Ruby",
   OPT_SHOW_ILVL = "Show item level", OPT_ILVL_RARITY = "Color item level by rarity",
   OPT_GEAR_TRACK = "Show upgrade track",
@@ -314,6 +316,7 @@ local PT = {
   SEC_ICONS = "Ícones", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Sobre",
   OPT_BLIZZ_FRAME = "Moldura Blizzard", OPT_BLIZZ_COLORS = "Cores Blizzard (escuro)",
   THEME_LABEL = "Tema",
+  GRP_WINDOW = "Janela", GRP_ORGANIZE = "Organização", GRP_SEARCH = "Busca", GRP_PROTECT = "Proteção & Alts",
   THEME_DARK = "Escuro", THEME_SLATE = "Ardósia", THEME_GOLD = "Dourado", THEME_KRONON = "Kronon", THEME_DRUID = "Druida", THEME_RUBY = "Rubi",
   OPT_SHOW_ILVL = "Mostrar item level", OPT_ILVL_RARITY = "Colorir item level pela raridade",
   OPT_GEAR_TRACK = "Mostrar trilha de upgrade",
@@ -489,6 +492,7 @@ local ES = {
   SEC_ICONS = "Iconos", SEC_VENDOR = "Vendedor", SEC_BANK = "Banco", SEC_ABOUT = "Acerca de",
   OPT_BLIZZ_FRAME = "Marco Blizzard", OPT_BLIZZ_COLORS = "Colores Blizzard (oscuro)",
   THEME_LABEL = "Tema",
+  GRP_WINDOW = "Ventana", GRP_ORGANIZE = "Organización", GRP_SEARCH = "Búsqueda", GRP_PROTECT = "Protección y Alts",
   THEME_DARK = "Oscuro", THEME_SLATE = "Pizarra", THEME_GOLD = "Dorado", THEME_KRONON = "Kronon", THEME_DRUID = "Druida", THEME_RUBY = "Rubí",
   OPT_SHOW_ILVL = "Mostrar nivel de objeto", OPT_ILVL_RARITY = "Colorear nivel de objeto por rareza",
   OPT_GEAR_TRACK = "Mostrar nivel de mejora",
@@ -3863,6 +3867,17 @@ CreateConfig = function()
     end
     return c
   end
+  -- sub-título de grupo dentro de um painel: rótulo dourado pequeno + linha fininha à direita
+  local function groupLabel(parent, y, text)
+    local h = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    h:SetPoint("TOPLEFT", 8, y)
+    h:SetText("|cfff0d98c" .. text .. "|r")
+    local d = parent:CreateTexture(nil, "ARTWORK")
+    d:SetColorTexture(0.4, 0.4, 0.45, 0.35); d:SetHeight(1)
+    d:SetPoint("LEFT", h, "RIGHT", 8, 0)
+    d:SetPoint("RIGHT", parent, "RIGHT", -6, 0)
+    return h
+  end
 
   -- ordem das abas (reaproveita os rótulos de seção L.SEC_*)
   local TABS = {
@@ -3887,13 +3902,16 @@ CreateConfig = function()
 
   -- ========== Aparência ==========
   local apP = CFG.panels.appearance
-  check(apP, "KrononBagsFrameStyleCheck", 4, -32, L.OPT_BLIZZ_FRAME, function() return DB.settings.frameStyle == "blizzard" end, function(v)
+  -- grupo: Janela (moldura + opacidade + colunas)
+  groupLabel(apP, -32, L.GRP_WINDOW)
+  check(apP, "KrononBagsFrameStyleCheck", 4, -50, L.OPT_BLIZZ_FRAME, function() return DB.settings.frameStyle == "blizzard" end, function(v)
     DB.settings.frameStyle = v and "blizzard" or "dark"
     print(KB_PREFIX .. L.MSG_RELOAD_VISUAL)
   end, "TIP_OPT_BLIZZ_FRAME")
-  -- dropdown de TEMA de cor com pré-visualização ao vivo (hover = preview, clique = aplica)
+  -- grupo: Tema (dropdown de cor, mais abaixo) — dropdown de TEMA com pré-visualização ao vivo (hover = preview, clique = aplica)
+  groupLabel(apP, -202, L.THEME_LABEL)
   local themeBtn = CreateFrame("Button", "KrononBagsThemeDropdown", apP, "UIPanelButtonTemplate")
-  themeBtn:SetSize(180, 24); themeBtn:SetPoint("TOPLEFT", 8, -58)
+  themeBtn:SetSize(180, 24); themeBtn:SetPoint("TOPLEFT", 8, -220)
   themeBtn:SetAttribute("nodeignore", true) -- só mouse; fora da navegação por controle
   local function themeOf(key) return KB_THEMES[key] or KB_THEMES.dark end
   local function setThemeBtnLabel() themeBtn:SetText(L.THEME_LABEL .. ": " .. themeOf(DB.settings.theme).name) end
@@ -3949,10 +3967,10 @@ CreateConfig = function()
   end)
 
   local opLabel = apP:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  opLabel:SetPoint("TOPLEFT", 8, -90)
+  opLabel:SetPoint("TOPLEFT", 8, -84)
   local function setOpLabel(v) opLabel:SetText(string.format(L.OPT_OPACITY, math.floor(v * 100 + 0.5))) end
   local slider = CreateFrame("Slider", "KrononBagsOpacitySlider", apP, "OptionsSliderTemplate")
-  slider:SetPoint("TOPLEFT", 8, -110); slider:SetWidth(280)
+  slider:SetPoint("TOPLEFT", 8, -104); slider:SetWidth(280)
   slider:SetMinMaxValues(0.1, 1.0); slider:SetValueStep(0.05); slider:SetObeyStepOnDrag(true)
   local low  = slider.Low  or _G["KrononBagsOpacitySliderLow"];  if low  then low:SetText("10%")   end
   local high = slider.High or _G["KrononBagsOpacitySliderHigh"]; if high then high:SetText("100%") end
@@ -3969,10 +3987,10 @@ CreateConfig = function()
   slider:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   local colLabel = apP:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  colLabel:SetPoint("TOPLEFT", 8, -150)
+  colLabel:SetPoint("TOPLEFT", 8, -144)
   local function setColLabel(v) colLabel:SetText(string.format(L.OPT_COLS, v)) end
   local colSlider = CreateFrame("Slider", "KrononBagsColsSlider", apP, "OptionsSliderTemplate")
-  colSlider:SetPoint("TOPLEFT", 8, -170); colSlider:SetWidth(280)
+  colSlider:SetPoint("TOPLEFT", 8, -164); colSlider:SetWidth(280)
   colSlider:SetMinMaxValues(COLS_MIN, COLS_MAX); colSlider:SetValueStep(1); colSlider:SetObeyStepOnDrag(true)
   local cLow  = colSlider.Low  or _G["KrononBagsColsSliderLow"];  if cLow  then cLow:SetText(COLS_MIN) end
   local cHigh = colSlider.High or _G["KrononBagsColsSliderHigh"]; if cHigh then cHigh:SetText(COLS_MAX) end
@@ -4005,35 +4023,43 @@ CreateConfig = function()
 
   -- ========== Comportamento ==========
   local bhP = CFG.panels.behavior
-  check(bhP, "KrononBagsAutoOpenCheck", 4, -32, L.OPT_AUTOOPEN, function() return DB.settings.autoOpen end, function(v)
+  -- grupo: Janela (abrir automaticamente / substituir mochilas)
+  groupLabel(bhP, -32, L.GRP_WINDOW)
+  check(bhP, "KrononBagsAutoOpenCheck", 4, -50, L.OPT_AUTOOPEN, function() return DB.settings.autoOpen end, function(v)
     DB.settings.autoOpen = v
   end, "TIP_OPT_AUTOOPEN")
-  check(bhP, "KrononBagsReplaceBagsCheck", 4, -58, L.OPT_REPLACE_BAGS, function() return DB.settings.replaceBags end, function(v)
+  check(bhP, "KrononBagsReplaceBagsCheck", 4, -76, L.OPT_REPLACE_BAGS, function() return DB.settings.replaceBags end, function(v)
     DB.settings.replaceBags = v
     print(KB_PREFIX .. L.MSG_RELOAD_BAG)
   end, "TIP_OPT_REPLACE_BAGS")
-  check(bhP, "KrononBagsStackCheck", 4, -84, L.OPT_STACK, function() return DB.settings.stackItems end, function(v)
+  -- grupo: Organização (empilhar / ordenar / aninhar por expansão / compactar)
+  groupLabel(bhP, -106, L.GRP_ORGANIZE)
+  check(bhP, "KrononBagsStackCheck", 4, -124, L.OPT_STACK, function() return DB.settings.stackItems end, function(v)
     DB.settings.stackItems = v; Refresh()
   end, "TIP_OPT_STACK")
-  check(bhP, "KrononBagsSearchHLCheck", 4, -110, L.OPT_SEARCH_HL, function() return DB.settings.searchHighlight end, function(v)
-    DB.settings.searchHighlight = v; Refresh()
-  end, "TIP_OPT_SEARCH_HL")
-  check(bhP, "KrononBagsAutoProtectCheck", 4, -136, L.OPT_PROTECT, function() return DB.settings.autoProtectCategorized end, function(v)
-    DB.settings.autoProtectCategorized = v; Refresh()
-  end, "TIP_OPT_PROTECT")
-  check(bhP, "KrononBagsAltCountsCheck", 4, -162, L.OPT_ALT_COUNTS, function() return DB.settings.altCounts end, function(v)
-    DB.settings.altCounts = v
-  end, "TIP_OPT_ALT_COUNTS")
-  check(bhP, "KrononBagsNestExpacCheck", 4, -188, L.OPT_NEST_EXPANSION, function() return DB.settings.nestByExpansion end, function(v)
+  check(bhP, "KrononBagsNestExpacCheck", 4, -176, L.OPT_NEST_EXPANSION, function() return DB.settings.nestByExpansion end, function(v)
     DB.settings.nestByExpansion = v; Refresh()
   end, "TIP_OPT_NEST_EXPANSION")
-  check(bhP, "KrononBagsCompactExpacCheck", 4, -214, L.OPT_COMPACT_EXPAC, function() return DB.settings.compactExpac end, function(v)
+  check(bhP, "KrononBagsCompactExpacCheck", 4, -202, L.OPT_COMPACT_EXPAC, function() return DB.settings.compactExpac end, function(v)
     DB.settings.compactExpac = v; Refresh()
   end, "TIP_OPT_COMPACT_EXPAC")
-  -- seletor de ordenação dentro da categoria
+  -- grupo: Busca
+  groupLabel(bhP, -232, L.GRP_SEARCH)
+  check(bhP, "KrononBagsSearchHLCheck", 4, -250, L.OPT_SEARCH_HL, function() return DB.settings.searchHighlight end, function(v)
+    DB.settings.searchHighlight = v; Refresh()
+  end, "TIP_OPT_SEARCH_HL")
+  -- grupo: Proteção & Alts
+  groupLabel(bhP, -280, L.GRP_PROTECT)
+  check(bhP, "KrononBagsAutoProtectCheck", 4, -298, L.OPT_PROTECT, function() return DB.settings.autoProtectCategorized end, function(v)
+    DB.settings.autoProtectCategorized = v; Refresh()
+  end, "TIP_OPT_PROTECT")
+  check(bhP, "KrononBagsAltCountsCheck", 4, -324, L.OPT_ALT_COUNTS, function() return DB.settings.altCounts end, function(v)
+    DB.settings.altCounts = v
+  end, "TIP_OPT_ALT_COUNTS")
+  -- seletor de ordenação dentro da categoria (faz parte do grupo Organização)
   local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
   local sortBtn = CreateFrame("Button", nil, bhP, "UIPanelButtonTemplate")
-  sortBtn:SetSize(200, 20); sortBtn:SetPoint("TOPLEFT", 8, -244); sortBtn:SetAttribute("nodeignore", true)
+  sortBtn:SetSize(200, 20); sortBtn:SetPoint("TOPLEFT", 8, -150); sortBtn:SetAttribute("nodeignore", true)
   local function updSortBtn() sortBtn:SetText(L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL)) end
   updSortBtn()
   sortBtn:SetScript("OnClick", function(self)

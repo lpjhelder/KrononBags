@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.43.0
+**Português**
+- **Melhorado:** janela de **configuração reorganizada** com **sub-títulos de grupo** e espaçamento mais claro.
+- **Comportamento** agora dividido em **Janela**, **Organização**, **Busca** e **Proteção & Alts**.
+- **Aparência** separa **Janela** (moldura, opacidade, colunas) do **Tema** de cor.
+
+**English**
+- **Improved:** **settings window reorganized** with **group sub-headings** and clearer spacing.
+- **Behavior** now split into **Window**, **Organization**, **Search** and **Protection & Alts**.
+- **Appearance** separates **Window** (frame, opacity, columns) from the color **Theme**.
+
+**Español**
+- **Mejorado:** **ventana de ajustes reorganizada** con **subtítulos de grupo** y espaciado más claro.
+- **Comportamiento** ahora dividido en **Ventana**, **Organización**, **Búsqueda** y **Protección y Alts**.
+- **Apariencia** separa **Ventana** (marco, opacidad, columnas) del **Tema** de color.
+
 ## 0.42.0
 **Português**
 - **Novo:** **temas de cor** — Escuro, Ardósia, Dourado, Kronon, Druida e Rubi.
