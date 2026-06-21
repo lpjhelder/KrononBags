@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.48.0
+**Português**
+- Compatível com o patch **12.1.0** (Midnight).
+
+**English**
+- Compatible with patch **12.1.0** (Midnight).
+
+**Español**
+- Compatible con el parche **12.1.0** (Midnight).
+
 ## 0.47.0
 **Português**
 - **Novo:** o valor de mercado agora usa o **KrononMarket** (do ecossistema Kronon) como fonte preferida.

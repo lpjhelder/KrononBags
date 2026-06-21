@@ -1,10 +1,10 @@
-﻿## Interface: 120007
+﻿## Interface: 120100
 ## Title: KrononBags
 ## Notes: Unified guild bag for Kronon — native buttons (use/equip/open/sell), sortable categories, collapsible tabs, ilvl on the icon, BoE/Warband tag, new-item glow, cooldown, junk value, auto-open and auto-sort.
 ## Notes-ptBR: Bag unificada da guilda Kronon — botões nativos (usar/equipar/abrir/vender), categorias ordenáveis, abas recolhíveis, ilvl no ícone, selo BoE/Brigada, item novo, cooldown, valor do lixo, auto-abrir e organizar automático.
 ## Notes-esES: Bolsa unificada del clan Kronon — botones nativos (usar/equipar/abrir/vender), categorías ordenables, pestañas plegables, ilvl en el icono, sello BoE/Banda de guerra, objeto nuevo, reutilización, valor de la basura, auto-abrir y organización automática.
 ## Author: Kronon
-## Version: 0.47.0
+## Version: 0.48.0
 ## SavedVariables: KrononBagsDB
 ## OptionalDeps: Masque, Pawn, Auctionator, TradeSkillMaster, KrononMarket
 ## X-Curse-Project-ID: 1577314
