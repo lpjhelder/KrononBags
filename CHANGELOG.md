@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.49.0
+**Português**
+- **Melhorado:** o addon passa a usar a biblioteca **KrononLib** (i18n compartilhado do ecossistema Kronon). Sem mudanças visíveis — mesmas traduções, base interna unificada.
+
+**English**
+- **Improved:** the addon now uses the **KrononLib** library (shared i18n from the Kronon ecosystem). No visible changes — same translations, unified internal base.
+
+**Español**
+- **Mejorado:** el addon ahora usa la biblioteca **KrononLib** (i18n compartido del ecosistema Kronon). Sin cambios visibles — mismas traducciones, base interna unificada.
+
 ## 0.48.0
 **Português**
 - Compatível com o patch **12.1.0** (Midnight).

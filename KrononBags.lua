@@ -33,11 +33,10 @@ local search = ""
 
 -- ---------------- Idiomas (i18n) ----------------
 -- Detecção automática pelo idioma do cliente. EN é a base (todas as chaves);
--- ptBR e esES sobrescrevem. Fallback do metatable: chave inexistente devolve a
--- própria chave (nunca quebra a UI).
+-- ptBR e esES sobrescrevem. Merge + fallback (chave inexistente devolve a própria
+-- chave, nunca quebra a UI) ficam a cargo da KrononLib (K:NewLocale). esMX cai em esES.
+local K = LibStub("KrononLib-1.0")
 local KB_PREFIX = "|cfff0d98cKrononBags|r: "
-local LOCALE = (GetLocale and GetLocale()) or "enUS"
-local L = setmetatable({}, { __index = function(_, k) return k end })
 
 local EN = {
   -- categorias (rótulo de exibição; o nome interno continua pt-BR)
@@ -600,9 +599,9 @@ local ES = {
   CMP_HEADER = "vs. equipado", CMP_PAWN = "Mejora (Pawn)",
 }
 
-for k, v in pairs(EN) do L[k] = v end
-if LOCALE == "ptBR" then for k, v in pairs(PT) do L[k] = v end
-elseif LOCALE == "esES" or LOCALE == "esMX" then for k, v in pairs(ES) do L[k] = v end end
+-- Monta L pela KrononLib: base EN + overlay do locale atual (ptBR/esES; esMX→esES).
+-- Chave inexistente resolve pra ela mesma — mesmo comportamento do merge anterior.
+local L = K:NewLocale(EN, { ptBR = PT, esES = ES })
 
 -- Mapa nome-interno-da-categoria → chave de tradução. Nomes internos (pt-BR) são
 -- CHAVES de dados (DB.assignments/collapsed, comparações, ResolveCat) e NÃO mudam;
