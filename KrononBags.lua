@@ -4574,12 +4574,12 @@ local function kbBankSet(frame, shown)
   frame:SetAlpha(shown and 1 or 0)
   if frame.EnableMouse then frame:EnableMouse(shown) end
   if frame.EnableKeyboard then frame:EnableKeyboard(shown) end
-  -- Os painéis (BankPanel/AccountBankPanel) precisam ficar SHOWN, mesmo invisíveis,
-  -- pra GetActiveBankType funcionar e a compra de aba operar (doc do BetterBags).
-  -- NÃO dar :Hide() (fecharia a sessão). No BankFrame raiz só mexemos em alpha/mouse.
-  if not shown and (frame == BankPanel or frame == AccountBankPanel) and frame.Show then
-    frame:Show()
-  end
+  -- NÃO forçar :Show() (nem :Hide()) nestes painéis a partir daqui — é código INSEGURO.
+  -- Forçar :Show() no BankPanel/AccountBankPanel TAINTAVA o PurchaseBankTab: ao confirmar
+  -- o popup de compra de aba dava ADDON_ACTION_FORBIDDEN (acumulava na sessão; /reload
+  -- aliviava). A Blizzard mantém o painel shown sozinho enquanto a sessão do banco está
+  -- aberta; aqui só ajustamos alpha/mouse/teclado (padrão Baganator/BetterBags). Nunca
+  -- :Hide() (fecharia a sessão). [v0.53.0: removido o :Show() inseguro = fix do taint.]
 end
 local function kbHookBank(frame)
   if not frame or kbBankHooked[frame] then return end

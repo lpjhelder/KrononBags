@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.53.0
+**Português**
+- **Corrigido:** erro crônico ao **comprar aba no banco** (`ADDON_ACTION_FORBIDDEN: PurchaseBankTab`). A supressão do banco nativo não contamina mais o caminho de compra — comprar aba volta a funcionar sem precisar de `/reload`.
+
+**English**
+- **Fixed:** chronic error when **purchasing a bank tab** (`ADDON_ACTION_FORBIDDEN: PurchaseBankTab`). Hiding the native bank no longer taints the purchase path — buying a tab works again without needing `/reload`.
+
+**Español**
+- **Corregido:** error crónico al **comprar una pestaña del banco** (`ADDON_ACTION_FORBIDDEN: PurchaseBankTab`). Ocultar el banco nativo ya no contamina la compra — comprar pestaña vuelve a funcionar sin necesidad de `/reload`.
+
 ## 0.52.1
 **Português**
 - **Corrigido:** aviso de Lua dos atalhos de teclado (`Bindings.xml`) — os atalhos seguem funcionando, sem mais o aviso no log.
