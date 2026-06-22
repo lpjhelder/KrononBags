@@ -182,6 +182,17 @@ local EN = {
   READY_KEYSTONE = "M+ Keystone", READY_MISSING = "missing", READY_NONE = "none",
   -- tooltip de contagem nos alts
   WARBAND_LABEL = "Warband",
+  TT_OWN_BANK = "Your bank",
+  -- busca global cross-char ("onde está meu item")
+  GS_TITLE = "Where is it?",
+  GS_HINT = "Search across all characters' bags/bank + Warband (read-only).",
+  GS_EMPTY = "Type a search to find where an item is.",
+  GS_NONE = "No saved snapshot matches this search.",
+  -- keybindings nativos (menu Teclas)
+  BIND_HEADER = "KrononBags",
+  BIND_TOGGLE = "Open/close the window",
+  BIND_SEARCH = "Focus the search box",
+  BIND_VIEW = "Toggle grid / categories",
   -- valor pela Auction House (tooltip + total por categoria)
   MARKET_VALUE = "Market (AH)", SELL_VALUE = "Sell price",
   -- painel de ouro por personagem (hover no rodapé)
@@ -364,6 +375,15 @@ local PT = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Pedra de Vida", READY_RUNE = "Runa/encantamento",
   READY_KEYSTONE = "Pedra-chave M+", READY_MISSING = "falta", READY_NONE = "nenhuma",
   WARBAND_LABEL = "Brigada",
+  TT_OWN_BANK = "Seu banco",
+  GS_TITLE = "Onde está?",
+  GS_HINT = "Procura nas bolsas/banco de todos os personagens + Brigada (só-leitura).",
+  GS_EMPTY = "Digite uma busca para achar onde um item está.",
+  GS_NONE = "Nenhum snapshot salvo bate com essa busca.",
+  BIND_HEADER = "KrononBags",
+  BIND_TOGGLE = "Abrir/fechar a janela",
+  BIND_SEARCH = "Focar a caixa de busca",
+  BIND_VIEW = "Alternar grade / categorias",
   MARKET_VALUE = "Mercado (AH)", SELL_VALUE = "Preço de venda",
   GOLD_PANEL_TITLE = "Ouro por personagem", GOLD_WARBAND = "Banco da Brigada", GOLD_TOTAL = "Total",
   TIP_HELP = "Dicas — clique para mostrar/esconder",
@@ -542,6 +562,15 @@ local ES = {
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Piedra de salud", READY_RUNE = "Runa/encantamiento",
   READY_KEYSTONE = "Piedra angular M+", READY_MISSING = "falta", READY_NONE = "ninguna",
   WARBAND_LABEL = "Banda de guerra",
+  TT_OWN_BANK = "Tu banco",
+  GS_TITLE = "¿Dónde está?",
+  GS_HINT = "Busca en las bolsas/banco de todos los personajes + Banda de guerra (solo lectura).",
+  GS_EMPTY = "Escribe una búsqueda para encontrar dónde está un objeto.",
+  GS_NONE = "Ningún snapshot guardado coincide con esta búsqueda.",
+  BIND_HEADER = "KrononBags",
+  BIND_TOGGLE = "Abrir/cerrar la ventana",
+  BIND_SEARCH = "Enfocar la caja de búsqueda",
+  BIND_VIEW = "Alternar cuadrícula / categorías",
   MARKET_VALUE = "Mercado (CA)", SELL_VALUE = "Precio de venta",
   GOLD_PANEL_TITLE = "Oro por personaje", GOLD_WARBAND = "Banco de la banda de guerra", GOLD_TOTAL = "Total",
   TIP_HELP = "Consejos — clic para mostrar/ocultar",
@@ -3054,6 +3083,140 @@ CreateFilterBuilder = function(sb, sortBtn)
   UI.filterBtn = filterBtn
 end
 
+-- ---------------- v0.51.0: Busca global cross-char ("onde está meu item") ----------------
+-- Read-only: usa os snapshots já salvos (DB.charItems[*].bags/bank + DB.warband) pra dizer
+-- EM QUAL personagem/banco/Brigada um item está. NÃO move nem altera nada. Defensivo:
+-- snapshots podem faltar; toda API do jogo é protegida por pcall/nil-check.
+local KB_ToggleGlobalSearch, KB_RefreshGlobalSearch -- forward (usadas no OnTextChanged/botão)
+
+-- monta um pseudo-item (campos que o SearchMatcher consulta) a partir de id+contagem do snapshot
+local function KB_SnapItem(itemID, count)
+  local it = { id = itemID, itemID = itemID, count = count or 0, name = "", ilvl = 0, quality = nil, link = nil, bound = false }
+  if itemID and C_Item and C_Item.GetItemInfo then
+    local ok, n, l, q, lvl = pcall(C_Item.GetItemInfo, itemID)
+    if ok then it.name, it.link, it.quality, it.ilvl = n or "", l, q, lvl or 0 end
+  end
+  return it
+end
+
+-- varre todos os snapshots e devolve as ocorrências que casam com o matcher
+local function KB_CollectGlobal(matcher)
+  local res = {}
+  if not (DB and matcher) then return res end
+  local function scan(map, who, col, where)
+    if type(map) ~= "table" then return end
+    for id, n in pairs(map) do
+      if type(id) == "number" and type(n) == "number" and n > 0 then
+        local it = KB_SnapItem(id, n)
+        local ok, hit = pcall(matcher, it)
+        if ok and hit then
+          res[#res + 1] = { id = id, name = it.name, link = it.link, count = n, who = who, col = col, where = where }
+        end
+      end
+    end
+  end
+  if type(DB.charItems) == "table" then
+    for k, data in pairs(DB.charItems) do
+      if type(data) == "table" then
+        local who = data.name or k
+        local col = (data.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[data.class]) or nil
+        scan(data.bags, who, col, "bags")
+        scan(data.bank, who, col, "bank")
+      end
+    end
+  end
+  scan(DB.warband, L.WARBAND_LABEL, nil, "warband")
+  return res
+end
+
+-- formata uma linha "<item> xN — <quem> (<onde>)"
+local function KB_GlobalLine(r)
+  local nm = r.link
+  if not nm or nm == "" then nm = (r.name ~= "" and r.name) or ("item:" .. tostring(r.id)) end
+  local loc
+  if r.where == "warband" then
+    loc = "|cff00ccff" .. L.WARBAND_LABEL .. "|r"
+  else
+    local who = r.who or "?"
+    if r.col then who = string.format("|cff%02x%02x%02x%s|r", r.col.r * 255, r.col.g * 255, r.col.b * 255, who) end
+    local lbl = (r.where == "bank") and L.TAB_BANK or L.TAB_BAGS
+    loc = who .. " |cffaaaaaa(" .. lbl .. ")|r"
+  end
+  return nm .. "  |cffffd200x" .. r.count .. "|r  |cff888888—|r  " .. loc
+end
+
+local function KB_EnsureGlobalPanel()
+  if not UI then return nil end
+  if UI.gsearch then return UI.gsearch end
+  local f = CreateFrame("Frame", "KrononBagsGlobalSearch", UI, "BackdropTemplate")
+  f:SetSize(330, 380)
+  f:SetPoint("TOPLEFT", UI, "TOPRIGHT", 10, 0)
+  f:SetFrameStrata("DIALOG")
+  f:EnableMouse(true)
+  if f.SetBackdrop then
+    f:SetBackdrop({
+      bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+      edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+      tile = true, tileSize = 16, edgeSize = 16,
+      insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+  end
+  local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  title:SetPoint("TOP", 0, -12)
+  title:SetText("|cfff0d98c" .. L.GS_TITLE .. "|r")
+  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+  close:SetPoint("TOPRIGHT", 0, 0)
+  local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 14, -34)
+  scroll:SetPoint("BOTTOMRIGHT", -32, 14)
+  local child = CreateFrame("Frame", nil, scroll)
+  child:SetSize(280, 10)
+  scroll:SetScrollChild(child)
+  local txt = child:CreateFontString(nil, "OVERLAY", "GameFontHighlightLeft")
+  txt:SetPoint("TOPLEFT", 0, 0)
+  txt:SetWidth(280)
+  txt:SetJustifyH("LEFT")
+  txt:SetJustifyV("TOP")
+  txt:SetSpacing(3)
+  f.txt, f.child = txt, child
+  f:Hide()
+  UI.gsearch = f
+  return f
+end
+
+KB_RefreshGlobalSearch = function()
+  local f = UI and UI.gsearch
+  if not f then return end
+  local q = search or ""
+  if q == "" then
+    f.txt:SetText("|cff999999" .. L.GS_EMPTY .. "|r")
+  else
+    local matcher = SearchMatcher(q)
+    local res = (matcher and KB_CollectGlobal(matcher)) or {}
+    if #res == 0 then
+      f.txt:SetText("|cff999999" .. L.GS_NONE .. "|r")
+    else
+      table.sort(res, function(a, b)
+        if (a.name or "") ~= (b.name or "") then return (a.name or "") < (b.name or "") end
+        return (a.who or "") < (b.who or "")
+      end)
+      local lines = {}
+      for i = 1, #res do lines[i] = KB_GlobalLine(res[i]) end
+      f.txt:SetText(table.concat(lines, "\n"))
+    end
+  end
+  local h = f.txt:GetStringHeight() or 10
+  f.child:SetHeight(h + 4)
+end
+
+KB_ToggleGlobalSearch = function()
+  local f = KB_EnsureGlobalPanel()
+  if not f then return end
+  if f:IsShown() then f:Hide(); return end
+  KB_RefreshGlobalSearch()
+  f:Show()
+end
+
 CreateUI = function()
   local blizzard = (DB.settings.frameStyle == "blizzard")
   UI = CreateFrame("Frame", "KrononBagsFrame", UIParent, blizzard and "ButtonFrameTemplate" or "BackdropTemplate")
@@ -3143,7 +3306,7 @@ CreateUI = function()
   clr:SetScript("OnClick", function() sb:SetText(""); sb:ClearFocus() end) -- OnTextChanged zera a busca e dá Refresh (evita Refresh duplo)
   clr:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:SetText(L.TIP_SEARCH_CLEAR); GameTooltip:Show() end)
   clr:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  sb:SetScript("OnTextChanged", function(self) search = (self:GetText() or ""):lower(); clr:SetShown((self:GetText() or "") ~= ""); Refresh() end)
+  sb:SetScript("OnTextChanged", function(self) search = (self:GetText() or ""):lower(); clr:SetShown((self:GetText() or "") ~= ""); Refresh(); if UI.gsearch and UI.gsearch:IsShown() and KB_RefreshGlobalSearch then KB_RefreshGlobalSearch() end end)
   sb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   sb:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
@@ -3154,6 +3317,7 @@ CreateUI = function()
     GameTooltip:Show()
   end)
   sb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.searchBox = sb -- referência usada pelo keybinding "focar a busca"
 
   -- botão "organizar automático" (vassoura da Blizzard), à esquerda da busca
   local sortBtn = CreateFrame("Button", nil, UI)
@@ -3168,6 +3332,20 @@ CreateUI = function()
   end)
   sortBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_AUTOSORT); GameTooltip:Show() end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- botão "Onde está?" (busca global cross-char, só-leitura), à esquerda da vassoura
+  local gsBtn = CreateFrame("Button", nil, UI)
+  gsBtn:SetSize(22, 22)
+  gsBtn:SetPoint("RIGHT", sortBtn, "LEFT", -4, 0) -- segue a vassoura mesmo que ela seja reancorada
+  gsBtn:SetNormalTexture("Interface\\ICONS\\INV_Misc_Spyglass_03")
+  gsBtn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  gsBtn:SetScript("OnClick", function() if KB_ToggleGlobalSearch then KB_ToggleGlobalSearch() end end)
+  gsBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.GS_TITLE)
+    GameTooltip:AddLine(L.GS_HINT, 0.8, 0.8, 0.8, true); GameTooltip:Show()
+  end)
+  gsBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.gsearchBtn = gsBtn
 
   -- botão "Filtrar" + construtor visual de busca (gera a string que o parser já entende)
   CreateFilterBuilder(sb, sortBtn)
@@ -4473,6 +4651,12 @@ end
 local function AddCountsToTooltip(tooltip, itemID)
   if not (DB and DB.settings and DB.settings.altCounts and itemID) then return end
   local meKey, lines = CharKey(), {}
+  -- o PRÓPRIO banco (só-leitura; útil quando longe do banco — as bolsas atuais já estão à vista)
+  local me = DB.charItems and DB.charItems[meKey]
+  local myBank = me and me.bank and me.bank[itemID]
+  if type(myBank) == "number" and myBank > 0 then
+    lines[#lines + 1] = "|cff66ff66" .. L.TT_OWN_BANK .. "|r: " .. myBank
+  end
   for k, data in pairs(DB.charItems) do
     if k ~= meKey and type(data) == "table" then
       local total = ((data.bags and data.bags[itemID]) or 0) + ((data.bank and data.bank[itemID]) or 0)
@@ -4777,4 +4961,31 @@ SlashCmdList["KRONONBAGS"] = function(msg)
   else
     Toggle()
   end
+end
+
+-- ---------------- Keybindings nativos (menu Teclas) ----------------
+-- Rótulos do menu de teclas (lidos pela engine quando o painel é aberto).
+BINDING_HEADER_KRONONBAGS = L.BIND_HEADER
+BINDING_NAME_KRONONBAGS_TOGGLE = L.BIND_TOGGLE
+BINDING_NAME_KRONONBAGS_SEARCH = L.BIND_SEARCH
+BINDING_NAME_KRONONBAGS_VIEW = L.BIND_VIEW
+
+-- Handlers globais chamados pelo Bindings.xml (reaproveitam a lógica já existente).
+function KrononBags_ToggleWindow()
+  Toggle()
+end
+
+function KrononBags_FocusSearch()
+  if not UI then CreateUI() end
+  if not UI:IsShown() then UI:Show(); Refresh() end
+  if UI.searchBox then UI.searchBox:SetFocus() end
+end
+
+function KrononBags_ToggleView()
+  if not UI then CreateUI() end
+  if not (DB and DB.settings) then return end
+  DB.settings.gridView = not DB.settings.gridView
+  if not UI:IsShown() then UI:Show() end
+  if UpdateModeBar then UpdateModeBar() end
+  Refresh()
 end

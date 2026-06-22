@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.51.0
+**Português**
+- **Novo:** busca global cross-character — botão "Onde está?" mostra em qual personagem, banco ou Brigada um item está, usando os snapshots já salvos (só-leitura).
+- **Novo:** atalhos de teclado nativos (menu Teclas → KrononBags): abrir/fechar a janela, focar a busca e alternar grade/categorias.
+- **Melhorado:** o tooltip de contagem agora também mostra **Seu banco** (além dos alts e da Brigada).
+
+**English**
+- **New:** cross-character global search — a "Where is it?" button shows which character, bank or Warband holds an item, using the already-saved snapshots (read-only).
+- **New:** native key bindings (Key Bindings menu → KrononBags): open/close the window, focus the search box, and toggle grid/categories.
+- **Improved:** the count tooltip now also shows **Your bank** (in addition to alts and Warband).
+
+**Español**
+- **Nuevo:** búsqueda global entre personajes — el botón "¿Dónde está?" muestra en qué personaje, banco o Banda de guerra está un objeto, usando los snapshots ya guardados (solo lectura).
+- **Nuevo:** atajos de teclado nativos (menú Teclas → KrononBags): abrir/cerrar la ventana, enfocar la búsqueda y alternar cuadrícula/categorías.
+- **Mejorado:** el tooltip de conteo ahora también muestra **Tu banco** (además de los alts y la Banda de guerra).
+
 ## 0.50.0
 **Português**
 - **Corrigido:** a versão de interface declarada voltou para **12.0.7** (a 12.1.0 anterior foi engano e fazia o addon aparecer como "Incompatível").
