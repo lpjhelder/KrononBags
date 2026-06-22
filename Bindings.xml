@@ -1,4 +1,4 @@
-<Bindings>
+<Bindings xmlns="http://www.blizzard.com/wow/ui/">
 	<Binding name="KRONONBAGS_TOGGLE" header="KRONONBAGS">
 		KrononBags_ToggleWindow();
 	</Binding>

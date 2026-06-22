@@ -195,6 +195,8 @@ local EN = {
   BIND_VIEW = "Toggle grid / categories",
   -- valor pela Auction House (tooltip + total por categoria)
   MARKET_VALUE = "Market (AH)", SELL_VALUE = "Sell price",
+  -- progresso da varredura do KrononMarket (rodapé) — %d = porcentagem
+  MARKET_SCANNING = "Scanning the Auction House... %d%%",
   -- painel de ouro por personagem (hover no rodapé)
   GOLD_PANEL_TITLE = "Gold per character", GOLD_WARBAND = "Warband bank", GOLD_TOTAL = "Total",
   -- ajuda / limpar busca
@@ -385,6 +387,7 @@ local PT = {
   BIND_SEARCH = "Focar a caixa de busca",
   BIND_VIEW = "Alternar grade / categorias",
   MARKET_VALUE = "Mercado (AH)", SELL_VALUE = "Preço de venda",
+  MARKET_SCANNING = "Varrendo a Casa de Leilões... %d%%",
   GOLD_PANEL_TITLE = "Ouro por personagem", GOLD_WARBAND = "Banco da Brigada", GOLD_TOTAL = "Total",
   TIP_HELP = "Dicas — clique para mostrar/esconder",
   TIP_SEARCH_CLEAR = "Limpar busca",
@@ -572,6 +575,7 @@ local ES = {
   BIND_SEARCH = "Enfocar la caja de búsqueda",
   BIND_VIEW = "Alternar cuadrícula / categorías",
   MARKET_VALUE = "Mercado (CA)", SELL_VALUE = "Precio de venta",
+  MARKET_SCANNING = "Escaneando la Casa de Subastas... %d%%",
   GOLD_PANEL_TITLE = "Oro por personaje", GOLD_WARBAND = "Banco de la banda de guerra", GOLD_TOTAL = "Total",
   TIP_HELP = "Consejos — clic para mostrar/ocultar",
   TIP_SEARCH_CLEAR = "Limpiar búsqueda",
@@ -3427,6 +3431,30 @@ CreateUI = function()
   currencyText:SetPoint("BOTTOMLEFT", UI, "BOTTOMLEFT", blizzard and 12 or 8, blizzard and 12 or 7)
   currencyText:SetPoint("RIGHT", goldText, "LEFT", -10, 0)
 
+  -- progresso da varredura do KrononMarket: aparece logo ACIMA do ouro/valor de mercado,
+  -- só enquanto a Casa de Leilões está sendo varrida; some quando termina. 100% opcional —
+  -- sem KrononMarket (ou sem a API nova) este texto nunca é mostrado. Campos de tabela em UI
+  -- (não locais de chunk) por conta do orçamento de locais do chunk principal.
+  UI.scanProgress = UI:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  UI.scanProgress:SetJustifyH("RIGHT")
+  UI.scanProgress:SetPoint("BOTTOMRIGHT", goldText, "TOPRIGHT", 0, 2)
+  UI.scanProgress:SetTextColor(1, 0.82, 0)
+  UI.scanProgress:Hide()
+  -- atualizador unificado: chamado pelo callback de progresso (scanning=nil) e pelo OnShow
+  -- com o estado de GetScanProgress (scanning boolean). Esconde quando não está varrendo,
+  -- sem total válido, ou já terminou (current>=total).
+  UI.UpdateScanProgress = function(scanning, current, total)
+    local fs = UI and UI.scanProgress
+    if not fs then return end
+    current = tonumber(current) or 0
+    total = tonumber(total) or 0
+    if scanning == false or total <= 0 or current >= total then fs:Hide(); return end
+    local pct = math.floor(current / total * 100)
+    if pct < 0 then pct = 0 elseif pct > 100 then pct = 100 end
+    fs:SetText(string.format(L.MARKET_SCANNING, pct))
+    fs:Show()
+  end
+
   -- frame invisível por cima do ouro: hover abre o painel de ouro por personagem (+ Brigada).
   -- nodeignore tira da navegação por controle; só mouse.
   UI.goldHover = CreateFrame("Frame", nil, UI)
@@ -3956,6 +3984,16 @@ CreateUI = function()
   histBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_BOTTOM"); GameTooltip:SetText(L.HIST_BTN); GameTooltip:Show() end)
   histBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.histBtn = histBtn
+
+  -- ao abrir a janela, verifica se já existe uma varredura do KrononMarket em curso
+  -- (opcional, defensivo): se a API existir e houver scan ativo, mostra o progresso atual.
+  UI:HookScript("OnShow", function()
+    if not (UI and UI.UpdateScanProgress) then return end
+    if KrononMarket and KrononMarket.GetScanProgress then
+      local ok, scanning, current, total = pcall(KrononMarket.GetScanProgress)
+      if ok then UI.UpdateScanProgress(scanning, current, total) end
+    end
+  end)
 
   ApplyOpacity()
   UI:Hide()
@@ -4888,6 +4926,13 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- invalida o cache também quando o KrononMarket termina uma varredura
     if KrononMarket and KrononMarket.RegisterForUpdate then
       pcall(KrononMarket.RegisterForUpdate, function() wipe(kbMarketCache) end)
+    end
+    -- progresso da varredura do KrononMarket no rodapé (opcional): fn(current, total)
+    -- é chamado a cada lote; o Market protege a invocação com pcall por callback.
+    if KrononMarket and KrononMarket.RegisterForProgress then
+      pcall(KrononMarket.RegisterForProgress, function(current, total)
+        if UI and UI.UpdateScanProgress then UI.UpdateScanProgress(nil, current, total) end
+      end)
     end
   elseif event == "PLAYER_LOGOUT" then
     CaptureBags() -- snapshot da mochila pra contagem nos alts

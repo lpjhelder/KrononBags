@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.52.0
+**Português**
+- **Novo:** progresso da varredura do KrononMarket no rodapé da janela — mostra "Varrendo a Casa de Leilões... NN%" enquanto o preço de mercado está sendo atualizado e some sozinho ao terminar.
+- **Melhorado:** integração opcional — sem o KrononMarket o comportamento é idêntico ao anterior.
+
+**English**
+- **New:** KrononMarket scan progress in the window footer — shows "Scanning the Auction House... NN%" while market prices are being refreshed and disappears on its own when done.
+- **Improved:** optional integration — without KrononMarket the behavior is identical to before.
+
+**Español**
+- **Nuevo:** progreso del escaneo de KrononMarket en el pie de la ventana — muestra "Escaneando la Casa de Subastas... NN%" mientras se actualizan los precios de mercado y desaparece solo al terminar.
+- **Mejorado:** integración opcional — sin KrononMarket el comportamiento es idéntico al anterior.
+
 ## 0.51.0
 **Português**
 - **Novo:** busca global cross-character — botão "Onde está?" mostra em qual personagem, banco ou Brigada um item está, usando os snapshots já salvos (só-leitura).
