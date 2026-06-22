@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.52.1
+**Português**
+- **Corrigido:** aviso de Lua dos atalhos de teclado (`Bindings.xml`) — os atalhos seguem funcionando, sem mais o aviso no log.
+
+**English**
+- **Fixed:** Lua warning from the key bindings (`Bindings.xml`) — shortcuts keep working, with no more warning in the log.
+
+**Español**
+- **Corregido:** advertencia de Lua de los atajos de teclado (`Bindings.xml`) — los atajos siguen funcionando, sin más advertencia en el registro.
+
 ## 0.52.0
 **Português**
 - **Novo:** progresso da varredura do KrononMarket no rodapé da janela — mostra "Varrendo a Casa de Leilões... NN%" enquanto o preço de mercado está sendo atualizado e some sozinho ao terminar.

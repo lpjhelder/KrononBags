@@ -1,11 +1,11 @@
-<Bindings xmlns="http://www.blizzard.com/wow/ui/">
-	<Binding name="KRONONBAGS_TOGGLE" header="KRONONBAGS">
+<Bindings>
+	<Binding name="KRONONBAGS_TOGGLE" category="BINDING_HEADER_KRONONBAGS">
 		KrononBags_ToggleWindow();
 	</Binding>
-	<Binding name="KRONONBAGS_SEARCH">
+	<Binding name="KRONONBAGS_SEARCH" category="BINDING_HEADER_KRONONBAGS">
 		KrononBags_FocusSearch();
 	</Binding>
-	<Binding name="KRONONBAGS_VIEW">
+	<Binding name="KRONONBAGS_VIEW" category="BINDING_HEADER_KRONONBAGS">
 		KrononBags_ToggleView();
 	</Binding>
 </Bindings>
