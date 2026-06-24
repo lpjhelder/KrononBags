@@ -237,6 +237,15 @@ local EN = {
   TUT_FILTER_BODY = "Build a search visually — pick fields and it writes the query for you.",
   TUT_HISTORY_TITLE = "History",
   TUT_HISTORY_BODY = "See what recently came in and out of your bags.",
+  -- v0.57.0: novos passos do tour (busca global, config, e os condicionais Alts/Market)
+  TUT_GLOBALSEARCH_TITLE = "Where is it?",
+  TUT_GLOBALSEARCH_BODY = "Find which character, bank or Warband holds an item — across all your alts.",
+  TUT_CONFIG_TITLE = "Settings",
+  TUT_CONFIG_BODY = "Open the options to tweak everything: appearance, categories, icons and more.",
+  TUT_ALTS_TITLE = "Characters (KrononAlts)",
+  TUT_ALTS_BODY = "A summary of your other characters. Click to open KrononAlts. Shows only when KrononAlts is installed.",
+  TUT_MARKET_TITLE = "Market value (KrononMarket)",
+  TUT_MARKET_BODY = "The estimated market value of your bag. Item tooltips also show the price trend. Shows only when KrononMarket is installed.",
   -- v0.29.0: construtor de busca modular
   FILTER_BTN = "Filter", FILTER_TITLE = "Search builder",
   FILTER_ADD = "Add filter", FILTER_APPLY = "Apply", FILTER_CLEAR = "Clear",
@@ -454,6 +463,15 @@ local PT = {
   TUT_FILTER_BODY = "Monte uma busca visualmente — escolha os campos e ele escreve a consulta pra você.",
   TUT_HISTORY_TITLE = "Histórico",
   TUT_HISTORY_BODY = "Veja o que entrou e saiu das suas bolsas recentemente.",
+  -- v0.57.0: novos passos do tour (busca global, config, e os condicionais Alts/Market)
+  TUT_GLOBALSEARCH_TITLE = "Onde está?",
+  TUT_GLOBALSEARCH_BODY = "Descubra em qual personagem, banco ou Brigada um item está — em todos os seus personagens.",
+  TUT_CONFIG_TITLE = "Configurações",
+  TUT_CONFIG_BODY = "Abra as opções pra ajustar tudo: aparência, categorias, ícones e mais.",
+  TUT_ALTS_TITLE = "Personagens (KrononAlts)",
+  TUT_ALTS_BODY = "Um resumo dos seus outros personagens. Clique pra abrir o KrononAlts. Só aparece com o KrononAlts instalado.",
+  TUT_MARKET_TITLE = "Valor de mercado (KrononMarket)",
+  TUT_MARKET_BODY = "O valor de mercado estimado da bolsa. O tooltip dos itens também mostra a tendência de preço. Só aparece com o KrononMarket instalado.",
   -- v0.29.0: construtor de busca modular
   FILTER_BTN = "Filtrar", FILTER_TITLE = "Construtor de busca",
   FILTER_ADD = "Adicionar filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpar",
@@ -671,6 +689,15 @@ local ES = {
   TUT_FILTER_BODY = "Crea una búsqueda visualmente — elige los campos y él escribe la consulta por ti.",
   TUT_HISTORY_TITLE = "Historial",
   TUT_HISTORY_BODY = "Mira lo que entró y salió de tus bolsas recientemente.",
+  -- v0.57.0: nuevos pasos del tour (búsqueda global, configuración, y los condicionales Alts/Market)
+  TUT_GLOBALSEARCH_TITLE = "¿Dónde está?",
+  TUT_GLOBALSEARCH_BODY = "Descubre en qué personaje, banco o Banda de guerra está un objeto — en todos tus personajes.",
+  TUT_CONFIG_TITLE = "Configuración",
+  TUT_CONFIG_BODY = "Abre las opciones para ajustar todo: apariencia, categorías, iconos y más.",
+  TUT_ALTS_TITLE = "Personajes (KrononAlts)",
+  TUT_ALTS_BODY = "Un resumen de tus otros personajes. Haz clic para abrir KrononAlts. Solo aparece con KrononAlts instalado.",
+  TUT_MARKET_TITLE = "Valor de mercado (KrononMarket)",
+  TUT_MARKET_BODY = "El valor de mercado estimado de la bolsa. La descripción de los objetos también muestra la tendencia de precio. Solo aparece con KrononMarket instalado.",
   -- v0.29.0: constructor de búsqueda modular
   FILTER_BTN = "Filtrar", FILTER_TITLE = "Constructor de búsqueda",
   FILTER_ADD = "Añadir filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpiar",
@@ -3635,11 +3662,16 @@ CreateUI = function()
     if not fs then return end
     current = tonumber(current) or 0
     total = tonumber(total) or 0
-    if scanning == false or total <= 0 or current >= total then fs:Hide(); return end
+    if scanning == false or total <= 0 or current >= total then
+      fs:Hide()
+      if UI.UpdateBagValue then UI.UpdateBagValue() end -- scan acabou: o valor da bolsa reaparece no canto
+      return
+    end
     local pct = math.floor(current / total * 100)
     if pct < 0 then pct = 0 elseif pct > 100 then pct = 100 end
     fs:SetText(string.format(L.MARKET_SCANNING, pct))
     fs:Show()
+    if UI.bagValue then UI.bagValue:Hide() end -- o scan tem prioridade no canto direito
   end
 
   -- v0.55.0: indicador do KrononAlts (ecossistema Kronon) — aparece logo ACIMA das moedas,
@@ -3712,8 +3744,11 @@ CreateUI = function()
   -- de tudo nas bolsas vivas; em visão de cache (banco de longe, sem slots vivos) fica escondido.
   -- Campo em UI (não local de chunk) pelo orçamento de locais do chunk principal.
   UI.bagValue = UI:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  UI.bagValue:SetJustifyH("LEFT")
-  UI.bagValue:SetPoint("BOTTOMLEFT", UI.altsIndicator, "TOPLEFT", 0, 2)
+  UI.bagValue:SetJustifyH("RIGHT")
+  -- acima do OURO (canto direito), espelhando o indicador de Alts (canto esquerdo): 1 nível só,
+  -- não invade os slots/"Vazio" nem o modo grade. Divide o canto com o progresso de scan
+  -- (temporário) — durante a varredura o scan tem prioridade e este valor se esconde.
+  UI.bagValue:SetPoint("BOTTOMRIGHT", goldText, "TOPRIGHT", 0, 2)
   UI.bagValue:SetTextColor(1, 0.82, 0)
   UI.bagValue:Hide()
   UI.UpdateBagValue = function()
@@ -3833,7 +3868,9 @@ CreateUI = function()
 
   -- abas Mochila/Banco/Brigada (aparecem só com o banco aberto) + depositar automático
   local tabBar = CreateFrame("Frame", nil, UI)
-  tabBar:SetSize(10, 20)
+  -- tamanho que engloba SÓ as 3 abas (24px em x=0,28,56 → fim em 80) p/ a borda do tour ficar justa.
+  -- Os filhos (abas, Depositar, Comprar) ancoram por LEFT/RIGHT, não pelo tamanho do pai: nada se move.
+  tabBar:SetSize(80, 24)
   tabBar:SetPoint("TOPLEFT", UI, "TOPLEFT", UI.kbMargin, -(UI.kbTop - 2))
   UI.tabBar = tabBar; UI.tabs = {}
   local tdefs = {
@@ -3936,16 +3973,22 @@ CreateUI = function()
   box:Hide()
 
   -- passos = fonte dos marcadores (alvos lidos lazy: os UI.* já existem quando a bag abre)
+  -- Os passos Alts/Market NÃO checam o addon manualmente: stepValid já some o passo quando o
+  -- alvo (UI.altsIndicator / UI.bagValue) está oculto — e ambos só aparecem com o addon presente.
   local steps = {
-    { getTarget = function() return sb end,           title = L.TUT_SEARCH_TITLE,     body = L.TUT_SEARCH_BODY },
-    { getTarget = function() return UI.filterBtn end, title = L.TUT_FILTER_TITLE,     body = L.TUT_FILTER_BODY },
-    { getTarget = function() return sortBtn end,      title = L.TUT_SORT_TITLE,       body = L.TUT_SORT_BODY },
-    { getTarget = function() return UI.modeBar end,   title = L.TUT_MODES_TITLE,      body = L.TUT_MODES_BODY },
-    { getTarget = function() return UI.tabBar end,    title = L.TUT_TABS_TITLE,       body = L.TUT_TABS_BODY },
-    { getTarget = function() return UI.histBtn end,   title = L.TUT_HISTORY_TITLE,    body = L.TUT_HISTORY_BODY },
-    { getTarget = function() return help end,         title = L.TUT_HELP_TITLE,       body = L.TUT_HELP_BODY },
-    { getTarget = function() return UI.content end,   title = L.TUT_CATEGORIES_TITLE, body = L.TUT_CATEGORIES_BODY },
-    { getTarget = function() return goldText end,     title = L.TUT_FOOTER_TITLE,     body = L.TUT_FOOTER_BODY },
+    { getTarget = function() return sb end,             title = L.TUT_SEARCH_TITLE,       body = L.TUT_SEARCH_BODY },
+    { getTarget = function() return UI.filterBtn end,   title = L.TUT_FILTER_TITLE,       body = L.TUT_FILTER_BODY },
+    { getTarget = function() return UI.gsearchBtn end,  title = L.TUT_GLOBALSEARCH_TITLE, body = L.TUT_GLOBALSEARCH_BODY },
+    { getTarget = function() return sortBtn end,        title = L.TUT_SORT_TITLE,         body = L.TUT_SORT_BODY },
+    { getTarget = function() return UI.modeBar end,     title = L.TUT_MODES_TITLE,        body = L.TUT_MODES_BODY },
+    { getTarget = function() return UI.tabBar end,      title = L.TUT_TABS_TITLE,         body = L.TUT_TABS_BODY },
+    { getTarget = function() return UI.histBtn end,     title = L.TUT_HISTORY_TITLE,      body = L.TUT_HISTORY_BODY },
+    { getTarget = function() return UI.content end,     title = L.TUT_CATEGORIES_TITLE,   body = L.TUT_CATEGORIES_BODY },
+    { getTarget = function() return goldText end,       title = L.TUT_FOOTER_TITLE,       body = L.TUT_FOOTER_BODY },
+    { getTarget = function() return UI.altsIndicator end, title = L.TUT_ALTS_TITLE,       body = L.TUT_ALTS_BODY },   -- condicional: só com KrononAlts
+    { getTarget = function() return UI.bagValue end,    title = L.TUT_MARKET_TITLE,       body = L.TUT_MARKET_BODY }, -- condicional: só com KrononMarket
+    { getTarget = function() return gear end,           title = L.TUT_CONFIG_TITLE,       body = L.TUT_CONFIG_BODY },
+    { getTarget = function() return help end,           title = L.TUT_HELP_TITLE,         body = L.TUT_HELP_BODY },
   }
   tour.steps = steps
 
@@ -3977,7 +4020,9 @@ CreateUI = function()
   local function hideTip()
     -- volta o glow reforçado ao tom suave (os demais continuam visíveis) e fecha o balão
     if tour.activeGlow then
-      tour.activeGlow:SetVertexColor(1, 0.82, 0); tour.activeGlow:SetAlpha(0.30)
+      -- volta ao estado padrão BEM DEFINIDO (borda fina e firme de 2px)
+      tour.activeGlow:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+      tour.activeGlow:SetBackdropBorderColor(1, 0.82, 0, 0.95)
       tour.activeGlow = nil
     end
     box:Hide()
@@ -3991,7 +4036,9 @@ CreateUI = function()
     -- reforça a borda DESTE alvo (mais viva); as outras seguem no tom suave
     if marker and marker.glow then
       tour.activeGlow = marker.glow
-      marker.glow:SetVertexColor(1, 0.92, 0.4); marker.glow:SetAlpha(1)
+      -- alvo sob o mouse: borda BEM MAIS FORTE (mais grossa + mais clara)
+      marker.glow:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 4 })
+      marker.glow:SetBackdropBorderColor(1, 0.95, 0.5, 1)
     end
     box.title:SetText(step.title or "")
     box.body:SetText(step.body or "")
@@ -4019,9 +4066,11 @@ CreateUI = function()
   local function getGlow(i)
     local g = tour.glows[i]
     if not g then
-      g = tour:CreateTexture(nil, "ARTWORK")
-      g:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); g:SetBlendMode("ADD")
-      g:SetVertexColor(1, 0.82, 0); g:Hide()
+      -- borda FIRME e nítida (frame com edge sólido), no lugar do glow difuso/quase-invisível
+      g = CreateFrame("Frame", nil, tour, "BackdropTemplate")
+      g:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+      g:SetBackdropBorderColor(1, 0.82, 0, 0.85)
+      g:Hide()
       tour.glows[i] = g
     end
     return g
@@ -4040,9 +4089,11 @@ CreateUI = function()
         -- borda suave SEMPRE visível com o tutorial aberto (mostra a que cada "i" se refere)
         local g = getGlow(n)
         g:ClearAllPoints()
-        g:SetPoint("TOPLEFT", gt, "TOPLEFT", -4, 4)
-        g:SetPoint("BOTTOMRIGHT", gt, "BOTTOMRIGHT", 4, -4)
-        g:SetVertexColor(1, 0.82, 0); g:SetAlpha(0.30); g:Show()
+        g:SetPoint("TOPLEFT", gt, "TOPLEFT", -2, 2)
+        g:SetPoint("BOTTOMRIGHT", gt, "BOTTOMRIGHT", 2, -2)
+        -- estado padrão: borda já BEM DEFINIDA (firme, não some) mesmo sem o mouse
+        g:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+        g:SetBackdropBorderColor(1, 0.82, 0, 0.95); g:SetAlpha(1); g:Show()
         m.glow = g -- o hover usa esta referência pra reforçar só este alvo
       end
     end

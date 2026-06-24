@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.57.0
+**Português**
+- **Novo:** **tour guiado ampliado** — o botão "i" agora destaca também a busca global **Onde está?**, o botão de **Configurações** (engrenagem) e, quando os addons estão instalados, os indicadores do **KrononAlts** (Personagens) e do **KrononMarket** (Valor de mercado).
+- **Corrigido:** a **borda do tour nas abas** (Mochila/Banco/Brigada) agora envolve as três abas de forma justa, em vez de cobrir só um cantinho.
+
+**English**
+- **New:** **expanded guided tour** — the "i" button now also highlights the **Where is it?** global search, the **Settings** (gear) button and, when the addons are installed, the **KrononAlts** (Characters) and **KrononMarket** (Market value) indicators.
+- **Fixed:** the **tour border on the tabs** (Bags/Bank/Warband) now hugs the three tabs neatly, instead of covering only a small corner.
+
+**Español**
+- **Nuevo:** **tour guiado ampliado** — el botón "i" ahora también resalta la búsqueda global **¿Dónde está?**, el botón de **Configuración** (engranaje) y, cuando los addons están instalados, los indicadores de **KrononAlts** (Personajes) y **KrononMarket** (Valor de mercado).
+- **Corregido:** el **borde del tour en las pestañas** (Bolsas/Banco/Banda de guerra) ahora abraza las tres pestañas de forma ajustada, en lugar de cubrir solo una esquina.
+
 ## 0.56.0
 **Português**
 - **Novo:** **seta de upgrade** no ícone — itens equipáveis com nível de item maior que o atualmente equipado no mesmo espaço (anéis, joias e armas de dois espaços comparam com o de menor ilvl) ganham uma seta verde no canto inferior-direito.
