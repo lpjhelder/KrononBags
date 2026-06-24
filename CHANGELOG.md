@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.56.0
+**Português**
+- **Novo:** **seta de upgrade** no ícone — itens equipáveis com nível de item maior que o atualmente equipado no mesmo espaço (anéis, joias e armas de dois espaços comparam com o de menor ilvl) ganham uma seta verde no canto inferior-direito.
+- **Novo:** **selo de aparência não coletada** — peças cujo visual de transmog você ainda não aprendeu recebem um pequeno ícone na borda superior do ícone.
+- **Novo:** **valor da bolsa no rodapé** — soma o valor de mercado de tudo na bolsa (via KrononMarket) e mostra o total; aparece só com o KrononMarket instalado.
+- **Novo:** opções **Seta de upgrade**, **Aparência não coletada** (seção *Ícones*) e **Valor da bolsa no rodapé** (seção *Ecossistema Kronon*), todas ligadas por padrão.
+- **Novo:** **API pública** `KrononBags.Toggle()` e `KrononBags.Open()` para outros addons do ecossistema abrirem a bolsa.
+
+**English**
+- **New:** **upgrade arrow** on the icon — equippable items with a higher item level than what you currently have equipped in the same slot (rings, trinkets and two-slot weapons compare against the lower ilvl) get a green arrow in the bottom-right corner.
+- **New:** **uncollected appearance seal** — gear whose transmog appearance you have not learned yet gets a small icon on the top edge of the icon.
+- **New:** **bag value in the footer** — sums the market value of everything in your bag (via KrononMarket) and shows the total; appears only when KrononMarket is installed.
+- **New:** **Upgrade arrow**, **Uncollected appearance** (*Icons* section) and **Bag value in footer** (*Kronon ecosystem* section) options, all on by default.
+- **New:** **public API** `KrononBags.Toggle()` and `KrononBags.Open()` so other ecosystem addons can open the bag.
+
+**Español**
+- **Nuevo:** **flecha de mejora** en el icono — los objetos equipables con un nivel de objeto mayor que el equipado actualmente en la misma ranura (anillos, abalorios y armas de dos ranuras comparan con el de menor ilvl) reciben una flecha verde en la esquina inferior derecha.
+- **Nuevo:** **sello de apariencia no obtenida** — las piezas cuyo aspecto de transfiguración aún no has aprendido reciben un pequeño icono en el borde superior del icono.
+- **Nuevo:** **valor de la bolsa en el pie** — suma el valor de mercado de todo lo que hay en la bolsa (vía KrononMarket) y muestra el total; aparece solo con KrononMarket instalado.
+- **Nuevo:** opciones **Flecha de mejora**, **Apariencia no obtenida** (sección *Iconos*) y **Valor de la bolsa en el pie** (sección *Ecosistema Kronon*), todas activadas por defecto.
+- **Nuevo:** **API pública** `KrononBags.Toggle()` y `KrononBags.Open()` para que otros addons del ecosistema abran la bolsa.
+
 ## 0.55.0
 **Português**
 - **Novo:** **hub do ecossistema Kronon** — indicador clicável do **KrononAlts** no rodapé mostra um resumo dos seus alts (Grandes Cofres prontos ou a próxima ação); o tooltip detalha personagens, cofres prontos e 3/3/3, e clicar abre a janela do KrononAlts.

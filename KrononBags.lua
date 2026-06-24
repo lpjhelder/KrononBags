@@ -276,6 +276,14 @@ local EN = {
   TREND_UP = "%d%% above average",
   TREND_DOWN = "%d%% below average",
   TREND_STABLE = "stable",
+  -- v0.56.0: marcas no ícone (seta de upgrade / transmog) + valor da bolsa no rodapé
+  OPT_UPGRADE_ARROW = "Upgrade arrow",
+  TIP_OPT_UPGRADE_ARROW = "Shows a small green up arrow on equippable items with a higher item level than what you currently have equipped in the same slot.",
+  OPT_TRANSMOG_SEAL = "Uncollected appearance",
+  TIP_OPT_TRANSMOG_SEAL = "Marks gear whose transmog appearance you have not learned yet with a small icon.",
+  OPT_BAG_VALUE = "Bag value in footer",
+  TIP_OPT_BAG_VALUE = "Shows the total market value of your bag in the footer. Requires the KrononMarket addon.",
+  BAG_VALUE = "Bag: %s",
 }
 
 local PT = {
@@ -485,6 +493,14 @@ local PT = {
   TREND_UP = "%d%% acima da média",
   TREND_DOWN = "%d%% abaixo da média",
   TREND_STABLE = "estável",
+  -- v0.56.0: marcas no ícone (seta de upgrade / transmog) + valor da bolsa no rodapé
+  OPT_UPGRADE_ARROW = "Seta de upgrade",
+  TIP_OPT_UPGRADE_ARROW = "Mostra uma pequena seta verde para cima nos itens equipáveis com nível de item maior que o atualmente equipado no mesmo espaço.",
+  OPT_TRANSMOG_SEAL = "Aparência não coletada",
+  TIP_OPT_TRANSMOG_SEAL = "Marca com um pequeno ícone as peças cujo visual de transmog você ainda não aprendeu.",
+  OPT_BAG_VALUE = "Valor da bolsa no rodapé",
+  TIP_OPT_BAG_VALUE = "Mostra no rodapé o valor de mercado total da sua bolsa. Requer o addon KrononMarket.",
+  BAG_VALUE = "Bolsa: %s",
 }
 
 local ES = {
@@ -694,6 +710,14 @@ local ES = {
   TREND_UP = "%d%% sobre la media",
   TREND_DOWN = "%d%% bajo la media",
   TREND_STABLE = "estable",
+  -- v0.56.0: marcas en el icono (flecha de mejora / transmog) + valor de la bolsa en el pie
+  OPT_UPGRADE_ARROW = "Flecha de mejora",
+  TIP_OPT_UPGRADE_ARROW = "Muestra una pequeña flecha verde hacia arriba en los objetos equipables con un nivel de objeto mayor que el equipado actualmente en la misma ranura.",
+  OPT_TRANSMOG_SEAL = "Apariencia no obtenida",
+  TIP_OPT_TRANSMOG_SEAL = "Marca con un pequeño icono las piezas cuyo aspecto de transfiguración aún no has aprendido.",
+  OPT_BAG_VALUE = "Valor de la bolsa en el pie",
+  TIP_OPT_BAG_VALUE = "Muestra en el pie el valor de mercado total de tu bolsa. Requiere el addon KrononMarket.",
+  BAG_VALUE = "Bolsa: %s",
 }
 
 -- Monta L pela KrononLib: base EN + overlay do locale atual (ptBR/esES; esMX→esES).
@@ -844,6 +868,9 @@ local function InitDB()
   if KrononBagsDB.settings.autoSellJunk == nil then KrononBagsDB.settings.autoSellJunk = true end -- vender lixo automaticamente ao abrir o vendedor
   if KrononBagsDB.settings.autoRepair == nil then KrononBagsDB.settings.autoRepair = true end -- reparar tudo ao abrir o vendedor (fundos da guilda quando possível)
   if KrononBagsDB.settings.altsIndicator == nil then KrononBagsDB.settings.altsIndicator = true end -- v0.55.0: indicador do KrononAlts no rodapé (só aparece se o KrononAlts existir)
+  if KrononBagsDB.settings.upgradeArrow == nil then KrononBagsDB.settings.upgradeArrow = true end -- v0.56.0: seta verde de upgrade por ilvl no ícone
+  if KrononBagsDB.settings.transmogSeal == nil then KrononBagsDB.settings.transmogSeal = true end -- v0.56.0: selo de aparência de transmog não coletada no ícone
+  if KrononBagsDB.settings.bagValue == nil then KrononBagsDB.settings.bagValue = true end -- v0.56.0: valor de mercado total da bolsa no rodapé (requer KrononMarket)
   -- v0.54.0: janela de config redesenhada — lembra posição/tamanho e última categoria aberta
   if KrononBagsDB.settings.cfgLastTab == nil then KrononBagsDB.settings.cfgLastTab = "appearance" end
   KrononBagsDB.settings.cfgPos = KrononBagsDB.settings.cfgPos or nil   -- {point, relPoint, x, y}
@@ -1503,6 +1530,22 @@ AcquireButton = function(i)
     b.kbUpgrade:SetTexture("Interface\\PetBattles\\BattleBar-AbilityBadge-Strong"); b.kbUpgrade:Hide()
     b.kbQual = b:CreateTexture(nil, "OVERLAY")
     b.kbQual:SetSize(14, 14); b.kbQual:SetPoint("BOTTOM", 0, 0); b.kbQual:Hide()
+    -- v0.56.0: seta verde de upgrade por ilvl — canto INFERIOR-DIREITO (livre: não toca o ilvl em
+    -- TOPRIGHT nem o selo BoE em BOTTOMLEFT). SetAtlas defensivo (pcall) com textura de reserva.
+    b.kbUpArrow = b:CreateTexture(nil, "OVERLAY")
+    b.kbUpArrow:SetSize(13, 13); b.kbUpArrow:SetPoint("BOTTOMRIGHT", -1, 1)
+    if not pcall(b.kbUpArrow.SetAtlas, b.kbUpArrow, "bags-greenarrow") then
+      b.kbUpArrow:SetTexture("Interface\\PetBattles\\BattleBar-AbilityBadge-Strong")
+    end
+    b.kbUpArrow:Hide()
+    -- v0.56.0: selo de transmog não coletado — borda SUPERIOR-CENTRO (entre a estrela em TOPLEFT
+    -- e o ilvl em TOPRIGHT; não compartilha canto com a seta de upgrade). SetAtlas defensivo.
+    b.kbMog = b:CreateTexture(nil, "OVERLAY")
+    b.kbMog:SetSize(13, 13); b.kbMog:SetPoint("TOP", 0, -1)
+    if not pcall(b.kbMog.SetAtlas, b.kbMog, "transmog-icon-revert") then
+      b.kbMog:SetTexture("Interface\\Transmogrify\\Transmogrify")
+    end
+    b.kbMog:Hide()
     -- estrela: favoritar (esquerdo) + menu (direito) — botão separado, acima do item.
     -- DOURADA só quando favoritado; num não-favoritado, aparece APAGADA ao passar o mouse (pra clicar).
     local star = CreateFrame("Button", nil, b)
@@ -1656,6 +1699,33 @@ local function FinishLayout(contentH)
 end
 
 -- desenha os "selos" próprios de um botão de item: ilvl, vínculo (BoE/Warband), missão, novo
+-- mapa invType (4º retorno de GetItemInfoInstant) → slot(s) de inventário.
+-- Usado pela comparação de tooltip (v0.32.0) E pela seta de upgrade no ícone (v0.56.0).
+local INVTYPE_SLOT = {
+  INVTYPE_HEAD = { 1 }, INVTYPE_NECK = { 2 }, INVTYPE_SHOULDER = { 3 }, INVTYPE_CHEST = { 5 },
+  INVTYPE_ROBE = { 5 }, INVTYPE_WAIST = { 6 }, INVTYPE_LEGS = { 7 }, INVTYPE_FEET = { 8 },
+  INVTYPE_WRIST = { 9 }, INVTYPE_HAND = { 10 }, INVTYPE_FINGER = { 11, 12 }, INVTYPE_TRINKET = { 13, 14 },
+  INVTYPE_CLOAK = { 15 }, INVTYPE_WEAPON = { 16, 17 }, INVTYPE_WEAPONMAINHAND = { 16 },
+  INVTYPE_2HWEAPON = { 16 }, INVTYPE_RANGED = { 16 }, INVTYPE_RANGEDRIGHT = { 16 },
+  INVTYPE_WEAPONOFFHAND = { 17 }, INVTYPE_SHIELD = { 17 }, INVTYPE_HOLDABLE = { 17 },
+}
+-- retorna o itemLink equipado a comparar (o de MENOR ilvl quando há 2 slots), ou nil
+local function GetEquippedForCompare(itemID)
+  if not (itemID and C_Item and C_Item.GetItemInfoInstant) then return nil end
+  local _, _, _, invType = C_Item.GetItemInfoInstant(itemID)
+  local slots = invType and INVTYPE_SLOT[invType]
+  if not slots then return nil end
+  local bestLink, bestIlvl
+  for i = 1, #slots do
+    local eq = GetInventoryItemLink and GetInventoryItemLink("player", slots[i])
+    if eq then
+      local ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(eq)) or 0
+      if (not bestLink) or ilvl < bestIlvl then bestLink, bestIlvl = eq, ilvl end
+    end
+  end
+  return bestLink
+end
+
 local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
   -- ilvl (só equipável, se ligado na config)
   local equipLoc = select(4, C_Item.GetItemInfoInstant(itemID))
@@ -1758,6 +1828,42 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
       b.kbQual:Hide()
     end
   end
+  -- v0.56.0: seta verde de upgrade por ilvl. Só itens equipáveis; compara com a peça de MENOR
+  -- ilvl equipada no(s) mesmo(s) slot(s) (anéis/trinkets/armas de 2 slots usam o menor). Defensivo:
+  -- ignora não-equipável e ilvl nil; GetEquippedForCompare já devolve nil se o slot estiver vazio.
+  if b.kbUpArrow then
+    local up = false
+    if DB.settings.upgradeArrow and equipLoc and equipLoc ~= "" and C_Item and C_Item.GetDetailedItemLevelInfo then
+      local link = b.link or b.cachedLink
+      if link then
+        local eqLink = GetEquippedForCompare(itemID)
+        if eqLink and eqLink ~= link then
+          local mine = C_Item.GetDetailedItemLevelInfo(link)
+          local eq = C_Item.GetDetailedItemLevelInfo(eqLink)
+          if mine and eq and mine > eq then up = true end
+        end
+      end
+    end
+    b.kbUpArrow:SetShown(up)
+  end
+  -- v0.56.0: selo de transmog não coletado (visual ainda não aprendido). Só peças com aparência
+  -- (GetItemInfo devolve appearance/source) e que o personagem NÃO tem (PlayerHasTransmogByItemInfo
+  -- == false). 100% defensivo: sem a API, ou em erro, o selo simplesmente não aparece (pcall).
+  if b.kbMog then
+    local show = false
+    if DB.settings.transmogSeal and equipLoc and equipLoc ~= "" and C_TransmogCollection
+       and C_TransmogCollection.PlayerHasTransmogByItemInfo and C_TransmogCollection.GetItemInfo then
+      local id = b.link or b.cachedLink or itemID
+      if id then
+        local okSrc, appID, srcID = pcall(C_TransmogCollection.GetItemInfo, id)
+        if okSrc and (appID or srcID) then -- item é transmoggable (tem fonte de aparência)
+          local okHas, has = pcall(C_TransmogCollection.PlayerHasTransmogByItemInfo, id)
+          if okHas and has == false then show = true end
+        end
+      end
+    end
+    b.kbMog:SetShown(show)
+  end
 end
 
 local function ClearBadges(b)
@@ -1767,6 +1873,8 @@ local function ClearBadges(b)
   if b.kbUpgrade then b.kbUpgrade:Hide() end
   if b.UpgradeIcon then b.UpgradeIcon:Hide() end
   if b.kbQual then b.kbQual:Hide() end
+  if b.kbUpArrow then b.kbUpArrow:Hide() end
+  if b.kbMog then b.kbMog:Hide() end
 end
 
 -- atualização leve só dos cooldowns dos botões visíveis (evento BAG_UPDATE_COOLDOWN)
@@ -2788,6 +2896,7 @@ UpdateMoney = function()
     end
     currencyText:SetText(table.concat(parts, "   "))
   end
+  if UI and UI.UpdateBagValue then UI.UpdateBagValue() end -- v0.56.0: valor de mercado da bolsa no rodapé
 end
 
 -- destaca o modo de visualização ativo (Categorias/Grade) na barra lateral
@@ -3303,6 +3412,7 @@ CreateUI = function()
   UI = CreateFrame("Frame", "KrononBagsFrame", UIParent, blizzard and "ButtonFrameTemplate" or "BackdropTemplate")
   UI:SetPoint("CENTER")
   UI:SetFrameStrata("HIGH")
+  UI:SetToplevel(true) -- vem INTEIRA pra frente ao clicar (não intercala com o KrononAlts/outras janelas)
   UI:SetClampedToScreen(true)
   UI:SetMovable(true); UI:EnableMouse(true); UI:RegisterForDrag("LeftButton")
   UI:SetScript("OnDragStart", UI.StartMoving)
@@ -3596,6 +3706,39 @@ CreateUI = function()
     GameTooltip:Show()
   end)
   UI.altsIndicator:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+  -- v0.56.0: valor de mercado total da bolsa no rodapé (esquerda, ACIMA do indicador de Alts).
+  -- 100% opcional: só aparece com o KrononMarket presente E a opção ligada. Soma GetPrice × qtd
+  -- de tudo nas bolsas vivas; em visão de cache (banco de longe, sem slots vivos) fica escondido.
+  -- Campo em UI (não local de chunk) pelo orçamento de locais do chunk principal.
+  UI.bagValue = UI:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  UI.bagValue:SetJustifyH("LEFT")
+  UI.bagValue:SetPoint("BOTTOMLEFT", UI.altsIndicator, "TOPLEFT", 0, 2)
+  UI.bagValue:SetTextColor(1, 0.82, 0)
+  UI.bagValue:Hide()
+  UI.UpdateBagValue = function()
+    local fs = UI and UI.bagValue
+    if not fs then return end
+    if not (DB and DB.settings and DB.settings.bagValue) then fs:Hide(); return end
+    if not (KrononMarket and KrononMarket.GetPrice) then fs:Hide(); return end -- some sem o KrononMarket
+    if CachedMode() then fs:Hide(); return end -- visão de cache: sem slots vivos pra somar
+    local total = 0
+    for _, bag in ipairs(BAGS) do
+      local slots = C_Container.GetContainerNumSlots(bag) or 0
+      for slot = 1, slots do
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if info and info.itemID then
+          local ok, p = pcall(KrononMarket.GetPrice, info.itemID)
+          if ok and type(p) == "number" and p > 0 then
+            total = total + p * (info.stackCount or 1)
+          end
+        end
+      end
+    end
+    if total <= 0 then fs:Hide(); return end
+    fs:SetText(string.format(L.BAG_VALUE, GetCoinTextureString(total)))
+    fs:Show()
+  end
 
   -- frame invisível por cima do ouro: hover abre o painel de ouro por personagem (+ Brigada).
   -- nodeignore tira da navegação por controle; só mouse.
@@ -4131,6 +4274,7 @@ CreateUI = function()
   -- (opcional, defensivo): se a API existir e houver scan ativo, mostra o progresso atual.
   UI:HookScript("OnShow", function()
     if UI and UI.UpdateAltsIndicator then UI.UpdateAltsIndicator() end -- v0.55.0: resumo do KrononAlts no rodapé
+    if UI and UI.UpdateBagValue then UI.UpdateBagValue() end -- v0.56.0: valor de mercado da bolsa no rodapé
     if not (UI and UI.UpdateScanProgress) then return end
     if KrononMarket and KrononMarket.GetScanProgress then
       local ok, scanning, current, total = pcall(KrononMarket.GetScanProgress)
@@ -4683,6 +4827,14 @@ CreateConfig = function()
     Check(ctx, L.OPT_QUAL_BORDER,
       function() return DB.settings.qualityBorder end,
       function(v) DB.settings.qualityBorder = v; Refresh() end, "TIP_OPT_QUAL_BORDER")
+    -- v0.56.0: seta de upgrade por ilvl (canto inferior-direito do ícone)
+    Check(ctx, L.OPT_UPGRADE_ARROW,
+      function() return DB.settings.upgradeArrow end,
+      function(v) DB.settings.upgradeArrow = v; Refresh() end, "TIP_OPT_UPGRADE_ARROW")
+    -- v0.56.0: selo de transmog não coletado (borda superior do ícone)
+    Check(ctx, L.OPT_TRANSMOG_SEAL,
+      function() return DB.settings.transmogSeal end,
+      function(v) DB.settings.transmogSeal = v; Refresh() end, "TIP_OPT_TRANSMOG_SEAL")
     finishPanel(child, ctx)
   end
 
@@ -4739,6 +4891,11 @@ CreateConfig = function()
       function() return DB.settings.altsIndicator end,
       function(v) DB.settings.altsIndicator = v; if UI and UI.UpdateAltsIndicator then UI.UpdateAltsIndicator() end end,
       "TIP_OPT_ALTS_INDICATOR")
+    -- v0.56.0: valor de mercado total da bolsa no rodapé (só aparece com o KrononMarket presente)
+    Check(ctx, L.OPT_BAG_VALUE,
+      function() return DB.settings.bagValue end,
+      function(v) DB.settings.bagValue = v; if UI and UI.UpdateBagValue then UI.UpdateBagValue() end end,
+      "TIP_OPT_BAG_VALUE")
     finishPanel(child, ctx)
   end
 
@@ -4861,7 +5018,7 @@ CreateConfig = function()
       frameStyle = "dark", bankReplace = true, altCounts = true, replaceBags = true,
       sortMode = "ilvl", stackItems = false, nestByExpansion = false, compactExpac = false,
       qualityBorder = true, searchHighlight = true, autoSellJunk = true, autoRepair = true,
-      altsIndicator = true,
+      altsIndicator = true, upgradeArrow = true, transmogSeal = true, bagValue = true,
     }
     for k, v in pairs(d) do DB.settings[k] = v end
     ApplyTheme(DB.settings.theme); ApplyOpacity()
@@ -5205,31 +5362,8 @@ local function AddMarketValueToTooltip(tooltip, itemID)
 end
 -- ---------------- v0.32.0: comparação com o equipado no tooltip ----------------
 -- Só-leitura: mostra ilvl vs. equipado, delta de secundários e % do Pawn (se houver).
--- mapa invType (4º retorno de GetItemInfoInstant) → slot(s) de inventário.
-local INVTYPE_SLOT = {
-  INVTYPE_HEAD = { 1 }, INVTYPE_NECK = { 2 }, INVTYPE_SHOULDER = { 3 }, INVTYPE_CHEST = { 5 },
-  INVTYPE_ROBE = { 5 }, INVTYPE_WAIST = { 6 }, INVTYPE_LEGS = { 7 }, INVTYPE_FEET = { 8 },
-  INVTYPE_WRIST = { 9 }, INVTYPE_HAND = { 10 }, INVTYPE_FINGER = { 11, 12 }, INVTYPE_TRINKET = { 13, 14 },
-  INVTYPE_CLOAK = { 15 }, INVTYPE_WEAPON = { 16, 17 }, INVTYPE_WEAPONMAINHAND = { 16 },
-  INVTYPE_2HWEAPON = { 16 }, INVTYPE_RANGED = { 16 }, INVTYPE_RANGEDRIGHT = { 16 },
-  INVTYPE_WEAPONOFFHAND = { 17 }, INVTYPE_SHIELD = { 17 }, INVTYPE_HOLDABLE = { 17 },
-}
--- retorna o itemLink equipado a comparar (o de MENOR ilvl quando há 2 slots), ou nil
-local function GetEquippedForCompare(itemID)
-  if not (itemID and C_Item and C_Item.GetItemInfoInstant) then return nil end
-  local _, _, _, invType = C_Item.GetItemInfoInstant(itemID)
-  local slots = invType and INVTYPE_SLOT[invType]
-  if not slots then return nil end
-  local bestLink, bestIlvl
-  for i = 1, #slots do
-    local eq = GetInventoryItemLink and GetInventoryItemLink("player", slots[i])
-    if eq then
-      local ilvl = (C_Item.GetDetailedItemLevelInfo and C_Item.GetDetailedItemLevelInfo(eq)) or 0
-      if (not bestLink) or ilvl < bestIlvl then bestLink, bestIlvl = eq, ilvl end
-    end
-  end
-  return bestLink
-end
+-- INVTYPE_SLOT e GetEquippedForCompare: definidos acima (antes de DecorateBadges) pra
+-- serem reusados também pela seta de upgrade no ícone (v0.56.0).
 -- adiciona ao tooltip a comparação com a peça equipada (ilvl, secundários, Pawn)
 local function AddUpgradeCompareToTooltip(tooltip, itemID, link)
   if not (link and itemID and C_Item) then return end
@@ -5525,4 +5659,21 @@ function KrononBags_ToggleView()
   if not UI:IsShown() then UI:Show() end
   if UpdateModeBar then UpdateModeBar() end
   Refresh()
+end
+
+-- ---------------- v0.56.0: API pública (ecossistema Kronon) ----------------
+-- Namespace GLOBAL KrononBags consumido por outros addons (ex.: KrononAlts quer "abrir a bag").
+-- Disponível assim que o addon carrega. 100% defensivo: pcall envolve toda a chamada, então
+-- nunca propaga erro pro consumidor; retorna true em sucesso, false se algo falhar.
+_G.KrononBags = _G.KrononBags or {}
+-- alterna a janela (abre se fechada, fecha se aberta)
+function KrononBags.Toggle()
+  return (pcall(function() if Toggle then Toggle() end end))
+end
+-- abre a janela (no-op se já estiver aberta)
+function KrononBags.Open()
+  return (pcall(function()
+    if not UI then if CreateUI then CreateUI() end end
+    if UI and not UI:IsShown() then UI:Show(); if Refresh then Refresh() end end
+  end))
 end
