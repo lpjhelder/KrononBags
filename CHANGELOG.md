@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.55.0
+**Português**
+- **Novo:** **hub do ecossistema Kronon** — indicador clicável do **KrononAlts** no rodapé mostra um resumo dos seus alts (Grandes Cofres prontos ou a próxima ação); o tooltip detalha personagens, cofres prontos e 3/3/3, e clicar abre a janela do KrononAlts.
+- **Novo:** **tendência de preço** no tooltip do item (via KrononMarket) — logo abaixo do valor de mercado, mostra se o item está **acima**, **abaixo** ou **estável** em relação à média.
+- **Novo:** opção **Indicador do KrononAlts** na seção *Ecossistema Kronon* das configurações (ligada por padrão).
+- **Mantido:** ambas as integrações são **100% opcionais** — sem o KrononAlts ou o KrononMarket o comportamento é idêntico ao anterior.
+
+**English**
+- **New:** **Kronon ecosystem hub** — a clickable **KrononAlts** indicator in the footer shows a summary of your alts (ready Great Vaults or the next action); the tooltip details characters, ready vaults and 3/3/3, and clicking opens the KrononAlts window.
+- **New:** **price trend** on the item tooltip (via KrononMarket) — right below the market value, it shows whether the item is **above**, **below** or **stable** versus the average.
+- **New:** **KrononAlts indicator** option in the *Kronon ecosystem* section of the settings (on by default).
+- **Kept:** both integrations are **100% optional** — without KrononAlts or KrononMarket the behavior is identical to before.
+
+**Español**
+- **Nuevo:** **hub del ecosistema Kronon** — un indicador clicable de **KrononAlts** en el pie muestra un resumen de tus alts (Cámaras del Tesoro listas o la próxima acción); el tooltip detalla personajes, cámaras listas y 3/3/3, y al hacer clic se abre la ventana de KrononAlts.
+- **Nuevo:** **tendencia de precio** en el tooltip del objeto (vía KrononMarket) — justo bajo el valor de mercado, indica si el objeto está **sobre**, **bajo** o **estable** respecto a la media.
+- **Nuevo:** opción **Indicador de KrononAlts** en la sección *Ecosistema Kronon* de los ajustes (activada por defecto).
+- **Mantenido:** ambas integraciones son **100% opcionales** — sin KrononAlts o KrononMarket el comportamiento es idéntico al anterior.
+
 ## 0.54.0
 **Português**
 - **Novo:** janela de **configurações redesenhada** — visual profissional estilo DBM/SkillCapped, com sidebar de categorias (ícone + realce azul na ativa), painel rolável e seções com cabeçalho dourado.

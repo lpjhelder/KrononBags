@@ -260,6 +260,22 @@ local EN = {
   HIST_HINT = "Shift-click to link in chat",
   -- v0.32.0: comparação com o equipado no tooltip
   CMP_HEADER = "vs. equipped", CMP_PAWN = "Pawn upgrade",
+  -- v0.55.0: integração com o ecossistema Kronon (KrononAlts + KrononMarket)
+  GRP_ECOSYSTEM = "Kronon ecosystem",
+  OPT_ALTS_INDICATOR = "KrononAlts indicator",
+  TIP_OPT_ALTS_INDICATOR = "Shows a clickable summary of your alts (ready Great Vaults / next action) in the footer. Requires the KrononAlts addon.",
+  ALTS_VAULTS_READY = "%d vault(s) ready",
+  ALTS_CHARS_SHORT = "%d char(s)",
+  ALTS_TT_TITLE = "Kronon Alts",
+  ALTS_TT_CHARS = "Characters",
+  ALTS_TT_VAULT_READY = "Vaults ready",
+  ALTS_TT_VAULT_FULL = "Vaults 3/3/3",
+  ALTS_TT_NEXT = "Next",
+  ALTS_TT_CLICK = "Click to open KrononAlts",
+  TREND_LABEL = "Trend",
+  TREND_UP = "%d%% above average",
+  TREND_DOWN = "%d%% below average",
+  TREND_STABLE = "stable",
 }
 
 local PT = {
@@ -453,6 +469,22 @@ local PT = {
   HIST_HINT = "Shift-clique para linkar no chat",
   -- v0.32.0: comparação com o equipado no tooltip
   CMP_HEADER = "vs. equipado", CMP_PAWN = "Upgrade (Pawn)",
+  -- v0.55.0: integração com o ecossistema Kronon (KrononAlts + KrononMarket)
+  GRP_ECOSYSTEM = "Ecossistema Kronon",
+  OPT_ALTS_INDICATOR = "Indicador do KrononAlts",
+  TIP_OPT_ALTS_INDICATOR = "Mostra no rodapé um resumo clicável dos seus alts (Grandes Cofres prontos / próxima ação). Requer o addon KrononAlts.",
+  ALTS_VAULTS_READY = "%d cofre(s) pronto(s)",
+  ALTS_CHARS_SHORT = "%d personagem(ns)",
+  ALTS_TT_TITLE = "Alts Kronon",
+  ALTS_TT_CHARS = "Personagens",
+  ALTS_TT_VAULT_READY = "Cofres prontos",
+  ALTS_TT_VAULT_FULL = "Cofres 3/3/3",
+  ALTS_TT_NEXT = "Próximo",
+  ALTS_TT_CLICK = "Clique para abrir o KrononAlts",
+  TREND_LABEL = "Tendência",
+  TREND_UP = "%d%% acima da média",
+  TREND_DOWN = "%d%% abaixo da média",
+  TREND_STABLE = "estável",
 }
 
 local ES = {
@@ -646,6 +678,22 @@ local ES = {
   HIST_HINT = "Shift-clic para enlazar en el chat",
   -- v0.32.0: comparación con lo equipado en el tooltip
   CMP_HEADER = "vs. equipado", CMP_PAWN = "Mejora (Pawn)",
+  -- v0.55.0: integración con el ecosistema Kronon (KrononAlts + KrononMarket)
+  GRP_ECOSYSTEM = "Ecosistema Kronon",
+  OPT_ALTS_INDICATOR = "Indicador de KrononAlts",
+  TIP_OPT_ALTS_INDICATOR = "Muestra en el pie un resumen clicable de tus alts (Cámaras del Tesoro listas / próxima acción). Requiere el addon KrononAlts.",
+  ALTS_VAULTS_READY = "%d cámara(s) lista(s)",
+  ALTS_CHARS_SHORT = "%d personaje(s)",
+  ALTS_TT_TITLE = "Alts Kronon",
+  ALTS_TT_CHARS = "Personajes",
+  ALTS_TT_VAULT_READY = "Cámaras listas",
+  ALTS_TT_VAULT_FULL = "Cámaras 3/3/3",
+  ALTS_TT_NEXT = "Siguiente",
+  ALTS_TT_CLICK = "Clic para abrir KrononAlts",
+  TREND_LABEL = "Tendencia",
+  TREND_UP = "%d%% sobre la media",
+  TREND_DOWN = "%d%% bajo la media",
+  TREND_STABLE = "estable",
 }
 
 -- Monta L pela KrononLib: base EN + overlay do locale atual (ptBR/esES; esMX→esES).
@@ -795,6 +843,7 @@ local function InitDB()
   if KrononBagsDB.settings.searchHighlight == nil then KrononBagsDB.settings.searchHighlight = true end -- na busca, escurece o resto em vez de esconder
   if KrononBagsDB.settings.autoSellJunk == nil then KrononBagsDB.settings.autoSellJunk = true end -- vender lixo automaticamente ao abrir o vendedor
   if KrononBagsDB.settings.autoRepair == nil then KrononBagsDB.settings.autoRepair = true end -- reparar tudo ao abrir o vendedor (fundos da guilda quando possível)
+  if KrononBagsDB.settings.altsIndicator == nil then KrononBagsDB.settings.altsIndicator = true end -- v0.55.0: indicador do KrononAlts no rodapé (só aparece se o KrononAlts existir)
   -- v0.54.0: janela de config redesenhada — lembra posição/tamanho e última categoria aberta
   if KrononBagsDB.settings.cfgLastTab == nil then KrononBagsDB.settings.cfgLastTab = "appearance" end
   KrononBagsDB.settings.cfgPos = KrononBagsDB.settings.cfgPos or nil   -- {point, relPoint, x, y}
@@ -3483,6 +3532,71 @@ CreateUI = function()
     fs:Show()
   end
 
+  -- v0.55.0: indicador do KrononAlts (ecossistema Kronon) — aparece logo ACIMA das moedas,
+  -- à esquerda do rodapé (espelha o progresso de scan, que fica à direita). 100% opcional:
+  -- só existe na tela quando o KrononAlts está instalado E a opção está ligada; sem ele, o
+  -- rodapé é idêntico ao atual. Clicar abre a janela do KrononAlts. Campo em UI (não local de
+  -- chunk) pelo orçamento de locais do chunk principal.
+  UI.altsIndicator = CreateFrame("Button", nil, UI)
+  UI.altsIndicator:SetAttribute("nodeignore", true) -- fora da navegação por controle; só mouse
+  UI.altsIndicator:SetHeight(16)
+  UI.altsIndicator:SetPoint("BOTTOMLEFT", currencyText, "TOPLEFT", 0, 2)
+  local altsIcon = UI.altsIndicator:CreateTexture(nil, "ARTWORK")
+  altsIcon:SetSize(14, 14); altsIcon:SetPoint("LEFT", 0, 0)
+  altsIcon:SetTexture("Interface\\ICONS\\INV_Misc_GroupLooking")
+  altsIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  local altsText = UI.altsIndicator:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  altsText:SetPoint("LEFT", altsIcon, "RIGHT", 4, 0); altsText:SetJustifyH("LEFT")
+  altsText:SetTextColor(1, 0.82, 0)
+  UI.altsIndicator.text = altsText
+  UI.altsIndicator:Hide()
+  -- lê o resumo do KrononAlts com guarda total; nil = nada disponível (esconde o indicador)
+  local function ReadAltsSummary()
+    if not (KrononAlts and KrononAlts.GetSummary) then return nil end
+    local ok, s = pcall(KrononAlts.GetSummary)
+    if ok and type(s) == "table" then return s end
+    return nil
+  end
+  UI.UpdateAltsIndicator = function()
+    local btn = UI and UI.altsIndicator
+    if not btn then return end
+    if not (DB and DB.settings and DB.settings.altsIndicator) then btn:Hide(); return end
+    local s = ReadAltsSummary()
+    if not s then btn:Hide(); return end
+    local vr = tonumber(s.vaultReady) or 0
+    local label
+    if vr > 0 then
+      label = string.format(L.ALTS_VAULTS_READY, vr)
+    elseif type(s.nextAction) == "string" and s.nextAction ~= "" then
+      label = s.nextAction
+    else
+      label = string.format(L.ALTS_CHARS_SHORT, tonumber(s.chars) or 0)
+    end
+    btn.text:SetText(label)
+    btn:SetWidth(14 + 4 + (btn.text:GetStringWidth() or 0) + 4)
+    btn:Show()
+  end
+  UI.altsIndicator:SetScript("OnClick", function()
+    if KrononAlts and KrononAlts.Toggle then pcall(KrononAlts.Toggle) end
+  end)
+  UI.altsIndicator:SetScript("OnEnter", function(self)
+    local s = ReadAltsSummary()
+    if not s then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText("|cfff0d98c" .. L.ALTS_TT_TITLE .. "|r")
+    GameTooltip:AddDoubleLine(L.ALTS_TT_CHARS, tostring(tonumber(s.chars) or 0), 0.8, 0.8, 0.8, 1, 1, 1)
+    GameTooltip:AddDoubleLine(L.ALTS_TT_VAULT_READY, tostring(tonumber(s.vaultReady) or 0), 0.8, 0.8, 0.8, 0.2, 1, 0.2)
+    GameTooltip:AddDoubleLine(L.ALTS_TT_VAULT_FULL, tostring(tonumber(s.vaultFull) or 0), 0.8, 0.8, 0.8, 1, 1, 1)
+    if type(s.nextAction) == "string" and s.nextAction ~= "" then
+      GameTooltip:AddLine(" ")
+      GameTooltip:AddLine(L.ALTS_TT_NEXT .. ": " .. s.nextAction, 1, 0.82, 0, true)
+    end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(L.ALTS_TT_CLICK, 0.5, 1, 0.5)
+    GameTooltip:Show()
+  end)
+  UI.altsIndicator:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
   -- frame invisível por cima do ouro: hover abre o painel de ouro por personagem (+ Brigada).
   -- nodeignore tira da navegação por controle; só mouse.
   UI.goldHover = CreateFrame("Frame", nil, UI)
@@ -4016,6 +4130,7 @@ CreateUI = function()
   -- ao abrir a janela, verifica se já existe uma varredura do KrononMarket em curso
   -- (opcional, defensivo): se a API existir e houver scan ativo, mostra o progresso atual.
   UI:HookScript("OnShow", function()
+    if UI and UI.UpdateAltsIndicator then UI.UpdateAltsIndicator() end -- v0.55.0: resumo do KrononAlts no rodapé
     if not (UI and UI.UpdateScanProgress) then return end
     if KrononMarket and KrononMarket.GetScanProgress then
       local ok, scanning, current, total = pcall(KrononMarket.GetScanProgress)
@@ -4615,6 +4730,15 @@ CreateConfig = function()
     Check(ctx, L.OPT_ALT_COUNTS,
       function() return DB.settings.altCounts end,
       function(v) DB.settings.altCounts = v end, "TIP_OPT_ALT_COUNTS")
+
+    -- v0.55.0: integração com o ecossistema Kronon (indicador do KrononAlts no rodapé).
+    -- O toggle existe sempre; se o KrononAlts não estiver presente, o indicador simplesmente
+    -- nunca aparece (UpdateAltsIndicator esconde). Liga/desliga ao vivo.
+    Section(ctx, L.GRP_ECOSYSTEM)
+    Check(ctx, L.OPT_ALTS_INDICATOR,
+      function() return DB.settings.altsIndicator end,
+      function(v) DB.settings.altsIndicator = v; if UI and UI.UpdateAltsIndicator then UI.UpdateAltsIndicator() end end,
+      "TIP_OPT_ALTS_INDICATOR")
     finishPanel(child, ctx)
   end
 
@@ -4737,6 +4861,7 @@ CreateConfig = function()
       frameStyle = "dark", bankReplace = true, altCounts = true, replaceBags = true,
       sortMode = "ilvl", stackItems = false, nestByExpansion = false, compactExpac = false,
       qualityBorder = true, searchHighlight = true, autoSellJunk = true, autoRepair = true,
+      altsIndicator = true,
     }
     for k, v in pairs(d) do DB.settings[k] = v end
     ApplyTheme(DB.settings.theme); ApplyOpacity()
@@ -5058,6 +5183,24 @@ local function AddMarketValueToTooltip(tooltip, itemID)
   local v, src = GetMarketValue(itemID)
   if v then
     tooltip:AddDoubleLine(src == "ah" and L.MARKET_VALUE or L.SELL_VALUE, GetCoinTextureString(v), 1, 0.82, 0, 1, 1, 1)
+    -- v0.55.0: tendência de preço (KrononMarket) — logo ABAIXO do valor de mercado.
+    -- 100% opcional/defensivo: só com a API presente, fonte AH e retorno não-nil; pcall
+    -- protege contra error(). Respeita a linha de mercado acima (só mostra quando ela mostra).
+    if src == "ah" and KrononMarket and KrononMarket.GetPriceTrend then
+      local ok, t = pcall(KrononMarket.GetPriceTrend, itemID)
+      if ok and type(t) == "table" and t.dir then
+        local pct = math.floor((tonumber(t.pct) or 0) + 0.5)
+        local text, r, g, b
+        if t.dir == "up" then
+          text = "↑ " .. string.format(L.TREND_UP, pct); r, g, b = 0.2, 1, 0.2
+        elseif t.dir == "down" then
+          text = "↓ " .. string.format(L.TREND_DOWN, pct); r, g, b = 1, 0.3, 0.3
+        else
+          text = L.TREND_STABLE; r, g, b = 0.6, 0.6, 0.6
+        end
+        tooltip:AddDoubleLine(L.TREND_LABEL, text, 0.8, 0.8, 0.8, r, g, b)
+      end
+    end
   end
 end
 -- ---------------- v0.32.0: comparação com o equipado no tooltip ----------------
@@ -5274,6 +5417,13 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if KrononMarket and KrononMarket.RegisterForProgress then
       pcall(KrononMarket.RegisterForProgress, function(current, total)
         if UI and UI.UpdateScanProgress then UI.UpdateScanProgress(nil, current, total) end
+      end)
+    end
+    -- v0.55.0: atualiza o indicador do KrononAlts ao vivo quando os dados do Alts mudam
+    -- (opcional/defensivo: só registra se o KrononAlts e o callback existirem; pcall protege).
+    if KrononAlts and KrononAlts.RegisterForUpdate then
+      pcall(KrononAlts.RegisterForUpdate, function()
+        if UI and UI.UpdateAltsIndicator and UI:IsShown() then UI.UpdateAltsIndicator() end
       end)
     end
   elseif event == "PLAYER_LOGOUT" then
