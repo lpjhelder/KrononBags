@@ -175,6 +175,12 @@ local EN = {
   TAG_PRESET = "(preset)", TAG_RULE = "(rule)", TAG_CUSTOM = "(yours)",
   PRESET_MENU_TITLE = "Add preset category", PRESET_ALL_ADDED = "(all already added)",
   CONFIG_TITLE = "KrononBags — Settings",
+  -- config: janela redesenhada (v0.54.0)
+  CFG_SEARCH_PH = "Search options…",
+  CFG_RESET = "Restore defaults",
+  CFG_RESET_CONFIRM = "Restore all KrononBags settings to their default values?",
+  CFG_RESET_DONE = "settings restored to defaults.",
+  CFG_GRP_LAYOUT = "Grid & opacity",
   -- painel de prontidão
   READY_TITLE = "Readiness", READY_HINT = "Supplies counted in the backpack",
   READY_DURABILITY = "Durability", READY_FLASK = "Flask", READY_POTION = "Potion",
@@ -372,6 +378,11 @@ local PT = {
   TAG_PRESET = "(pré-pronta)", TAG_RULE = "(regra)", TAG_CUSTOM = "(sua)",
   PRESET_MENU_TITLE = "Adicionar categoria pré-pronta", PRESET_ALL_ADDED = "(todas já adicionadas)",
   CONFIG_TITLE = "KrononBags — Configurações",
+  CFG_SEARCH_PH = "Buscar opção…",
+  CFG_RESET = "Restaurar padrões",
+  CFG_RESET_CONFIRM = "Restaurar todas as configurações do KrononBags para os valores padrão?",
+  CFG_RESET_DONE = "configurações restauradas para o padrão.",
+  CFG_GRP_LAYOUT = "Grade & opacidade",
   READY_TITLE = "Prontidão", READY_HINT = "Suprimentos contados na mochila",
   READY_DURABILITY = "Durabilidade", READY_FLASK = "Frasco", READY_POTION = "Poção",
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Pedra de Vida", READY_RUNE = "Runa/encantamento",
@@ -560,6 +571,11 @@ local ES = {
   TAG_PRESET = "(predefinida)", TAG_RULE = "(regla)", TAG_CUSTOM = "(tuya)",
   PRESET_MENU_TITLE = "Añadir categoría predefinida", PRESET_ALL_ADDED = "(todas ya añadidas)",
   CONFIG_TITLE = "KrononBags — Ajustes",
+  CFG_SEARCH_PH = "Buscar opción…",
+  CFG_RESET = "Restaurar valores",
+  CFG_RESET_CONFIRM = "¿Restaurar todos los ajustes de KrononBags a sus valores predeterminados?",
+  CFG_RESET_DONE = "ajustes restaurados a los valores predeterminados.",
+  CFG_GRP_LAYOUT = "Cuadrícula y opacidad",
   READY_TITLE = "Preparación", READY_HINT = "Suministros contados en la mochila",
   READY_DURABILITY = "Durabilidad", READY_FLASK = "Frasco", READY_POTION = "Poción",
   READY_FOOD = "Comida", READY_HEALTHSTONE = "Piedra de salud", READY_RUNE = "Runa/encantamiento",
@@ -779,6 +795,10 @@ local function InitDB()
   if KrononBagsDB.settings.searchHighlight == nil then KrononBagsDB.settings.searchHighlight = true end -- na busca, escurece o resto em vez de esconder
   if KrononBagsDB.settings.autoSellJunk == nil then KrononBagsDB.settings.autoSellJunk = true end -- vender lixo automaticamente ao abrir o vendedor
   if KrononBagsDB.settings.autoRepair == nil then KrononBagsDB.settings.autoRepair = true end -- reparar tudo ao abrir o vendedor (fundos da guilda quando possível)
+  -- v0.54.0: janela de config redesenhada — lembra posição/tamanho e última categoria aberta
+  if KrononBagsDB.settings.cfgLastTab == nil then KrononBagsDB.settings.cfgLastTab = "appearance" end
+  KrononBagsDB.settings.cfgPos = KrononBagsDB.settings.cfgPos or nil   -- {point, relPoint, x, y}
+  KrononBagsDB.settings.cfgSize = KrononBagsDB.settings.cfgSize or nil -- {w, h}
   -- favoritar e proteger agora são UMA coisa só: migra protegidos antigos
   for id in pairs(KrononBagsDB.protected) do KrononBagsDB.favorites[id] = true end
   wipe(KrononBagsDB.protected)
@@ -2605,6 +2625,14 @@ StaticPopupDialogs["KRONONBAGS_IMPORT"] = {
   EditBoxOnEscapePressed = function(self) local d = self:GetParent(); if d then d:Hide() end end,
   timeout = 0, whileDead = true, hideOnEscape = true,
 }
+-- v0.54.0: restaurar configurações para o padrão (a partir do rodapé da sidebar da config)
+StaticPopupDialogs["KRONONBAGS_RESETCFG"] = {
+  text = L.CFG_RESET_CONFIRM,
+  button1 = YES,
+  button2 = NO,
+  OnAccept = function() if CFG and CFG.resetDefaults then CFG.resetDefaults() end end,
+  timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+}
 StaticPopupDialogs["KRONONBAGS_TRANSFER_SELL"] = {
   text = L.CONFIRM_TRANSFER_SELL,
   button1 = YES,
@@ -4004,11 +4032,34 @@ Toggle = function()
   if UI:IsShown() then UI:Hide() else UI:Show(); Refresh() end
 end
 
--- ---------------- Configurações (extensível) ----------------
+-- ---------------- Configurações (redesenhada v0.54.0) ----------------
+-- Janela própria estilo DBM / SkillCapped / BetterBlizzFrames: sidebar de categorias com
+-- ícone + barra de acento azul, busca de opção, painel rolável com seções (header dourado +
+-- filete) e controles via FÁBRICA UNIFORME (Check/Slider/Dropdown). REUSA 100% das opções e
+-- callbacks antigos — mesmo DB.settings, mesmo preview de tema ao vivo. Nada de offsets cruus.
+
+-- paleta coesa (dark) — ver objetivo da v0.54.0
+local CFG_BG      = { 0.082, 0.090, 0.102 } -- #15171a corpo
+local CFG_SIDE    = { 0.063, 0.071, 0.086 } -- #101216 sidebar
+local CFG_TITLEBG = { 0.047, 0.055, 0.067 } -- #0c0e11 titlebar
+local CFG_ACCENT  = { 0.482, 0.643, 0.988 } -- #7BA4FC azul
+local CFG_GOLD    = { 1.000, 0.820, 0.000 } -- #FFD100 dourado
+local CFG_ON      = { 0.200, 0.820, 0.478 } -- #33D17A verde ligado
+local CFG_OFF     = { 0.400, 0.420, 0.460 } -- cinza desligado
+local CFG_TEXT    = { 0.850, 0.860, 0.880 } -- texto neutro
+local CFG_WHITE8  = "Interface\\Buttons\\WHITE8x8"
+
+-- backdrop FLAT: textura sólida + borda fininha branca (não o inset bisotado nativo)
+local function kbFlat(f, r, g, b, a, ba)
+  if not f.SetBackdrop then return end
+  f:SetBackdrop({ bgFile = CFG_WHITE8, edgeFile = CFG_WHITE8, edgeSize = 1, tile = false })
+  f:SetBackdropColor(r, g, b, a or 1)
+  f:SetBackdropBorderColor(1, 1, 1, ba or 0.08)
+end
+
 local catRows = {}
--- A lista de categorias agora vive num ScrollFrame dentro da aba "Categorias" (CFG.catChild).
--- As linhas ancoram no topo do scroll child; a altura do child cresce com a lista (rola sozinha),
--- nunca mais a altura da janela de configuração.
+-- A lista de categorias vive num ScrollFrame dentro do painel "Categorias" (CFG.catChild).
+-- As linhas ancoram no topo do scroll child; a altura do child cresce com a lista (rola sozinha).
 RefreshConfigCats = function()
   if not CFG or not CFG.catChild then return end
   for _, r in ipairs(catRows) do r:Hide() end
@@ -4049,7 +4100,6 @@ RefreshConfigCats = function()
     r.up:SetScript("OnClick", function() MoveCategory(i, -1); RefreshConfigCats(); Refresh() end)
     r.down:SetScript("OnClick", function() MoveCategory(i, 1); RefreshConfigCats(); Refresh() end)
     r.del:SetScript("OnClick", function() DeleteCategory(c); RefreshConfigCats(); Refresh() end)
-    -- "Regra" só pras categorias suas (custom): define uma busca que preenche a categoria sozinha
     if c.filter == nil then
       r.rule:Show()
       r.rule:SetScript("OnClick", function() KB_ruleTargetEntry = c; StaticPopup_Show("KRONONBAGS_RULE") end)
@@ -4059,417 +4109,707 @@ RefreshConfigCats = function()
     r:ClearAllPoints(); r:SetPoint("TOPLEFT", parent, "TOPLEFT", 2, y); r:Show()
     y = y - 22
   end
-  -- altura do scroll child = tamanho da lista (a barra de rolagem cuida do overflow)
   parent:SetHeight(math.max(1, -y + 2))
 end
 
 CreateConfig = function()
   CFG = CreateFrame("Frame", "KrononBagsConfig", UIParent, "BackdropTemplate")
-  -- altura FIXA: cabe folgado em telas de 768px; a aba mais cheia das curtas (Comportamento)
-  -- entra sem rolar e a aba Categorias rola por dentro. Sem mais altura dinâmica.
-  CFG:SetSize(440, 430)
+  CFG:SetSize(620, 470)
   CFG:SetPoint("CENTER")
   CFG:SetFrameStrata("DIALOG")
-  CFG:SetMovable(true); CFG:EnableMouse(true); CFG:RegisterForDrag("LeftButton")
-  CFG:SetScript("OnDragStart", CFG.StartMoving)
-  CFG:SetScript("OnDragStop", CFG.StopMovingOrSizing)
-  if CFG.SetBackdrop then
-    CFG:SetBackdrop({
-      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-      tile = true, tileSize = 16, edgeSize = 16,
-      insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
-    CFG:SetBackdropColor(0, 0, 0, 0.95)
+  CFG:SetClampedToScreen(true)
+  CFG:SetMovable(true); CFG:EnableMouse(true)
+  CFG:SetResizable(true)
+  kbFlat(CFG, CFG_BG[1], CFG_BG[2], CFG_BG[3], 0.98, 0.10)
+  if CFG.SetResizeBounds then
+    CFG:SetResizeBounds(540, 420, 880, 780)
+  elseif CFG.SetMinResize then
+    CFG:SetMinResize(540, 420); CFG:SetMaxResize(880, 780)
   end
 
-  local clogo = CFG:CreateTexture(nil, "ARTWORK")
-  clogo:SetSize(30, 30); clogo:SetPoint("TOPLEFT", 10, -8)
-  clogo:SetTexture("Interface\\AddOns\\KrononBags\\Media\\KrononLogo.tga")
+  CFG.panels = {}      -- [chave] = frame/scrollframe do painel
+  CFG.childs = {}      -- [chave] = scroll child (só nos painéis roláveis)
+  CFG.tabButtons = {}  -- [chave] = botão da sidebar
+  CFG.sideButtons = {} -- lista ordenada dos botões da sidebar
+  CFG.controls = {}    -- registro de controles (refresh / dependências / busca)
 
-  local title = CFG:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  title:SetPoint("TOP", 0, -12); title:SetText("|cfff0d98c" .. L.CONFIG_TITLE .. "|r")
+  -- ===== Barra de título =====
+  local titlebar = CreateFrame("Frame", nil, CFG, "BackdropTemplate")
+  titlebar:SetPoint("TOPLEFT", 1, -1); titlebar:SetPoint("TOPRIGHT", -1, -1)
+  titlebar:SetHeight(38)
+  kbFlat(titlebar, CFG_TITLEBG[1], CFG_TITLEBG[2], CFG_TITLEBG[3], 1, 0.06)
+  titlebar:EnableMouse(true)
+  titlebar:RegisterForDrag("LeftButton")
+  titlebar:SetScript("OnDragStart", function() CFG:StartMoving() end)
+  titlebar:SetScript("OnDragStop", function()
+    CFG:StopMovingOrSizing()
+    local p, _, rp, x, y = CFG:GetPoint()
+    if p then DB.settings.cfgPos = { p, rp, x, y } end
+  end)
+
+  local clogo = titlebar:CreateTexture(nil, "ARTWORK")
+  clogo:SetSize(26, 26); clogo:SetPoint("LEFT", 10, 0)
+  clogo:SetTexture("Interface\\AddOns\\KrononBags\\Media\\KrononLogo.tga")
+  local title = titlebar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  title:SetPoint("LEFT", clogo, "RIGHT", 8, 0)
+  title:SetText(L.CONFIG_TITLE)
+  title:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
+
+  local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")) or ""
+  local verFS = titlebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  verFS:SetPoint("LEFT", title, "RIGHT", 8, -1); verFS:SetText("v" .. ver)
 
   local close = CreateFrame("Button", nil, CFG, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", 2, 2)
 
-  -- versão lida do .toc automaticamente (usada nos créditos da aba "Sobre")
-  local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")) or ""
+  -- ===== Sidebar (esquerda) =====
+  local sidebar = CreateFrame("Frame", nil, CFG, "BackdropTemplate")
+  sidebar:SetPoint("TOPLEFT", 1, -39)
+  sidebar:SetPoint("BOTTOMLEFT", 1, 1)
+  sidebar:SetWidth(168)
+  kbFlat(sidebar, CFG_SIDE[1], CFG_SIDE[2], CFG_SIDE[3], 1, 0.06)
 
-  -- linha divisória vertical entre a sidebar de abas e a área de conteúdo
   local vdiv = CFG:CreateTexture(nil, "ARTWORK")
-  vdiv:SetColorTexture(0.4, 0.4, 0.45, 0.4); vdiv:SetWidth(1)
-  vdiv:SetPoint("TOPLEFT", 116, -44); vdiv:SetPoint("BOTTOMLEFT", 116, 14)
+  vdiv:SetColorTexture(1, 1, 1, 0.06); vdiv:SetWidth(1)
+  vdiv:SetPoint("TOPLEFT", sidebar, "TOPRIGHT", 0, 0)
+  vdiv:SetPoint("BOTTOMLEFT", sidebar, "BOTTOMRIGHT", 0, 0)
 
-  -- ===== Abas: sidebar (esquerda) + painéis de conteúdo (direita) =====
-  CFG.panels = {}      -- [chave] = frame-painel
-  CFG.tabButtons = {}  -- [chave] = botão da sidebar
+  -- busca de opção
+  local searchBox = CreateFrame("EditBox", nil, sidebar, "InputBoxTemplate")
+  searchBox:SetSize(140, 20); searchBox:SetPoint("TOPLEFT", 14, -12)
+  searchBox:SetAutoFocus(false); searchBox:SetAttribute("nodeignore", true)
+  local searchPH = searchBox:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  searchPH:SetPoint("LEFT", 4, 0); searchPH:SetText(L.CFG_SEARCH_PH)
 
-  -- mostra o painel da aba pedida, esconde os outros e destaca o botão ativo
+  -- área de conteúdo (à direita da sidebar, abaixo da barra de título)
+  local content = CreateFrame("Frame", nil, CFG)
+  content:SetPoint("TOPLEFT", sidebar, "TOPRIGHT", 6, -4)
+  content:SetPoint("BOTTOMRIGHT", -8, 10)
+
+  -- alça de redimensionar (canto inferior direito)
+  local grip = CreateFrame("Button", nil, CFG)
+  grip:SetSize(16, 16); grip:SetPoint("BOTTOMRIGHT", -2, 2)
+  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+  grip:SetScript("OnMouseDown", function() CFG:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseUp", function()
+    CFG:StopMovingOrSizing()
+    DB.settings.cfgSize = { CFG:GetWidth(), CFG:GetHeight() }
+  end)
+
+  -- ========= FÁBRICA DE CONTROLES =========
+  -- ctx = { parent = scrollChild, tab = chave, y = cursor }
+  -- header de seção: FontString dourado + filete 1px com gradiente
+  local function Section(ctx, text)
+    local h = ctx.parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    h:SetPoint("TOPLEFT", 14, ctx.y)
+    h:SetText(text); h:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
+    local d = ctx.parent:CreateTexture(nil, "ARTWORK")
+    d:SetHeight(1)
+    d:SetPoint("LEFT", h, "RIGHT", 10, 0)
+    d:SetPoint("RIGHT", ctx.parent, "RIGHT", -6, 0)
+    d:SetPoint("TOP", h, "CENTER", 0, 0)
+    if d.SetGradient and CreateColor then
+      d:SetColorTexture(1, 1, 1, 1)
+      d:SetGradient("HORIZONTAL",
+        CreateColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.55),
+        CreateColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.0))
+    else
+      d:SetColorTexture(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.35)
+    end
+    ctx.y = ctx.y - 26
+  end
+
+  -- elementos comuns de uma linha de opção (highlight de hover + flash de busca + tooltip)
+  local function decorateRow(row, label, tipKey)
+    local hl = row:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints(); hl:SetTexture(CFG_WHITE8); hl:SetVertexColor(1, 1, 1, 0.05)
+    local flash = row:CreateTexture(nil, "ARTWORK")
+    flash:SetAllPoints(); flash:SetTexture(CFG_WHITE8)
+    flash:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.5)
+    flash:Hide()
+    row.flash = flash
+    row:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(label)
+      if tipKey and L[tipKey] then GameTooltip:AddLine(L[tipKey], 0.8, 0.8, 0.8, true) end
+      GameTooltip:Show()
+    end)
+    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+
+  -- registra controle (refresh / dependência / busca)
+  local function register(ctx, entry)
+    entry.tab = ctx.tab
+    table.insert(CFG.controls, entry)
+  end
+
+  -- toggle estilo switch (verde ligado / cinza desligado) + label colorida + descrição
+  local function Check(ctx, label, getf, setf, tipKey, depGet)
+    local row = CreateFrame("Button", nil, ctx.parent)
+    row:SetPoint("TOPLEFT", 8, ctx.y)
+    row:SetPoint("RIGHT", ctx.parent, "RIGHT", -6, 0)
+    row:SetHeight(46)
+    decorateRow(row, label, tipKey)
+    -- switch
+    local sw = CreateFrame("Frame", nil, row)
+    sw:SetSize(40, 20); sw:SetPoint("TOPLEFT", 8, -2)
+    local track = sw:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints(); track:SetTexture(CFG_WHITE8)
+    local knob = sw:CreateTexture(nil, "ARTWORK")
+    knob:SetSize(16, 16); knob:SetTexture(CFG_WHITE8); knob:SetVertexColor(0.96, 0.96, 0.97, 1)
+    local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lbl:SetPoint("TOPLEFT", sw, "TOPRIGHT", 12, -2); lbl:SetJustifyH("LEFT")
+    lbl:SetText(label)
+    local dsc = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    dsc:SetPoint("TOPLEFT", lbl, "BOTTOMLEFT", 0, -3)
+    dsc:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+    dsc:SetJustifyH("LEFT"); dsc:SetWordWrap(true)
+    if tipKey and L[tipKey] then dsc:SetText(L[tipKey]) end
+    local function paint(on)
+      if on then
+        track:SetVertexColor(CFG_ON[1], CFG_ON[2], CFG_ON[3], 0.85)
+        knob:ClearAllPoints(); knob:SetPoint("RIGHT", -2, 0)
+        lbl:SetTextColor(CFG_ON[1], CFG_ON[2], CFG_ON[3])
+      else
+        track:SetVertexColor(CFG_OFF[1], CFG_OFF[2], CFG_OFF[3], 0.55)
+        knob:ClearAllPoints(); knob:SetPoint("LEFT", 2, 0)
+        lbl:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+      end
+    end
+    paint(getf() and true or false)
+    row:SetScript("OnClick", function()
+      local nv = not (getf() and true or false)
+      setf(nv); paint(nv)
+      if CFG.updateDependents then CFG.updateDependents() end
+    end)
+    local entry = { label = label, frame = row, depGet = depGet }
+    entry.refresh = function() paint(getf() and true or false) end
+    entry.setEnabled = function(en)
+      row:SetAlpha(en and 1 or 0.4)
+      row:EnableMouse(en and true or false)
+    end
+    register(ctx, entry)
+    ctx.y = ctx.y - 50
+    return entry
+  end
+
+  -- slider com valor no rótulo
+  -- dispf (opcional): converte o valor cru no número exibido (ex: opacidade 0.92 -> 92)
+  local function Slider(ctx, name, fmtKey, vmin, vmax, step, isInt, getf, setf, tipKey, dispf)
+    local row = CreateFrame("Frame", nil, ctx.parent)
+    row:SetPoint("TOPLEFT", 8, ctx.y)
+    row:SetPoint("RIGHT", ctx.parent, "RIGHT", -6, 0)
+    row:SetHeight(52)
+    local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lbl:SetPoint("TOPLEFT", 8, -2)
+    lbl:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+    local function disp(v) if dispf then return dispf(v) elseif isInt then return math.floor(v + 0.5) else return v end end
+    local function setLbl(v) lbl:SetText(string.format(L[fmtKey], disp(v))) end
+    local s = CreateFrame("Slider", name, row, "OptionsSliderTemplate")
+    s:SetPoint("TOPLEFT", 10, -24); s:SetPoint("TOPRIGHT", -8, -24)
+    s:SetMinMaxValues(vmin, vmax); s:SetValueStep(step); s:SetObeyStepOnDrag(true)
+    local low  = s.Low  or _G[(name or "") .. "Low"];  if low  then low:SetText(isInt and tostring(math.floor(vmin)) or (math.floor(vmin * 100) .. "%")) end
+    local high = s.High or _G[(name or "") .. "High"]; if high then high:SetText(isInt and tostring(math.floor(vmax)) or (math.floor(vmax * 100) .. "%")) end
+    local txt  = s.Text or _G[(name or "") .. "Text"]; if txt  then txt:SetText("") end
+    s:SetValue(getf()); setLbl(getf())
+    s:SetScript("OnValueChanged", function(_, v)
+      if isInt then v = math.floor(v + 0.5) end
+      setf(v); setLbl(v)
+    end)
+    s:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(lbl:GetText())
+      if tipKey and L[tipKey] then GameTooltip:AddLine(L[tipKey], 0.8, 0.8, 0.8, true) end
+      GameTooltip:Show()
+    end)
+    s:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local flash = row:CreateTexture(nil, "ARTWORK")
+    flash:SetAllPoints(); flash:SetTexture(CFG_WHITE8)
+    flash:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.5); flash:Hide()
+    row.flash = flash
+    local entry = { label = (L[fmtKey] or fmtKey):gsub("[:%%].*$", ""), frame = row }
+    entry.refresh = function() s:SetValue(getf()); setLbl(getf()) end
+    register(ctx, entry)
+    ctx.y = ctx.y - 56
+    return entry
+  end
+
+  -- botão de menu (estilo dropdown) usando MenuUtil — reusado pra ordenação
+  local function MenuButton(ctx, label, getTextf, buildf, tipKey)
+    local row = CreateFrame("Frame", nil, ctx.parent)
+    row:SetPoint("TOPLEFT", 8, ctx.y)
+    row:SetPoint("RIGHT", ctx.parent, "RIGHT", -6, 0)
+    row:SetHeight(44)
+    local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lbl:SetPoint("TOPLEFT", 8, -2); lbl:SetText(label)
+    lbl:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+    local btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    btn:SetSize(210, 22); btn:SetPoint("TOPLEFT", 10, -20); btn:SetAttribute("nodeignore", true)
+    local function upd() btn:SetText(getTextf()) end
+    upd()
+    btn:SetScript("OnClick", function(self)
+      if not MenuUtil then return end
+      MenuUtil.CreateContextMenu(self, function(owner, rootMenu) buildf(owner, rootMenu, upd) end)
+    end)
+    if tipKey and L[tipKey] then
+      btn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(label)
+        GameTooltip:AddLine(L[tipKey], 0.8, 0.8, 0.8, true); GameTooltip:Show()
+      end)
+      btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+    local flash = row:CreateTexture(nil, "ARTWORK")
+    flash:SetAllPoints(); flash:SetTexture(CFG_WHITE8)
+    flash:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.5); flash:Hide()
+    row.flash = flash
+    local entry = { label = label, frame = row }
+    entry.refresh = upd
+    register(ctx, entry)
+    ctx.y = ctx.y - 48
+    return entry
+  end
+
+  -- ===== mostra/oculta painel + destaca o botão da sidebar =====
   local function ShowConfigTab(key)
     for k, p in pairs(CFG.panels) do p:SetShown(k == key) end
     for k, b in pairs(CFG.tabButtons) do
-      local fs = b:GetFontString()
-      if k == key then
-        b:LockHighlight()
-        if fs then fs:SetTextColor(1, 0.82, 0) end
-      else
-        b:UnlockHighlight()
-        if fs then fs:SetTextColor(1, 1, 1) end
+      local active = (k == key)
+      if b.selbg then b.selbg:SetShown(active) end
+      if b.bar then b.bar:SetShown(active) end
+      if b.fs then
+        if active then b.fs:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
+        else b.fs:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3]) end
       end
     end
+    local sf, child = CFG.panels[key], CFG.childs[key]
+    if sf and child and sf.GetWidth then child:SetWidth(sf:GetWidth()) end
     CFG.activeTab = key
+    if DB and DB.settings then DB.settings.cfgLastTab = key end
   end
   CFG.ShowTab = ShowConfigTab
 
-  -- cria um painel de conteúdo (altura fixa, à direita da sidebar)
-  local function makePanel(key)
-    local p = CreateFrame("Frame", nil, CFG)
-    p:SetPoint("TOPLEFT", 120, -44)
-    p:SetPoint("BOTTOMRIGHT", -10, 14)
+  -- cria um painel ROLÁVEL (scrollframe + child) e devolve o child + um ctx
+  local function makeScrollPanel(key)
+    local sf = CreateFrame("ScrollFrame", nil, content, "UIPanelScrollFrameTemplate")
+    sf:SetPoint("TOPLEFT", 0, 0)
+    sf:SetPoint("BOTTOMRIGHT", -22, 0)
+    local child = CreateFrame("Frame", nil, sf)
+    child:SetSize(10, 10)
+    sf:SetScrollChild(child)
+    sf:SetScript("OnSizeChanged", function(self, w) if w and w > 0 then child:SetWidth(w) end end)
+    sf:Hide()
+    CFG.panels[key] = sf
+    CFG.childs[key] = child
+    return child, { parent = child, tab = key, y = -10 }
+  end
+  -- fecha um painel: fixa a altura do child pra rolagem
+  local function finishPanel(child, ctx)
+    child:SetHeight(math.max(10, -ctx.y + 14))
+  end
+  -- painel PLANO (sem rolagem própria) — usado por "Categorias" (já tem scroll interno)
+  local function makeFlatPanel(key)
+    local p = CreateFrame("Frame", nil, content)
+    p:SetPoint("TOPLEFT", 0, 0); p:SetPoint("BOTTOMRIGHT", 0, 0)
     p:Hide()
     CFG.panels[key] = p
     return p
   end
-  -- título + linha no topo de cada painel (reaproveita o rótulo da aba)
-  local function panelTitle(p, text)
-    local h = p:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    h:SetPoint("TOPLEFT", 4, -4); h:SetText("|cfff0d98c" .. text .. "|r")
-    local d = p:CreateTexture(nil, "ARTWORK")
-    d:SetColorTexture(0.4, 0.4, 0.45, 0.5); d:SetHeight(1)
-    d:SetPoint("TOPLEFT", 0, -22); d:SetPoint("TOPRIGHT", 0, -22)
-  end
-  -- checkbox: agora recebe o PARENT (o painel da aba); offsets relativos ao topo do painel
-  local function check(parent, name, x, y, label, getf, setf, tipKey)
-    local c = CreateFrame("CheckButton", name, parent, "UICheckButtonTemplate")
-    c:SetPoint("TOPLEFT", x, y)
-    local lbl = c.Text or _G[name .. "Text"]
-    if lbl then lbl:SetText(label) end
-    c:SetChecked(getf())
-    c:SetScript("OnClick", function(self) setf(self:GetChecked() and true or false) end)
-    if tipKey then
-      c:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(label)
-        GameTooltip:AddLine(L[tipKey], 0.8, 0.8, 0.8, true)
-        GameTooltip:Show()
-      end)
-      c:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    end
-    return c
-  end
-  -- sub-título de grupo dentro de um painel: rótulo dourado pequeno + linha fininha à direita
-  local function groupLabel(parent, y, text)
-    local h = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    h:SetPoint("TOPLEFT", 8, y)
-    h:SetText("|cfff0d98c" .. text .. "|r")
-    local d = parent:CreateTexture(nil, "ARTWORK")
-    d:SetColorTexture(0.4, 0.4, 0.45, 0.35); d:SetHeight(1)
-    d:SetPoint("LEFT", h, "RIGHT", 8, 0)
-    d:SetPoint("RIGHT", parent, "RIGHT", -6, 0)
-    return h
-  end
 
-  -- ordem das abas (reaproveita os rótulos de seção L.SEC_*)
+  -- ===== ordem + ícones das categorias da sidebar =====
   local TABS = {
-    { key = "appearance", label = L.SEC_APPEARANCE },
-    { key = "icons",      label = L.SEC_ICONS },
-    { key = "behavior",   label = L.SEC_BEHAVIOR },
-    { key = "vendor",     label = L.SEC_VENDOR },
-    { key = "bank",       label = L.SEC_BANK },
-    { key = "categories", label = L.SEC_CATEGORIES },
-    { key = "about",      label = L.SEC_ABOUT },
+    { key = "appearance", label = L.SEC_APPEARANCE, icon = "Interface\\ICONS\\INV_Misc_PaintBrush" },
+    { key = "icons",      label = L.SEC_ICONS,      icon = "Interface\\ICONS\\INV_Misc_Gem_Variety_01" },
+    { key = "behavior",   label = L.SEC_BEHAVIOR,   icon = "Interface\\ICONS\\INV_Misc_Gear_01" },
+    { key = "vendor",     label = L.SEC_VENDOR,     icon = "Interface\\ICONS\\INV_Misc_Coin_01" },
+    { key = "bank",       label = L.SEC_BANK,       icon = "Interface\\ICONS\\INV_Misc_Coinbag_Special" },
+    { key = "categories", label = L.SEC_CATEGORIES, icon = "Interface\\ICONS\\INV_Misc_Book_09" },
+    { key = "about",      label = L.SEC_ABOUT,      icon = "Interface\\ICONS\\INV_Misc_QuestionMark" },
   }
   for i, t in ipairs(TABS) do
-    local p = makePanel(t.key)
-    panelTitle(p, t.label)
-    local b = CreateFrame("Button", nil, CFG, "UIPanelButtonTemplate")
-    b:SetSize(104, 24); b:SetText(t.label)
-    b:SetPoint("TOPLEFT", 8, -44 - (i - 1) * 27)
-    b:SetAttribute("nodeignore", true) -- só mouse; fora da navegação por controle
+    local b = CreateFrame("Button", nil, sidebar)
+    b:SetSize(154, 30)
+    b:SetPoint("TOPLEFT", 7, -44 - (i - 1) * 32)
+    b.tabKey = t.key
+    local selbg = b:CreateTexture(nil, "BACKGROUND")
+    selbg:SetAllPoints(); selbg:SetTexture(CFG_WHITE8)
+    selbg:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.13); selbg:Hide()
+    b.selbg = selbg
+    local bar = b:CreateTexture(nil, "ARTWORK")
+    bar:SetSize(3, 30); bar:SetPoint("LEFT", 0, 0); bar:SetTexture(CFG_WHITE8)
+    bar:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 1); bar:Hide()
+    b.bar = bar
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints(); hl:SetTexture(CFG_WHITE8); hl:SetVertexColor(1, 1, 1, 0.05)
+    local ic = b:CreateTexture(nil, "ARTWORK")
+    ic:SetSize(16, 16); ic:SetPoint("LEFT", 12, 0); ic:SetTexture(t.icon)
+    ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    fs:SetPoint("LEFT", ic, "RIGHT", 8, 0); fs:SetText(t.label)
+    fs:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+    b.fs = fs
     b:SetScript("OnClick", function() ShowConfigTab(t.key) end)
+    b:SetAttribute("nodeignore", true)
     CFG.tabButtons[t.key] = b
+    table.insert(CFG.sideButtons, b)
   end
 
-  -- ========== Aparência ==========
-  local apP = CFG.panels.appearance
-  -- grupo: Janela (moldura + opacidade + colunas)
-  groupLabel(apP, -32, L.GRP_WINDOW)
-  check(apP, "KrononBagsFrameStyleCheck", 4, -50, L.OPT_BLIZZ_FRAME, function() return DB.settings.frameStyle == "blizzard" end, function(v)
-    DB.settings.frameStyle = v and "blizzard" or "dark"
-    if CFG.updateThemeBtnState then CFG.updateThemeBtnState() end -- liga/desliga o seletor de tema na hora
-    print(KB_PREFIX .. L.MSG_RELOAD_VISUAL)
-  end, "TIP_OPT_BLIZZ_FRAME")
-  -- grupo: Tema (dropdown de cor, mais abaixo) — dropdown de TEMA com pré-visualização ao vivo (hover = preview, clique = aplica)
-  groupLabel(apP, -202, L.THEME_LABEL)
-  local themeBtn = CreateFrame("Button", "KrononBagsThemeDropdown", apP, "UIPanelButtonTemplate")
-  themeBtn:SetSize(180, 24); themeBtn:SetPoint("TOPLEFT", 8, -220)
-  themeBtn:SetAttribute("nodeignore", true) -- só mouse; fora da navegação por controle
-  local function themeOf(key) return KB_THEMES[key] or KB_THEMES.dark end
-  local function setThemeBtnLabel() themeBtn:SetText(L.THEME_LABEL .. ": " .. themeOf(DB.settings.theme).name) end
-  setThemeBtnLabel()
-  themeBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(L.THEME_LABEL)
-    if DB.settings.frameStyle == "blizzard" then GameTooltip:AddLine(L.THEME_NEEDS_DARK, 1, 0.5, 0.5, true) end
-    GameTooltip:Show()
-  end)
-  themeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- "Restaurar padrões" no rodapé da sidebar
+  local resetBtn = CreateFrame("Button", nil, sidebar)
+  resetBtn:SetSize(150, 26); resetBtn:SetPoint("BOTTOM", 0, 10)
+  resetBtn:SetAttribute("nodeignore", true)
+  local rbBG = resetBtn:CreateTexture(nil, "BACKGROUND")
+  rbBG:SetAllPoints(); rbBG:SetTexture(CFG_WHITE8); rbBG:SetVertexColor(1, 1, 1, 0.05)
+  local rbHL = resetBtn:CreateTexture(nil, "HIGHLIGHT")
+  rbHL:SetAllPoints(); rbHL:SetTexture(CFG_WHITE8); rbHL:SetVertexColor(0.85, 0.30, 0.30, 0.25)
+  local rbFS = resetBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  rbFS:SetPoint("CENTER"); rbFS:SetText(L.CFG_RESET); rbFS:SetTextColor(0.9, 0.6, 0.6)
+  resetBtn:SetScript("OnClick", function() StaticPopup_Show("KRONONBAGS_RESETCFG") end)
 
-  local themeList = CreateFrame("Frame", "KrononBagsThemeList", themeBtn, "BackdropTemplate")
-  themeList:SetPoint("TOPLEFT", themeBtn, "BOTTOMLEFT", 0, -2)
-  themeList:SetSize(180, #KB_THEMES * 22 + 8)
-  themeList:SetFrameStrata("DIALOG")
-  themeList:SetBackdrop({
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 },
-  })
-  themeList:SetBackdropColor(0, 0, 0, 0.95)
-  themeList:EnableMouse(true)
-  themeList:Hide()
-  -- fechar sem escolher (toggle pelo botão / config fecha) restaura o tema salvo
-  themeList:SetScript("OnHide", function() ApplyTheme(DB.settings.theme) end)
+  -- ========= APARÊNCIA =========
+  do
+    local child, ctx = makeScrollPanel("appearance")
+    Section(ctx, L.GRP_WINDOW)
+    Check(ctx, L.OPT_BLIZZ_FRAME,
+      function() return DB.settings.frameStyle == "blizzard" end,
+      function(v)
+        DB.settings.frameStyle = v and "blizzard" or "dark"
+        if CFG.updateThemeBtnState then CFG.updateThemeBtnState() end
+        print(KB_PREFIX .. L.MSG_RELOAD_VISUAL)
+      end, "TIP_OPT_BLIZZ_FRAME")
 
-  -- gate: o tema de cor não afeta a moldura nativa, então o seletor fica desabilitado nela
-  CFG.themeBtn = themeBtn
-  local function updateThemeBtnState()
-    if DB.settings.frameStyle == "blizzard" then
-      themeList:Hide()
-      themeBtn:Disable()
-    else
-      themeBtn:Enable()
+    -- TEMA (dropdown com PREVIEW ao vivo: hover = preview, clique = aplica, OnHide = restaura)
+    Section(ctx, L.THEME_LABEL)
+    local trow = CreateFrame("Frame", nil, child)
+    trow:SetPoint("TOPLEFT", 8, ctx.y); trow:SetPoint("RIGHT", child, "RIGHT", -6, 0); trow:SetHeight(34)
+    local themeBtn = CreateFrame("Button", "KrononBagsThemeDropdown", trow, "UIPanelButtonTemplate")
+    themeBtn:SetSize(200, 24); themeBtn:SetPoint("TOPLEFT", 10, -4)
+    themeBtn:SetAttribute("nodeignore", true)
+    local function themeOf(key) return KB_THEMES[key] or KB_THEMES.dark end
+    local function setThemeBtnLabel() themeBtn:SetText(L.THEME_LABEL .. ": " .. themeOf(DB.settings.theme).name) end
+    setThemeBtnLabel()
+    themeBtn:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:SetText(L.THEME_LABEL)
+      if DB.settings.frameStyle == "blizzard" then GameTooltip:AddLine(L.THEME_NEEDS_DARK, 1, 0.5, 0.5, true) end
+      GameTooltip:Show()
+    end)
+    themeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- parent = CFG (não o botão) pra NÃO ser cortado pelo clipping do ScrollFrame da aba
+    local themeList = CreateFrame("Frame", "KrononBagsThemeList", CFG, "BackdropTemplate")
+    themeList:SetPoint("TOPLEFT", themeBtn, "BOTTOMLEFT", 0, -2)
+    themeList:SetSize(200, #KB_THEMES * 22 + 8)
+    themeList:SetFrameStrata("FULLSCREEN_DIALOG")
+    kbFlat(themeList, CFG_SIDE[1], CFG_SIDE[2], CFG_SIDE[3], 0.98, 0.12)
+    themeList:EnableMouse(true); themeList:Hide()
+    themeList:SetScript("OnHide", function() ApplyTheme(DB.settings.theme) end) -- restaura o salvo
+    CFG.themeBtn = themeBtn
+    local function updateThemeBtnState()
+      if DB.settings.frameStyle == "blizzard" then themeList:Hide(); themeBtn:Disable()
+      else themeBtn:Enable() end
+    end
+    CFG.updateThemeBtnState = updateThemeBtnState
+    updateThemeBtnState()
+    for i, th in ipairs(KB_THEMES) do
+      local trowi = CreateFrame("Button", nil, themeList)
+      trowi:SetSize(188, 20); trowi:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 22)
+      trowi:SetAttribute("nodeignore", true)
+      local hl = trowi:CreateTexture(nil, "HIGHLIGHT")
+      hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.14)
+      local swatch = trowi:CreateTexture(nil, "ARTWORK")
+      swatch:SetSize(12, 12); swatch:SetPoint("LEFT", 2, 0)
+      swatch:SetColorTexture(th.border[1], th.border[2], th.border[3], 1)
+      local fs = trowi:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      fs:SetPoint("LEFT", swatch, "RIGHT", 8, 0); fs:SetText(th.name)
+      trowi:SetScript("OnEnter", function() ApplyTheme(th.key) end) -- PREVIEW ao vivo
+      trowi:SetScript("OnClick", function()
+        DB.settings.theme = th.key; ApplyTheme(th.key); setThemeBtnLabel(); themeList:Hide()
+      end)
+    end
+    themeBtn:SetScript("OnShow", function() setThemeBtnLabel(); updateThemeBtnState() end)
+    themeBtn:SetScript("OnClick", function()
+      if themeList:IsShown() then themeList:Hide() else setThemeBtnLabel(); themeList:Show() end
+    end)
+    -- registra o tema (refresh + dependência do frameStyle)
+    table.insert(CFG.controls, {
+      tab = "appearance", label = L.THEME_LABEL, frame = trow,
+      refresh = setThemeBtnLabel,
+      depGet = function() return DB.settings.frameStyle ~= "blizzard" end,
+      setEnabled = function(en) if en then themeBtn:Enable() else themeBtn:Disable(); themeList:Hide() end end,
+    })
+    ctx.y = ctx.y - 38
+
+    Section(ctx, L.CFG_GRP_LAYOUT)
+    Slider(ctx, "KrononBagsOpacitySlider", "OPT_OPACITY", 0.1, 1.0, 0.05, false,
+      function() return (DB.settings and DB.settings.opacity) or 0.92 end,
+      function(v) DB.settings.opacity = v; ApplyOpacity() end, "TIP_OPT_OPACITY",
+      function(v) return math.floor(v * 100 + 0.5) end)
+    Slider(ctx, "KrononBagsColsSlider", "OPT_COLS", COLS_MIN, COLS_MAX, 1, true,
+      function() return (DB.settings and DB.settings.cols) or 14 end,
+      function(v) DB.settings.cols = v; Refresh() end, "TIP_OPT_COLS")
+    finishPanel(child, ctx)
+  end
+
+  -- ========= ÍCONES =========
+  do
+    local child, ctx = makeScrollPanel("icons")
+    Section(ctx, L.SEC_ICONS)
+    local ilvl = Check(ctx, L.OPT_SHOW_ILVL,
+      function() return DB.settings.showIlvl end,
+      function(v) DB.settings.showIlvl = v; Refresh() end, "TIP_OPT_SHOW_ILVL")
+    Check(ctx, L.OPT_ILVL_RARITY,
+      function() return DB.settings.ilvlUseRarity end,
+      function(v) DB.settings.ilvlUseRarity = v; Refresh() end, "TIP_OPT_ILVL_RARITY",
+      function() return DB.settings.showIlvl end)
+    Check(ctx, L.OPT_GEAR_TRACK,
+      function() return DB.settings.showGearTrack end,
+      function(v) DB.settings.showGearTrack = v; Refresh() end, "TIP_OPT_GEAR_TRACK",
+      function() return DB.settings.showIlvl end)
+    Check(ctx, L.OPT_QUAL_BORDER,
+      function() return DB.settings.qualityBorder end,
+      function(v) DB.settings.qualityBorder = v; Refresh() end, "TIP_OPT_QUAL_BORDER")
+    finishPanel(child, ctx)
+  end
+
+  -- ========= COMPORTAMENTO =========
+  do
+    local child, ctx = makeScrollPanel("behavior")
+    Section(ctx, L.GRP_WINDOW)
+    Check(ctx, L.OPT_AUTOOPEN,
+      function() return DB.settings.autoOpen end,
+      function(v) DB.settings.autoOpen = v end, "TIP_OPT_AUTOOPEN")
+    Check(ctx, L.OPT_REPLACE_BAGS,
+      function() return DB.settings.replaceBags end,
+      function(v) DB.settings.replaceBags = v; print(KB_PREFIX .. L.MSG_RELOAD_BAG) end, "TIP_OPT_REPLACE_BAGS")
+
+    Section(ctx, L.GRP_ORGANIZE)
+    Check(ctx, L.OPT_STACK,
+      function() return DB.settings.stackItems end,
+      function(v) DB.settings.stackItems = v; Refresh() end, "TIP_OPT_STACK")
+    local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
+    MenuButton(ctx, L.SORT_MENU_TITLE,
+      function() return L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL) end,
+      function(owner, rootMenu, upd)
+        rootMenu:CreateTitle(L.SORT_MENU_TITLE)
+        for _, k in ipairs({ "ilvl", "quality", "name", "type", "recent" }) do
+          rootMenu:CreateButton(SORT_NAMES[k], function() DB.settings.sortMode = k; upd(); Refresh() end)
+        end
+      end, "TIP_OPT_SORT")
+    Check(ctx, L.OPT_NEST_EXPANSION,
+      function() return DB.settings.nestByExpansion end,
+      function(v) DB.settings.nestByExpansion = v; Refresh() end, "TIP_OPT_NEST_EXPANSION")
+    Check(ctx, L.OPT_COMPACT_EXPAC,
+      function() return DB.settings.compactExpac end,
+      function(v) DB.settings.compactExpac = v; Refresh() end, "TIP_OPT_COMPACT_EXPAC",
+      function() return DB.settings.nestByExpansion end)
+
+    Section(ctx, L.GRP_SEARCH)
+    Check(ctx, L.OPT_SEARCH_HL,
+      function() return DB.settings.searchHighlight end,
+      function(v) DB.settings.searchHighlight = v; Refresh() end, "TIP_OPT_SEARCH_HL")
+
+    Section(ctx, L.GRP_PROTECT)
+    Check(ctx, L.OPT_PROTECT,
+      function() return DB.settings.autoProtectCategorized end,
+      function(v) DB.settings.autoProtectCategorized = v; Refresh() end, "TIP_OPT_PROTECT")
+    Check(ctx, L.OPT_ALT_COUNTS,
+      function() return DB.settings.altCounts end,
+      function(v) DB.settings.altCounts = v end, "TIP_OPT_ALT_COUNTS")
+    finishPanel(child, ctx)
+  end
+
+  -- ========= VENDEDOR =========
+  do
+    local child, ctx = makeScrollPanel("vendor")
+    Section(ctx, L.SEC_VENDOR)
+    Check(ctx, L.OPT_AUTOSELL,
+      function() return DB.settings.autoSellJunk end,
+      function(v) DB.settings.autoSellJunk = v end, "TIP_OPT_AUTOSELL")
+    Check(ctx, L.OPT_AUTOREPAIR,
+      function() return DB.settings.autoRepair end,
+      function(v) DB.settings.autoRepair = v end, "TIP_OPT_AUTOREPAIR")
+    finishPanel(child, ctx)
+  end
+
+  -- ========= BANCO =========
+  do
+    local child, ctx = makeScrollPanel("bank")
+    Section(ctx, L.SEC_BANK)
+    Check(ctx, L.OPT_BANK_REPLACE,
+      function() return DB.settings.bankReplace end,
+      function(v) DB.settings.bankReplace = v; print(KB_PREFIX .. L.MSG_RELOAD_BANK) end, "TIP_OPT_BANK_REPLACE")
+    finishPanel(child, ctx)
+  end
+
+  -- ========= CATEGORIAS (painel plano: tem scroll interno próprio) =========
+  do
+    local catP = makeFlatPanel("categories")
+    local secH = catP:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    secH:SetPoint("TOPLEFT", 8, -8); secH:SetText(L.SEC_CATEGORIES)
+    secH:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
+    local secD = catP:CreateTexture(nil, "ARTWORK")
+    secD:SetColorTexture(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.30); secD:SetHeight(1)
+    secD:SetPoint("LEFT", secH, "RIGHT", 10, 0); secD:SetPoint("RIGHT", catP, "RIGHT", -6, 0)
+    local catHint = catP:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    catHint:SetPoint("TOPLEFT", 8, -30); catHint:SetPoint("RIGHT", catP, "RIGHT", -6, 0); catHint:SetJustifyH("LEFT")
+    catHint:SetText(L.CAT_HINT)
+
+    local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", catP, "InputBoxTemplate")
+    newCat:SetSize(120, 20); newCat:SetPoint("TOPLEFT", 12, -64); newCat:SetAutoFocus(false)
+    newCat:SetAttribute("nodeignore", true)
+    local addBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
+    addBtn:SetSize(56, 20); addBtn:SetText(L.BTN_CREATE); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
+    addBtn:SetAttribute("nodeignore", true)
+    local presetBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
+    presetBtn:SetSize(96, 20); presetBtn:SetText(L.BTN_PRESET); presetBtn:SetPoint("LEFT", addBtn, "RIGHT", 6, 0)
+    presetBtn:SetAttribute("nodeignore", true)
+    local function doAdd()
+      AddCategory(newCat:GetText()); newCat:SetText(""); newCat:ClearFocus()
+      RefreshConfigCats(); Refresh()
+    end
+    addBtn:SetScript("OnClick", doAdd)
+    newCat:SetScript("OnEnterPressed", doAdd)
+    newCat:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    presetBtn:SetScript("OnClick", function(self)
+      if not MenuUtil then return end
+      MenuUtil.CreateContextMenu(self, function(owner, rootMenu)
+        rootMenu:CreateTitle(L.PRESET_MENU_TITLE)
+        local any = false
+        for _, p in ipairs(AVAILABLE_PRESETS) do
+          local exists = false
+          for _, c in ipairs(DB.catList) do if c.filter == p.filter then exists = true break end end
+          if not exists then
+            any = true
+            rootMenu:CreateButton(CatDisplay(p.name), function() AddPreset(p); RefreshConfigCats(); Refresh() end)
+          end
+        end
+        if not any then rootMenu:CreateButton("|cff999999" .. L.PRESET_ALL_ADDED .. "|r", function() end) end
+      end)
+    end)
+
+    local exportBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
+    exportBtn:SetSize(100, 20); exportBtn:SetText(L.BTN_EXPORT); exportBtn:SetPoint("TOPLEFT", 12, -92)
+    exportBtn:SetAttribute("nodeignore", true)
+    exportBtn:SetScript("OnClick", function() KB_exportStr = ExportCategories(); StaticPopup_Show("KRONONBAGS_EXPORT") end)
+    local importBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
+    importBtn:SetSize(100, 20); importBtn:SetText(L.BTN_IMPORT); importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0)
+    importBtn:SetAttribute("nodeignore", true)
+    importBtn:SetScript("OnClick", function() StaticPopup_Show("KRONONBAGS_IMPORT") end)
+
+    local catScroll = CreateFrame("ScrollFrame", "KrononBagsCatScroll", catP, "UIPanelScrollFrameTemplate")
+    catScroll:SetPoint("TOPLEFT", 6, -118)
+    catScroll:SetPoint("BOTTOMRIGHT", -26, 6)
+    catScroll:SetAttribute("nodeignore", true)
+    local catChild = CreateFrame("Frame", nil, catScroll)
+    catChild:SetSize(270, 1)
+    catScroll:SetScrollChild(catChild)
+    CFG.catScroll = catScroll
+    CFG.catChild = catChild
+  end
+
+  -- ========= SOBRE =========
+  do
+    local child, ctx = makeScrollPanel("about")
+    Section(ctx, L.SEC_ABOUT)
+    CFG.kbCredits = child:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    CFG.kbCredits:SetPoint("TOPLEFT", 14, ctx.y)
+    CFG.kbCredits:SetPoint("RIGHT", child, "RIGHT", -10, 0); CFG.kbCredits:SetJustifyH("LEFT")
+    CFG.kbCredits:SetText("|cff9d9d9dKrononBags v" .. ver .. "  ·  Kronon  ·  discord.gg/yFdQsFewN3|r")
+    ctx.y = ctx.y - 30
+    finishPanel(child, ctx)
+  end
+
+  -- ===== dependências (cascata pai→filho) e sincronização =====
+  function CFG.updateDependents()
+    for _, c in ipairs(CFG.controls) do
+      if c.depGet and c.setEnabled then c.setEnabled(c.depGet() and true or false) end
     end
   end
-  CFG.updateThemeBtnState = updateThemeBtnState
-  updateThemeBtnState()
-
-  for i, th in ipairs(KB_THEMES) do
-    local row = CreateFrame("Button", nil, themeList)
-    row:SetSize(168, 20)
-    row:SetPoint("TOPLEFT", 6, -4 - (i - 1) * 22)
-    row:SetAttribute("nodeignore", true)
-    local hl = row:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.18)
-    local swatch = row:CreateTexture(nil, "ARTWORK")
-    swatch:SetSize(12, 12); swatch:SetPoint("LEFT", 2, 0)
-    swatch:SetColorTexture(th.border[1], th.border[2], th.border[3], 1)
-    local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fs:SetPoint("LEFT", swatch, "RIGHT", 8, 0); fs:SetText(th.name)
-    row:SetScript("OnEnter", function() ApplyTheme(th.key) end) -- PREVIEW ao vivo (não grava em DB)
-    row:SetScript("OnClick", function()
-      DB.settings.theme = th.key      -- commit ANTES de esconder (OnHide reaplica o salvo)
-      ApplyTheme(th.key)
-      setThemeBtnLabel()
-      themeList:Hide()
-    end)
+  function CFG.syncAll()
+    for _, c in ipairs(CFG.controls) do if c.refresh then c.refresh() end end
+    CFG.updateDependents()
+  end
+  -- restaurar padrões: reescreve DB.settings com os defaults e re-sincroniza a UI
+  function CFG.resetDefaults()
+    local d = {
+      opacity = 0.92, autoProtectCategorized = true, theme = "dark", cols = 14,
+      autoOpen = true, showIlvl = true, showGearTrack = true, ilvlUseRarity = true,
+      frameStyle = "dark", bankReplace = true, altCounts = true, replaceBags = true,
+      sortMode = "ilvl", stackItems = false, nestByExpansion = false, compactExpac = false,
+      qualityBorder = true, searchHighlight = true, autoSellJunk = true, autoRepair = true,
+    }
+    for k, v in pairs(d) do DB.settings[k] = v end
+    ApplyTheme(DB.settings.theme); ApplyOpacity()
+    if CFG.updateThemeBtnState then CFG.updateThemeBtnState() end
+    CFG.syncAll()
+    if Refresh then Refresh() end
+    print(KB_PREFIX .. L.CFG_RESET_DONE)
   end
 
-  themeBtn:SetScript("OnShow", function() setThemeBtnLabel(); updateThemeBtnState() end) -- reflete tema + estado do gate ao reabrir
-  themeBtn:SetScript("OnClick", function()
-    if themeList:IsShown() then themeList:Hide()
-    else setThemeBtnLabel(); themeList:Show() end
-  end)
-
-  local opLabel = apP:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  opLabel:SetPoint("TOPLEFT", 8, -84)
-  local function setOpLabel(v) opLabel:SetText(string.format(L.OPT_OPACITY, math.floor(v * 100 + 0.5))) end
-  local slider = CreateFrame("Slider", "KrononBagsOpacitySlider", apP, "OptionsSliderTemplate")
-  slider:SetPoint("TOPLEFT", 8, -104); slider:SetWidth(280)
-  slider:SetMinMaxValues(0.1, 1.0); slider:SetValueStep(0.05); slider:SetObeyStepOnDrag(true)
-  local low  = slider.Low  or _G["KrononBagsOpacitySliderLow"];  if low  then low:SetText("10%")   end
-  local high = slider.High or _G["KrononBagsOpacitySliderHigh"]; if high then high:SetText("100%") end
-  local txt  = slider.Text or _G["KrononBagsOpacitySliderText"]; if txt  then txt:SetText("")       end
-  slider:SetValue((DB.settings and DB.settings.opacity) or 0.92)
-  setOpLabel((DB.settings and DB.settings.opacity) or 0.92)
-  slider:SetScript("OnValueChanged", function(_, v) DB.settings.opacity = v; setOpLabel(v); ApplyOpacity() end)
-  slider:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(opLabel:GetText())
-    GameTooltip:AddLine(L.TIP_OPT_OPACITY, 0.8, 0.8, 0.8, true)
-    GameTooltip:Show()
-  end)
-  slider:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-  local colLabel = apP:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  colLabel:SetPoint("TOPLEFT", 8, -144)
-  local function setColLabel(v) colLabel:SetText(string.format(L.OPT_COLS, v)) end
-  local colSlider = CreateFrame("Slider", "KrononBagsColsSlider", apP, "OptionsSliderTemplate")
-  colSlider:SetPoint("TOPLEFT", 8, -164); colSlider:SetWidth(280)
-  colSlider:SetMinMaxValues(COLS_MIN, COLS_MAX); colSlider:SetValueStep(1); colSlider:SetObeyStepOnDrag(true)
-  local cLow  = colSlider.Low  or _G["KrononBagsColsSliderLow"];  if cLow  then cLow:SetText(COLS_MIN) end
-  local cHigh = colSlider.High or _G["KrononBagsColsSliderHigh"]; if cHigh then cHigh:SetText(COLS_MAX) end
-  local cTxt  = colSlider.Text or _G["KrononBagsColsSliderText"]; if cTxt  then cTxt:SetText("")     end
-  colSlider:SetValue((DB.settings and DB.settings.cols) or 14)
-  setColLabel((DB.settings and DB.settings.cols) or 14)
-  colSlider:SetScript("OnValueChanged", function(_, v) v = math.floor(v + 0.5); DB.settings.cols = v; setColLabel(v); Refresh() end)
-  colSlider:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(colLabel:GetText())
-    GameTooltip:AddLine(L.TIP_OPT_COLS, 0.8, 0.8, 0.8, true)
-    GameTooltip:Show()
-  end)
-  colSlider:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-  -- ========== Ícones ==========
-  local icP = CFG.panels.icons
-  check(icP, "KrononBagsShowIlvlCheck", 4, -32, L.OPT_SHOW_ILVL, function() return DB.settings.showIlvl end, function(v)
-    DB.settings.showIlvl = v; Refresh()
-  end, "TIP_OPT_SHOW_ILVL")
-  check(icP, "KrononBagsIlvlRarityCheck", 4, -58, L.OPT_ILVL_RARITY, function() return DB.settings.ilvlUseRarity end, function(v)
-    DB.settings.ilvlUseRarity = v; Refresh()
-  end, "TIP_OPT_ILVL_RARITY")
-  check(icP, "KrononBagsQualBorderCheck", 4, -84, L.OPT_QUAL_BORDER, function() return DB.settings.qualityBorder end, function(v)
-    DB.settings.qualityBorder = v; Refresh()
-  end, "TIP_OPT_QUAL_BORDER")
-  check(icP, "KrononBagsGearTrackCheck", 4, -110, L.OPT_GEAR_TRACK, function() return DB.settings.showGearTrack end, function(v)
-    DB.settings.showGearTrack = v; Refresh()
-  end, "TIP_OPT_GEAR_TRACK")
-
-  -- ========== Comportamento ==========
-  local bhP = CFG.panels.behavior
-  -- grupo: Janela (abrir automaticamente / substituir mochilas)
-  groupLabel(bhP, -32, L.GRP_WINDOW)
-  check(bhP, "KrononBagsAutoOpenCheck", 4, -50, L.OPT_AUTOOPEN, function() return DB.settings.autoOpen end, function(v)
-    DB.settings.autoOpen = v
-  end, "TIP_OPT_AUTOOPEN")
-  check(bhP, "KrononBagsReplaceBagsCheck", 4, -76, L.OPT_REPLACE_BAGS, function() return DB.settings.replaceBags end, function(v)
-    DB.settings.replaceBags = v
-    print(KB_PREFIX .. L.MSG_RELOAD_BAG)
-  end, "TIP_OPT_REPLACE_BAGS")
-  -- grupo: Organização (empilhar / ordenar / aninhar por expansão / compactar)
-  groupLabel(bhP, -106, L.GRP_ORGANIZE)
-  check(bhP, "KrononBagsStackCheck", 4, -124, L.OPT_STACK, function() return DB.settings.stackItems end, function(v)
-    DB.settings.stackItems = v; Refresh()
-  end, "TIP_OPT_STACK")
-  check(bhP, "KrononBagsNestExpacCheck", 4, -176, L.OPT_NEST_EXPANSION, function() return DB.settings.nestByExpansion end, function(v)
-    DB.settings.nestByExpansion = v; Refresh()
-  end, "TIP_OPT_NEST_EXPANSION")
-  check(bhP, "KrononBagsCompactExpacCheck", 4, -202, L.OPT_COMPACT_EXPAC, function() return DB.settings.compactExpac end, function(v)
-    DB.settings.compactExpac = v; Refresh()
-  end, "TIP_OPT_COMPACT_EXPAC")
-  -- grupo: Busca
-  groupLabel(bhP, -232, L.GRP_SEARCH)
-  check(bhP, "KrononBagsSearchHLCheck", 4, -250, L.OPT_SEARCH_HL, function() return DB.settings.searchHighlight end, function(v)
-    DB.settings.searchHighlight = v; Refresh()
-  end, "TIP_OPT_SEARCH_HL")
-  -- grupo: Proteção & Alts
-  groupLabel(bhP, -280, L.GRP_PROTECT)
-  check(bhP, "KrononBagsAutoProtectCheck", 4, -298, L.OPT_PROTECT, function() return DB.settings.autoProtectCategorized end, function(v)
-    DB.settings.autoProtectCategorized = v; Refresh()
-  end, "TIP_OPT_PROTECT")
-  check(bhP, "KrononBagsAltCountsCheck", 4, -324, L.OPT_ALT_COUNTS, function() return DB.settings.altCounts end, function(v)
-    DB.settings.altCounts = v
-  end, "TIP_OPT_ALT_COUNTS")
-  -- seletor de ordenação dentro da categoria (faz parte do grupo Organização)
-  local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
-  local sortBtn = CreateFrame("Button", nil, bhP, "UIPanelButtonTemplate")
-  sortBtn:SetSize(200, 20); sortBtn:SetPoint("TOPLEFT", 8, -150); sortBtn:SetAttribute("nodeignore", true)
-  local function updSortBtn() sortBtn:SetText(L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL)) end
-  updSortBtn()
-  sortBtn:SetScript("OnClick", function(self)
-    if not MenuUtil then return end
-    MenuUtil.CreateContextMenu(self, function(owner, root)
-      root:CreateTitle(L.SORT_MENU_TITLE)
-      for _, k in ipairs({ "ilvl", "quality", "name", "type", "recent" }) do
-        root:CreateButton(SORT_NAMES[k], function() DB.settings.sortMode = k; updSortBtn(); Refresh() end)
-      end
-    end)
-  end)
-  sortBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText(L.SORT_MENU_TITLE)
-    GameTooltip:AddLine(L.TIP_OPT_SORT, 0.8, 0.8, 0.8, true)
-    GameTooltip:Show()
-  end)
-  sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-  -- ========== Vendedor ==========
-  local vnP = CFG.panels.vendor
-  check(vnP, "KrononBagsAutoSellCheck", 4, -32, L.OPT_AUTOSELL, function() return DB.settings.autoSellJunk end, function(v)
-    DB.settings.autoSellJunk = v
-  end, "TIP_OPT_AUTOSELL")
-  check(vnP, "KrononBagsAutoRepairCheck", 4, -58, L.OPT_AUTOREPAIR, function() return DB.settings.autoRepair end, function(v)
-    DB.settings.autoRepair = v
-  end, "TIP_OPT_AUTOREPAIR")
-
-  -- ========== Banco ==========
-  local bkP = CFG.panels.bank
-  check(bkP, "KrononBagsBankReplaceCheck", 4, -32, L.OPT_BANK_REPLACE, function() return DB.settings.bankReplace end, function(v)
-    DB.settings.bankReplace = v
-    print(KB_PREFIX .. L.MSG_RELOAD_BANK)
-  end, "TIP_OPT_BANK_REPLACE")
-
-  -- ========== Categorias ==========
-  local catP = CFG.panels.categories
-  local catHint = catP:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  catHint:SetPoint("TOPLEFT", 6, -30); catHint:SetWidth(296); catHint:SetJustifyH("LEFT")
-  catHint:SetText(L.CAT_HINT)
-
-  local newCat = CreateFrame("EditBox", "KrononBagsNewCatEdit", catP, "InputBoxTemplate")
-  newCat:SetSize(110, 20); newCat:SetPoint("TOPLEFT", 10, -64); newCat:SetAutoFocus(false)
-  newCat:SetAttribute("nodeignore", true)
-  local addBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
-  addBtn:SetSize(56, 20); addBtn:SetText(L.BTN_CREATE); addBtn:SetPoint("LEFT", newCat, "RIGHT", 8, 0)
-  addBtn:SetAttribute("nodeignore", true)
-  local presetBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
-  presetBtn:SetSize(96, 20); presetBtn:SetText(L.BTN_PRESET); presetBtn:SetPoint("LEFT", addBtn, "RIGHT", 6, 0)
-  presetBtn:SetAttribute("nodeignore", true)
-  local function doAdd()
-    AddCategory(newCat:GetText()); newCat:SetText(""); newCat:ClearFocus()
-    RefreshConfigCats(); Refresh()
+  -- ===== busca de opção (filtra a sidebar + pula pra opção) =====
+  local function tabHasMatch(key, q)
+    if q == "" then return true end
+    for _, e in ipairs(CFG.controls) do
+      if e.tab == key and e.label and e.label:lower():find(q, 1, true) then return true end
+    end
+    return false
   end
-  addBtn:SetScript("OnClick", doAdd)
-  newCat:SetScript("OnEnterPressed", doAdd)
-  newCat:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-  presetBtn:SetScript("OnClick", function(self)
-    if not MenuUtil then return end
-    MenuUtil.CreateContextMenu(self, function(owner, root)
-      root:CreateTitle(L.PRESET_MENU_TITLE)
-      local any = false
-      for _, p in ipairs(AVAILABLE_PRESETS) do
-        local exists = false
-        for _, c in ipairs(DB.catList) do if c.filter == p.filter then exists = true break end end
-        if not exists then
-          any = true
-          root:CreateButton(CatDisplay(p.name), function() AddPreset(p); RefreshConfigCats(); Refresh() end)
+  local function doFilter(text)
+    local q = (text or ""):lower()
+    for _, b in ipairs(CFG.sideButtons) do
+      b:SetAlpha(tabHasMatch(b.tabKey, q) and 1 or 0.35)
+    end
+  end
+  local function flashFrame(f)
+    if not (f and f.flash) then return end
+    f.flash:SetAlpha(0.5); f.flash:Show()
+    if C_Timer and C_Timer.After then
+      C_Timer.After(0.9, function() if f and f.flash then f.flash:Hide() end end)
+    end
+  end
+  local function jumpTo(text)
+    local q = (text or ""):lower()
+    if q == "" then return end
+    for _, e in ipairs(CFG.controls) do
+      if e.label and e.label:lower():find(q, 1, true) then
+        ShowConfigTab(e.tab)
+        local sf, sc = CFG.panels[e.tab], CFG.childs[e.tab]
+        if sf and sc and e.frame and e.frame.GetTop then
+          local ct, ft = sc:GetTop(), e.frame:GetTop()
+          if ct and ft then
+            local off = ct - ft - 8
+            local range = (sf.GetVerticalScrollRange and sf:GetVerticalScrollRange()) or 0
+            if off < 0 then off = 0 elseif off > range then off = range end
+            if sf.SetVerticalScroll then sf:SetVerticalScroll(off) end
+          end
         end
+        flashFrame(e.frame)
+        return
       end
-      if not any then root:CreateButton("|cff999999" .. L.PRESET_ALL_ADDED .. "|r", function() end) end
-    end)
+    end
+  end
+  searchBox:SetScript("OnTextChanged", function(self)
+    searchPH:SetShown(self:GetText() == "")
+    doFilter(self:GetText())
   end)
+  searchBox:SetScript("OnEnterPressed", function(self) jumpTo(self:GetText()); self:ClearFocus() end)
+  searchBox:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
 
-  -- Exportar / Importar (Layout Oficial da Guilda)
-  local exportBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
-  exportBtn:SetSize(100, 20); exportBtn:SetText(L.BTN_EXPORT); exportBtn:SetPoint("TOPLEFT", 10, -92)
-  exportBtn:SetAttribute("nodeignore", true)
-  exportBtn:SetScript("OnClick", function()
-    KB_exportStr = ExportCategories(); StaticPopup_Show("KRONONBAGS_EXPORT")
-  end)
-  local importBtn = CreateFrame("Button", nil, catP, "UIPanelButtonTemplate")
-  importBtn:SetSize(100, 20); importBtn:SetText(L.BTN_IMPORT); importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0)
-  importBtn:SetAttribute("nodeignore", true)
-  importBtn:SetScript("OnClick", function() StaticPopup_Show("KRONONBAGS_IMPORT") end)
+  -- restaura posição/tamanho salvos
+  CFG.restoreFrame = function()
+    if DB and DB.settings then
+      local sz = DB.settings.cfgSize
+      if type(sz) == "table" and sz[1] and sz[2] then CFG:SetSize(sz[1], sz[2]) end
+      local pos = DB.settings.cfgPos
+      if type(pos) == "table" and pos[1] then
+        CFG:ClearAllPoints()
+        CFG:SetPoint(pos[1], UIParent, pos[2] or pos[1], pos[3] or 0, pos[4] or 0)
+      end
+    end
+  end
 
-  -- lista de categorias com ROLAGEM (controles acima ficam fixos; só a lista rola)
-  local catScroll = CreateFrame("ScrollFrame", "KrononBagsCatScroll", catP, "UIPanelScrollFrameTemplate")
-  catScroll:SetPoint("TOPLEFT", 4, -118)
-  catScroll:SetPoint("BOTTOMRIGHT", -26, 6)
-  catScroll:SetAttribute("nodeignore", true)
-  local catChild = CreateFrame("Frame", nil, catScroll)
-  catChild:SetSize(270, 1)
-  catScroll:SetScrollChild(catChild)
-  CFG.catScroll = catScroll
-  CFG.catChild = catChild
-
-  -- ========== Sobre ========== (créditos / Discord / versão)
-  local abP = CFG.panels.about
-  CFG.kbCredits = abP:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  CFG.kbCredits:SetPoint("TOPLEFT", 6, -40); CFG.kbCredits:SetWidth(296); CFG.kbCredits:SetJustifyH("LEFT")
-  CFG.kbCredits:SetText("|cff9d9d9dKrononBags v" .. ver .. "  ·  Kronon  ·  discord.gg/yFdQsFewN3|r")
-
-  ShowConfigTab("appearance") -- aba padrão ao abrir
+  CFG.restoreFrame()
+  ShowConfigTab((DB and DB.settings and DB.settings.cfgLastTab) or "appearance")
   CFG:Hide()
 end
 
@@ -4479,7 +4819,9 @@ ToggleConfig = function()
     CFG:Hide()
   else
     RefreshConfigCats()
-    if CFG.ShowTab then CFG.ShowTab("appearance") end -- sempre abre na aba Aparência
+    if CFG.restoreFrame then CFG.restoreFrame() end
+    if CFG.syncAll then CFG.syncAll() end
+    if CFG.ShowTab then CFG.ShowTab((DB and DB.settings and DB.settings.cfgLastTab) or "appearance") end
     CFG:Show()
   end
 end

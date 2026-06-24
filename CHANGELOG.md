@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.54.0
+**Português**
+- **Novo:** janela de **configurações redesenhada** — visual profissional estilo DBM/SkillCapped, com sidebar de categorias (ícone + realce azul na ativa), painel rolável e seções com cabeçalho dourado.
+- **Novo:** **busca de opção** no topo da sidebar e botão **Restaurar padrões** no rodapé.
+- **Novo:** os botões agora são **interruptores** (verde ligado / cinza desligado) e cada opção tem uma descrição curta; opções dependentes acinzentam quando o item-pai está desligado.
+- **Melhorado:** a janela **lembra posição, tamanho e a última categoria aberta**, e pode ser redimensionada.
+- **Mantido:** todas as opções, o preview de tema ao vivo e o gerenciador de categorias continuam idênticos.
+
+**English**
+- **New:** **redesigned settings window** — professional DBM/SkillCapped-style look, with a category sidebar (icon + blue highlight on the active one), a scrollable panel and sections with golden headers.
+- **New:** **option search** at the top of the sidebar and a **Restore defaults** button at the bottom.
+- **New:** toggles are now **switches** (green on / gray off) and each option has a short description; dependent options gray out when their parent is off.
+- **Improved:** the window now **remembers its position, size and last open category**, and can be resized.
+- **Kept:** every option, the live theme preview and the category manager remain identical.
+
+**Español**
+- **Nuevo:** **ventana de ajustes rediseñada** — aspecto profesional estilo DBM/SkillCapped, con barra lateral de categorías (icono + resalte azul en la activa), panel desplazable y secciones con encabezado dorado.
+- **Nuevo:** **búsqueda de opción** en la parte superior de la barra lateral y botón **Restaurar valores** abajo.
+- **Nuevo:** los botones ahora son **interruptores** (verde activado / gris desactivado) y cada opción tiene una descripción corta; las opciones dependientes se atenúan cuando su opción superior está desactivada.
+- **Mejorado:** la ventana ahora **recuerda su posición, tamaño y última categoría abierta**, y se puede redimensionar.
+- **Mantenido:** todas las opciones, la vista previa de tema en vivo y el gestor de categorías siguen idénticos.
+
 ## 0.53.0
 **Português**
 - **Corrigido:** erro crônico ao **comprar aba no banco** (`ADDON_ACTION_FORBIDDEN: PurchaseBankTab`). A supressão do banco nativo não contamina mais o caminho de compra — comprar aba volta a funcionar sem precisar de `/reload`.
