@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.58.0
+**Português**
+- **Corrigido:** **usar item da bolsa** voltou a funcionar — decorações de moradia, pedra de regresso, brinquedos e poções que conjuram não dão mais o erro "Ação bloqueada" (ADDON_ACTION_FORBIDDEN) ao clicar com o botão direito. A bolsa de cada item agora é lida do jeito seguro da Blizzard, sem contaminar a ação protegida.
+- Vender no vendedor, equipar, abrir contêineres, arrastar itens e a proteção de favoritos continuam funcionando como antes.
+
+**English**
+- **Fixed:** **using a bag item** works again — housing decorations, hearthstone, toys and potions that cast a spell no longer trigger the "Action blocked" error (ADDON_ACTION_FORBIDDEN) on right-click. Each item's bag is now read the safe Blizzard way, without tainting the protected action.
+- Selling at a vendor, equipping, opening containers, dragging items and favorite protection keep working as before.
+
+**Español**
+- **Corregido:** **usar un objeto de la bolsa** vuelve a funcionar — las decoraciones de vivienda, la piedra de regreso, los juguetes y las pociones que lanzan un hechizo ya no provocan el error "Acción bloqueada" (ADDON_ACTION_FORBIDDEN) al hacer clic derecho. La bolsa de cada objeto ahora se lee de la forma segura de Blizzard, sin contaminar la acción protegida.
+- Vender al vendedor, equipar, abrir contenedores, arrastrar objetos y la protección de favoritos siguen funcionando como antes.
+
 ## 0.57.0
 **Português**
 - **Novo:** **tour guiado ampliado** — o botão "i" agora destaca também a busca global **Onde está?**, o botão de **Configurações** (engrenagem) e, quando os addons estão instalados, os indicadores do **KrononAlts** (Personagens) e do **KrononMarket** (Valor de mercado).

@@ -1917,15 +1917,19 @@ end
 -- preenche o botão NATIVO: amarra bag/slot (clique seguro), display nativo + selos próprios.
 -- Proteção: favorito no vendedor não vende (tiramos o registro do clique-direito daquele botão).
 local function FillButton(b, bag, slot)
-  -- PAI ÚNICO pra todos os botões vivos. O cursor do ConsolePort varre só os "irmãos"
-  -- do mesmo pai (ScanLocal(GetParent())); com um holder por bolsa ele não atravessava
-  -- pras outras bolsas e pulava seções. Com um pai só, a grade fica contígua.
-  -- A bolsa vai por botão via SetBagID (guardada em self.bagID; GetBagID só usa o pai como
-  -- fallback). É exatamente o que as Bolsas Combinadas nativas fazem — clique seguro de
-  -- usar/equipar/vender (C_Container.UseContainerItem(GetBagID(), GetID())) continua certo, sem taint.
-  b:SetParent(UI.content)
+  -- Anti-taint (v0.58.0): a bolsa NÃO pode vir de SetBagID/self.bagID setado por código de
+  -- addon — esse valor fica "tainted" e o ContainerFrameItemButtonMixin:GetBagID()
+  -- (self.bagID or self:GetParent():GetID()) o devolve à UseContainerItem PROTEGIDA, gerando
+  -- ADDON_ACTION_FORBIDDEN ao USAR itens hardware-gated (decoração de moradia, pedra de
+  -- regresso, toys, poções que conjuram). O padrão seguro (Baganator + Bolsas Combinadas
+  -- nativas) é deixar self.bagID NIL e a bolsa vir do PAI: cada botão fica no "holder" da sua
+  -- bolsa (Frame com :SetID(bag) e :SetAllPoints(UI.content) — mesmo retângulo do conteúdo, logo
+  -- a grade/posição de tela e a navegação do ConsolePort ficam idênticas). SetID/GetID são
+  -- triviais e não carregam taint; nil é falsy mesmo se contaminado, então
+  -- (nil or parent:GetID()) devolve o ID LIMPO do holder.
+  b:SetParent(GetBagHolder(bag))
   b:SetID(slot)
-  if b.SetBagID then b:SetBagID(bag) else b.bagID = bag end
+  b.bagID = nil -- nunca setar bagID por addon: força GetBagID() ao fallback limpo do pai (holder)
   b.bag, b.slot = bag, slot
   b.cached, b.cachedLink = nil, nil -- modo vivo (não é visualização de cache)
   if b.kbNativeUpdateTooltip then b.UpdateTooltip = b.kbNativeUpdateTooltip end -- restaura o tooltip nativo (slot real)
@@ -1978,7 +1982,7 @@ local function FillButtonCached(b, it)
   end
   b:SetParent(UI.cacheHolder)
   b:SetID(-1)
-  if b.SetBagID then b:SetBagID(-1) else b.bagID = -1 end -- limpa a bolsa viva anterior: cacheado nunca aponta pra um container real
+  b.bagID = nil -- anti-taint: bagID vem do pai (cacheHolder tem :SetID(-1)); cacheado nunca aponta pra um container real
   b.bag, b.slot = nil, nil
   if b.kbNoTooltip then b.UpdateTooltip = b.kbNoTooltip end -- evita RemoveNewItem(-1) do UpdateTooltip nativo em item cacheado
   b.cached, b.cachedLink = true, it.link
