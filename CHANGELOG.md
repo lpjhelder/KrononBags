@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.59.0
+**Português**
+- **Novo:** categoria **Aparência não coletada** no topo — agrupa automaticamente as peças equipáveis cujo visual de transmog você ainda não aprendeu, em destaque acima das demais categorias. Liga/desliga em *Comportamento* (ligada por padrão); só aparece quando há itens assim.
+- **Novo:** categoria **Mascotes** própria — mascotes (pets de batalha) agora têm a sua categoria, separadas das **Montarias**.
+- **Novo:** ordenação **Valor na AH** — ordena os itens pelo valor de mercado total (preço × quantidade), do maior pro menor. Aparece no menu *Ordenar por* apenas com o **KrononMarket** instalado.
+
+**English**
+- **New:** **Uncollected appearance** category at the top — automatically groups equippable gear whose transmog appearance you have not learned yet, highlighted above the other categories. Toggle in *Behavior* (on by default); only shows when such items exist.
+- **New:** dedicated **Pets** category — battle pets now get their own category, separate from **Mounts**.
+- **New:** **Auction value** sorting — orders items by total market value (price × quantity), highest first. Appears in the *Sort by* menu only when **KrononMarket** is installed.
+
+**Español**
+- **Nuevo:** categoría **Apariencia no coleccionada** en la parte superior — agrupa automáticamente las piezas equipables cuyo aspecto de transfiguración aún no has aprendido, destacada por encima de las demás categorías. Se activa/desactiva en *Comportamiento* (activada por defecto); solo aparece cuando hay objetos así.
+- **Nuevo:** categoría **Mascotas** propia — las mascotas (mascotas de combate) ahora tienen su propia categoría, separadas de las **Monturas**.
+- **Nuevo:** ordenación **Valor en la subasta** — ordena los objetos por el valor de mercado total (precio × cantidad), de mayor a menor. Aparece en el menú *Ordenar por* solo con **KrononMarket** instalado.
+
 ## 0.58.0
 **Português**
 - **Corrigido:** **usar item da bolsa** voltou a funcionar — decorações de moradia, pedra de regresso, brinquedos e poções que conjuram não dão mais o erro "Ação bloqueada" (ADDON_ACTION_FORBIDDEN) ao clicar com o botão direito. A bolsa de cada item agora é lida do jeito seguro da Blizzard, sem contaminar a ação protegida.

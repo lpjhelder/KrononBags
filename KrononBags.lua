@@ -53,6 +53,8 @@ local EN = {
   BUY_TAB = "Buy tab", TIP_BUY_TAB = "Purchase a new tab for this bank.",
   -- v0.23.0: transferir pela busca + categoria Abríveis
   CAT_OPENABLE = "Openable", CAT_MOUNTS = "Mounts",
+  CAT_PETS = "Pets", CAT_UNCOLLECTED = "Uncollected appearance", OPT_CAT_UNCOLLECTED = "Group uncollected appearance",
+  TIP_CAT_UNCOLLECTED = "Groups equippable gear whose transmog appearance you have not learned yet into a top category.",
   BTN_OPEN_ALL = "Open all",
   TIP_TRANSFER_SELL_TITLE = "Sell filtered",
   TIP_TRANSFER_SELL_BODY = "Sell all items matching the current search (asks to confirm).",
@@ -170,6 +172,7 @@ local EN = {
   -- config: ordenação
   SORT_ILVL = "Item level", SORT_QUALITY = "Quality", SORT_NAME = "Name",
   SORT_TYPE = "Type", SORT_RECENT = "Recent", SORT_BY = "Sort by: ", SORT_MENU_TITLE = "Sort items by",
+  SORT_VALUE = "Auction value",
   -- config: categorias
   CAT_HINT = "Order (top → bottom) = order in the inventory. ▲▼ moves, Delete removes.",
   TAG_PRESET = "(preset)", TAG_RULE = "(rule)", TAG_CUSTOM = "(yours)",
@@ -306,6 +309,8 @@ local PT = {
   BTN_SELL_JUNK = "Vender lixo", BTN_DEPOSIT = "Depositar itens",
   BUY_TAB = "Comprar aba", TIP_BUY_TAB = "Compra uma nova aba pra este banco.",
   CAT_OPENABLE = "Abríveis", CAT_MOUNTS = "Montarias",
+  CAT_PETS = "Mascotes", CAT_UNCOLLECTED = "Aparência não coletada", OPT_CAT_UNCOLLECTED = "Agrupar aparência não coletada",
+  TIP_CAT_UNCOLLECTED = "Agrupa numa categoria no topo as peças equipáveis cujo visual de transmog você ainda não aprendeu.",
   BTN_OPEN_ALL = "Abrir tudo",
   TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
   TIP_TRANSFER_SELL_BODY = "Vende todos os itens que batem com a busca atual (pede confirmação).",
@@ -407,6 +412,7 @@ local PT = {
   EXPAC_UNKNOWN = "Outros",
   SORT_ILVL = "Item level", SORT_QUALITY = "Qualidade", SORT_NAME = "Nome",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recentes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar itens por",
+  SORT_VALUE = "Valor na AH",
   CAT_HINT = "Ordem (cima → baixo) = ordem no inventário. ▲▼ move, Excluir remove.",
   TAG_PRESET = "(pré-pronta)", TAG_RULE = "(regra)", TAG_CUSTOM = "(sua)",
   PRESET_MENU_TITLE = "Adicionar categoria pré-pronta", PRESET_ALL_ADDED = "(todas já adicionadas)",
@@ -532,6 +538,8 @@ local ES = {
   BTN_SELL_JUNK = "Vender basura", BTN_DEPOSIT = "Depositar objetos",
   BUY_TAB = "Comprar pestaña", TIP_BUY_TAB = "Compra una nueva pestaña para este banco.",
   CAT_OPENABLE = "Para abrir", CAT_MOUNTS = "Monturas",
+  CAT_PETS = "Mascotas", CAT_UNCOLLECTED = "Apariencia no coleccionada", OPT_CAT_UNCOLLECTED = "Agrupar apariencia no coleccionada",
+  TIP_CAT_UNCOLLECTED = "Agrupa en una categoría superior las piezas equipables cuyo aspecto de transfiguración aún no has aprendido.",
   BTN_OPEN_ALL = "Abrir todo",
   TIP_TRANSFER_SELL_TITLE = "Vender filtrados",
   TIP_TRANSFER_SELL_BODY = "Vende todos los objetos que coinciden con la búsqueda actual (pide confirmación).",
@@ -633,6 +641,7 @@ local ES = {
   EXPAC_UNKNOWN = "Otros",
   SORT_ILVL = "Nivel de objeto", SORT_QUALITY = "Calidad", SORT_NAME = "Nombre",
   SORT_TYPE = "Tipo", SORT_RECENT = "Recientes", SORT_BY = "Ordenar por: ", SORT_MENU_TITLE = "Ordenar objetos por",
+  SORT_VALUE = "Valor en la subasta",
   CAT_HINT = "Orden (arriba → abajo) = orden en el inventario. ▲▼ mueve, Eliminar quita.",
   TAG_PRESET = "(predefinida)", TAG_RULE = "(regla)", TAG_CUSTOM = "(tuya)",
   PRESET_MENU_TITLE = "Añadir categoría predefinida", PRESET_ALL_ADDED = "(todas ya añadidas)",
@@ -759,7 +768,11 @@ local CAT_DISPLAY_KEY = {
   ["Equipamento"] = "CAT_EQUIP", ["Consumíveis"] = "CAT_CONSUMABLE", ["Reagentes"] = "CAT_REAGENT",
   ["Materiais"] = "CAT_TRADE", ["Missão"] = "CAT_QUEST", ["Lixo"] = "CAT_JUNK", ["Diversos"] = "CAT_MISC",
   ["Abríveis"] = "CAT_OPENABLE", ["Montarias"] = "CAT_MOUNTS",
+  ["Mascotes"] = "CAT_PETS", ["Aparência não coletada"] = "CAT_UNCOLLECTED",
 }
+-- nome interno (chave de dados) da categoria de alta prioridade "Aparência não coletada" (v0.59.0).
+-- É virtual: NÃO entra em catList/SavedVariables — resolvida direto no ResolveCat e na ordem do Refresh.
+local CAT_UNCOLLECTED_NAME = "Aparência não coletada"
 local function CatDisplay(name)
   if name == nil then return nil end
   local key = CAT_DISPLAY_KEY[name]
@@ -830,6 +843,7 @@ local KB_PRESETS = {
   { name = "Pedra-chave", filter = "keystone" },
   { name = "Equipamento", filter = "equip" },
   { name = "Montarias",   filter = "mounts" },
+  { name = "Mascotes",    filter = "pets" },
   { name = "Consumíveis", filter = "consumable" },
   { name = "Reagentes",   filter = "reagentbag" },
   { name = "Materiais",   filter = "trade" },
@@ -897,6 +911,7 @@ local function InitDB()
   if KrononBagsDB.settings.altsIndicator == nil then KrononBagsDB.settings.altsIndicator = true end -- v0.55.0: indicador do KrononAlts no rodapé (só aparece se o KrononAlts existir)
   if KrononBagsDB.settings.upgradeArrow == nil then KrononBagsDB.settings.upgradeArrow = true end -- v0.56.0: seta verde de upgrade por ilvl no ícone
   if KrononBagsDB.settings.transmogSeal == nil then KrononBagsDB.settings.transmogSeal = true end -- v0.56.0: selo de aparência de transmog não coletada no ícone
+  if KrononBagsDB.settings.catUncollected == nil then KrononBagsDB.settings.catUncollected = true end -- v0.59.0: categoria de alta prioridade "Aparência não coletada"
   if KrononBagsDB.settings.bagValue == nil then KrononBagsDB.settings.bagValue = true end -- v0.56.0: valor de mercado total da bolsa no rodapé (requer KrononMarket)
   -- v0.54.0: janela de config redesenhada — lembra posição/tamanho e última categoria aberta
   if KrononBagsDB.settings.cfgLastTab == nil then KrononBagsDB.settings.cfgLastTab = "appearance" end
@@ -1080,6 +1095,23 @@ local function IsFavorited(itemID, link)
   return (link and DB.favorites[VariantKey(link)]) or DB.favorites[itemID] or false
 end
 
+-- v0.59.0: aparência de transmog NÃO coletada. Reusa EXATAMENTE a detecção do selo v0.56.0
+-- (DecorateBadges): só peça equipável (equipLoc não-vazio) que TEM fonte de aparência
+-- (C_TransmogCollection.GetItemInfo devolve appID/srcID) e que o personagem ainda NÃO possui
+-- (PlayerHasTransmogByItemInfo == false). 100% defensivo: sem a API, ou em erro (pcall), devolve
+-- false — nunca classifica errado nem dá erro em cache frio.
+local function IsUncollectedAppearance(itemID, link)
+  if not itemID then return false end
+  if not (C_TransmogCollection and C_TransmogCollection.PlayerHasTransmogByItemInfo and C_TransmogCollection.GetItemInfo) then return false end
+  local equipLoc = select(4, C_Item.GetItemInfoInstant(itemID))
+  if not (equipLoc and equipLoc ~= "") then return false end
+  local id = link or itemID
+  local okSrc, appID, srcID = pcall(C_TransmogCollection.GetItemInfo, id)
+  if not (okSrc and (appID or srcID)) then return false end -- não-transmoggable (sem fonte de aparência)
+  local okHas, has = pcall(C_TransmogCollection.PlayerHasTransmogByItemInfo, id)
+  return (okHas and has == false) and true or false
+end
+
 -- filtros recebem (itemID, quality, bag, slot, link). "reagentbag"/"keystone"/"new" são especiais.
 local PRESET_FILTERS = {
   new        = function(id, q, bag, slot) return (DB and DB.recem and DB.recem[id]) and true or false end, -- recém-obtido (fica até clicar em Distribuir)
@@ -1088,6 +1120,7 @@ local PRESET_FILTERS = {
   reagentbag = function(id, q, bag) return bag == 5 end,                                       -- bolsa de reagentes (loc)
   equip      = function(id, q, bag) local c = classOf(id); return c == 2 or c == 4 end,        -- arma / armadura
   mounts     = function(id) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id); return c == 15 and sub == 5 end, -- montaria (Diversos / subclasse Montaria)
+  pets       = function(id) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id); return c == 15 and sub == 2 end, -- mascote (Diversos / subclasse Mascote)
   consumable = function(id, q, bag) return classOf(id) == 0 end,                               -- consumível
   trade      = function(id, q, bag) local c = classOf(id); return c == 7 or c == 8 or c == 3 or c == 5 end, -- mats/gema/reagente
   quest      = function(id, q, bag) return classOf(id) == 12 end,                              -- missão
@@ -1177,6 +1210,9 @@ ResolveCat = function(it)
   local itemID = it.itemID
   local a = DB.assignments[itemID]
   if a and CategoryExists(a) then return a end
+  -- v0.59.0: aparência não coletada = categoria de ALTA PRIORIDADE (acima de conjuntos/presets),
+  -- mas SEMPRE abaixo da atribuição manual (respeita a escolha do jogador). Só quando ligada.
+  if DB.settings and DB.settings.catUncollected and IsUncollectedAppearance(itemID, it.link) then return CAT_UNCOLLECTED_NAME end
   local s = it.link and equipSetByVariant[VariantKey(it.link)]
   if s then return s end
   for _, c in ipairs(DB.catList) do
@@ -2101,6 +2137,9 @@ local function SearchTermPred(tok)
     montaria = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 5 end,
     mount = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 5 end,
     montura = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 5 end,
+    mascote = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 2 end,
+    pet = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 2 end,
+    mascota = function(it) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(it.itemID); return c == 15 and sub == 2 end,
     novo = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
     new = function(it) return (DB.recem and DB.recem[it.itemID]) and true or false end,
     favorito = function(it) return IsFavorited(it.itemID, it.link) and true or false end,
@@ -2210,6 +2249,21 @@ local function SortComparator(mode)
       local na = (C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(a.bag, a.slot)) and true or false
       local nb = (C_NewItems and C_NewItems.IsNewItem and C_NewItems.IsNewItem(b.bag, b.slot)) and true or false
       if na ~= nb then return na end
+      if a.ilvl ~= b.ilvl then return a.ilvl > b.ilvl end
+      return a.name < b.name
+    end
+  elseif mode == "value" and KrononMarket and KrononMarket.GetPrice then
+    -- v0.59.0: valor de mercado total DECRESCENTE = preço unitário (KrononMarket) × contagem.
+    -- Defensivo: 0 se sem preço ou em erro (pcall); desempate por ilvl e depois nome. Se o
+    -- KrononMarket sumir, este ramo nem é alcançado (cai no ilvl padrão) — sem crash.
+    local function kbVal(it)
+      local ok, p = pcall(KrononMarket.GetPrice, it.itemID)
+      if not (ok and type(p) == "number" and p > 0) then return 0 end
+      return p * (it.count or 1)
+    end
+    return function(a, b)
+      local va, vb = kbVal(a), kbVal(b)
+      if va ~= vb then return va > vb end
       if a.ilvl ~= b.ilvl then return a.ilvl > b.ilvl end
       return a.name < b.name
     end
@@ -2478,9 +2532,10 @@ Refresh = function()
     table.sort(g, comparator)
   end
 
-  -- 4) ordem: conjuntos de equipamento > catList (na ordem escolhida) > Diversos > resto
+  -- 4) ordem: aparência não coletada (topo) > conjuntos de equipamento > catList (na ordem escolhida) > Diversos > resto
   local order, seen = {}, {}
   local function addOrder(c) if c and not seen[c] then order[#order + 1] = c; seen[c] = true end end
+  if DB.settings and DB.settings.catUncollected then addOrder(CAT_UNCOLLECTED_NAME) end -- v0.59.0: alta prioridade (só renderiza se houver itens)
   for _, c in ipairs(equipSetNames) do addOrder(c) end
   for _, c in ipairs(DB.catList) do addOrder(c.name) end
   addOrder("Diversos")
@@ -4908,15 +4963,28 @@ CreateConfig = function()
     Check(ctx, L.OPT_STACK,
       function() return DB.settings.stackItems end,
       function(v) DB.settings.stackItems = v; Refresh() end, "TIP_OPT_STACK")
-    local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT }
+    local SORT_NAMES = { ilvl = L.SORT_ILVL, quality = L.SORT_QUALITY, name = L.SORT_NAME, type = L.SORT_TYPE, recent = L.SORT_RECENT, value = L.SORT_VALUE }
+    -- v0.59.0: "value" (valor na AH) só existe com o KrononMarket presente. Sem ele, a opção não
+    -- é listada; e se o sortMode salvo for "value" o rótulo cai no padrão (ilvl) sem crash.
+    local function kbMarketSortAvailable() return (KrononMarket and KrononMarket.GetPrice) and true or false end
     MenuButton(ctx, L.SORT_MENU_TITLE,
-      function() return L.SORT_BY .. (SORT_NAMES[DB.settings.sortMode] or L.SORT_ILVL) end,
+      function()
+        local m = DB.settings.sortMode
+        if m == "value" and not kbMarketSortAvailable() then m = "ilvl" end
+        return L.SORT_BY .. (SORT_NAMES[m] or L.SORT_ILVL)
+      end,
       function(owner, rootMenu, upd)
         rootMenu:CreateTitle(L.SORT_MENU_TITLE)
-        for _, k in ipairs({ "ilvl", "quality", "name", "type", "recent" }) do
+        local modes = { "ilvl", "quality", "name", "type", "recent" }
+        if kbMarketSortAvailable() then modes[#modes + 1] = "value" end
+        for _, k in ipairs(modes) do
           rootMenu:CreateButton(SORT_NAMES[k], function() DB.settings.sortMode = k; upd(); Refresh() end)
         end
       end, "TIP_OPT_SORT")
+    -- v0.59.0: categoria de alta prioridade "Aparência não coletada" (liga/desliga)
+    Check(ctx, L.OPT_CAT_UNCOLLECTED,
+      function() return DB.settings.catUncollected end,
+      function(v) DB.settings.catUncollected = v; Refresh() end, "TIP_CAT_UNCOLLECTED")
     Check(ctx, L.OPT_NEST_EXPANSION,
       function() return DB.settings.nestByExpansion end,
       function(v) DB.settings.nestByExpansion = v; Refresh() end, "TIP_OPT_NEST_EXPANSION")
@@ -5074,6 +5142,7 @@ CreateConfig = function()
       sortMode = "ilvl", stackItems = false, nestByExpansion = false, compactExpac = false,
       qualityBorder = true, searchHighlight = true, autoSellJunk = true, autoRepair = true,
       altsIndicator = true, upgradeArrow = true, transmogSeal = true, bagValue = true,
+      catUncollected = true,
     }
     for k, v in pairs(d) do DB.settings[k] = v end
     ApplyTheme(DB.settings.theme); ApplyOpacity()
