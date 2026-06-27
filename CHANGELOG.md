@@ -1,17 +1,17 @@
 # Changelog
 
-## 0.62.0
+## 0.62.1
 **Português**
-- **Novo:** **cabeçalho adaptável**. Ao estreitar a janela, a **caixa de busca** e o botão **Filtrar** descem para uma **segunda linha**, em vez de se sobreporem aos outros controles. Ao alargar de volta, tudo retorna para uma linha só.
-- **Melhorado:** os botões de ícone (organizar, busca global, ouro), o título e a engrenagem permanecem na primeira linha; a busca estica para aproveitar a largura na segunda linha. O conteúdo acompanha a altura do cabeçalho automaticamente.
+- **Novo:** o **título** do cabeçalho se ajusta ao espaço conforme você redimensiona a janela: `KrononBags` → `KBags` → `KB` → (vazio) quando há poucas colunas, liberando espaço sem sobrepor os ícones.
+- **Melhorado:** o ícone de **Histórico** agora fica junto dos demais controles (à esquerda do botão de valor) e acompanha o redimensionamento.
 
 **English**
-- **New:** **adaptive header**. When the window gets narrow, the **search box** and the **Filter** button drop to a **second line** instead of overlapping the other controls. Widen it back and everything returns to a single line.
-- **Improved:** the icon buttons (auto-sort, global search, gold), the title and the gear stay on the first line; the search box stretches to use the width on the second line. The item area follows the header height automatically.
+- **New:** the header **title** adapts to the space as you resize the window: `KrononBags` → `KBags` → `KB` → (empty) when there are few columns, freeing space without overlapping the icons.
+- **Improved:** the **History** icon now sits with the other controls (left of the value button) and follows resizing.
 
 **Español**
-- **Nuevo:** **encabezado adaptable**. Al estrechar la ventana, el **cuadro de búsqueda** y el botón **Filtrar** bajan a una **segunda línea** en lugar de superponerse a los demás controles. Al ensancharla de nuevo, todo vuelve a una sola línea.
-- **Mejorado:** los botones de icono (ordenar, búsqueda global, oro), el título y el engranaje permanecen en la primera línea; la búsqueda se estira para aprovechar el ancho en la segunda línea. El área de objetos sigue la altura del encabezado automáticamente.
+- **Nuevo:** el **título** del encabezado se ajusta al espacio al redimensionar la ventana: `KrononBags` → `KBags` → `KB` → (vacío) cuando hay pocas columnas, liberando espacio sin superponer los iconos.
+- **Mejorado:** el icono de **Historial** ahora va con los demás controles (a la izquierda del botón de valor) y sigue el redimensionamiento.
 
 ## 0.61.2
 **Português**
