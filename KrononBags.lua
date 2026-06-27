@@ -2135,6 +2135,8 @@ local function FillButtonCached(b, it)
   if b.NewItemTexture then b.NewItemTexture:Hide() end
   if b.BattlepayItemTexture then b.BattlepayItemTexture:Hide() end
   b.itemID = it.itemID
+  b.kbCachedCount = it.count or 1 -- pilha do snapshot: deixa o destaque de valor (preço×pilha) funcionar no banco de longe
+  b.kbCachedBound = it.bound -- vínculo do snapshot: item vinculado fica fora do destaque de valor (não vai pra AH)
   b.link = it.link
   b.itemName = it.name or ""
   b:SetItemButtonTexture(it.icon)
@@ -4078,6 +4080,39 @@ CreateUI = function()
     end
   end
 
+  -- CLICK = foco FORTE: flash dourado grosso que estoura bem além do botão e pulsa 5x antes de sumir
+  -- (bem mais intenso que o flash de hover). Auto-some via OnFinished / fallback C_Timer. Defensivo.
+  local function kbStrongFlash(b)
+    if not b then return end
+    local fx = b.kbStrongFx
+    if not fx then
+      fx = b:CreateTexture(nil, "OVERLAY", nil, 6) -- sublevel acima do flash de hover(4) e do glow(3)
+      fx:SetPoint("TOPLEFT", -7, 7); fx:SetPoint("BOTTOMRIGHT", 7, -7) -- estoura 7px além do botão
+      fx:SetTexture("Interface\\Common\\WhiteIconFrame")
+      fx:SetBlendMode("ADD"); fx:SetVertexColor(1, 0.85, 0) -- dourado vivo
+      local okAg, ag = pcall(function()
+        local grp = fx:CreateAnimationGroup()
+        for i = 1, 5 do -- 5 pulsos (mais forte/longo que o flash de hover, de 3)
+          local a = grp:CreateAnimation("Alpha")
+          a:SetFromAlpha(1); a:SetToAlpha(0.15); a:SetDuration(0.22); a:SetOrder(i * 2 - 1)
+          local bk = grp:CreateAnimation("Alpha")
+          bk:SetFromAlpha(0.15); bk:SetToAlpha(1); bk:SetDuration(0.22); bk:SetOrder(i * 2)
+        end
+        grp:SetScript("OnFinished", function() fx:Hide() end)
+        return grp
+      end)
+      if okAg then fx.kbAg = ag end
+      fx:Hide()
+      b.kbStrongFx = fx
+    end
+    fx:Show()
+    if fx.kbAg then
+      pcall(fx.kbAg.Stop, fx.kbAg); pcall(fx.kbAg.Play, fx.kbAg)
+    elseif C_Timer and C_Timer.After then
+      C_Timer.After(2.2, function() if fx then fx:Hide() end end)
+    end
+  end
+
   -- pool de linhas do painel: ranking + ícone + nome (colorido por qualidade) + valor à direita.
   local topValRows = {}
   local TOPVAL_ROW_H = 20
@@ -4103,9 +4138,9 @@ CreateUI = function()
       row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
       row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0); row.name:SetJustifyH("LEFT")
       row.name:SetPoint("RIGHT", row.val, "LEFT", -6, 0) -- nome não invade o valor
-      row:SetScript("OnEnter", function(self) self.hl:Show() end)
+      row:SetScript("OnEnter", function(self) self.hl:Show(); if self.btn then kbFlashBtn(self.btn) end end) -- hover = flash (como era o click)
       row:SetScript("OnLeave", function(self) self.hl:Hide() end)
-      row:SetScript("OnClick", function(self) if self.btn then kbFlashBtn(self.btn) end end)
+      row:SetScript("OnClick", function(self) if self.btn then kbStrongFlash(self.btn) end end) -- click = foco bem mais forte
       topValRows[i] = row
     end
     return row
@@ -4126,13 +4161,12 @@ CreateUI = function()
       row.rank:SetText("#" .. i)
       local b = e and e.btn
       local info = (b and b.bag and b.slot) and C_Container.GetContainerItemInfo(b.bag, b.slot) or nil
-      row.icon:SetTexture((info and info.iconFileID) or "Interface\\Icons\\INV_Misc_QuestionMark")
-      if info and info.hyperlink then
-        row.name:SetText(info.hyperlink) -- já vem colorido pela qualidade
-      else
-        local nm = (b and b.itemID) and C_Item.GetItemInfo(b.itemID) or nil
-        row.name:SetText(nm or "...")
-      end
+      local icon = info and info.iconFileID
+      local nm = info and info.hyperlink
+      if b and not icon and b.itemID then icon = select(5, C_Item.GetItemInfoInstant(b.itemID)) end -- cache: ícone via itemID
+      if b and not nm then nm = b.link or ((b.itemID and C_Item.GetItemInfo(b.itemID)) or nil) end -- cache: nome via link/itemID
+      row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+      row.name:SetText(nm or "...") -- nome já colorido pela qualidade (hyperlink/link)
       row.val:SetText(GetCoinTextureString((e and e.val) or 0))
       row.hl:Hide()
       row:Show()
@@ -4176,16 +4210,22 @@ CreateUI = function()
     end
     if not (DB and DB.settings and DB.settings.topValueHL) then UI.RenderTopValuePanel(nil); return end
     if not (KrononMarket and KrononMarket.GetPrice) then UI.RenderTopValuePanel(nil); return end -- sem o KrononMarket: nada destaca
-    if CachedMode() then UI.RenderTopValuePanel(nil); return end -- visão de cache (banco de longe): sem slots vivos pra avaliar
-    -- 2) valor de mercado de cada item VIVO mostrado = preço × pilha (defensivo: sem preço não entra)
+    -- 2) valor de mercado de cada item mostrado = preço × pilha. Funciona no modo VIVO (bag/banco aberto:
+    -- bag/slot reais) E no CACHE (banco de longe: usa o itemID + a pilha guardados no snapshot).
     local live = {}
     for _, b in ipairs(pool) do
-      if b:IsShown() and b.bag and b.slot and b.itemID then
-        local info = C_Container.GetContainerItemInfo(b.bag, b.slot)
-        if info and info.itemID then
-          local ok, p = pcall(KrononMarket.GetPrice, info.itemID)
+      if b:IsShown() and b.itemID then
+        local itemID, stack, bound
+        if b.bag and b.slot then -- vivo: lê do container real (pilha sempre atual)
+          local info = C_Container.GetContainerItemInfo(b.bag, b.slot)
+          if info and info.itemID then itemID, stack, bound = info.itemID, info.stackCount or 1, info.isBound end
+        elseif b.cached then -- cache (banco de longe): itemID + pilha + vínculo do snapshot
+          itemID, stack, bound = b.itemID, b.kbCachedCount or 1, b.kbCachedBound
+        end
+        if itemID and not bound then -- item VINCULADO não vai pra AH → fora do destaque de valor
+          local ok, p = pcall(KrononMarket.GetPrice, itemID)
           if ok and type(p) == "number" and p > 0 then
-            live[#live + 1] = { btn = b, val = p * (info.stackCount or 1) }
+            live[#live + 1] = { btn = b, val = p * stack }
           end
         end
       end

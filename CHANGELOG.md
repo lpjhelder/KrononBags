@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.63.1
+**Português**
+- **Novo:** o destaque dos itens mais valiosos agora funciona também no **Banco** (aberto ou visto de longe).
+- **Novo:** na janela dos mais valiosos, **passar o mouse** numa linha dá um flash no item e **clicar** dá um destaque bem mais forte, pra achar o item na bolsa.
+- **Corrigido:** itens **vinculados** (que não vão pra Casa de Leilões) não entram mais no destaque de valor.
+
+**English**
+- **New:** the valuable-items highlight now works in the **Bank** too (open or viewed from afar).
+- **New:** in the most-valuable window, **hovering** a row flashes the item and **clicking** gives a much stronger highlight to find it in the bag.
+- **Fixed:** **bound** items (that can't go to the Auction House) no longer appear in the value highlight.
+
+**Español**
+- **Nuevo:** el destacado de objetos valiosos ahora también funciona en el **Banco** (abierto o visto de lejos).
+- **Nuevo:** en la ventana de más valiosos, **pasar el ratón** por una fila destella el objeto y **hacer clic** da un resaltado mucho más fuerte para encontrarlo en la bolsa.
+- **Corregido:** los objetos **vinculados** (que no van a la Casa de Subastas) ya no aparecen en el destacado de valor.
+
 ## 0.63.0
 **Português**
 - **Novo:** janela **Mais valiosos** presa no topo da bolsa. Ao ligar o destaque de itens valiosos, ela lista os itens mais caros em ordem — com posição, ícone, nome colorido pela qualidade e valor de mercado. **Clique numa linha** para o item piscar na bolsa. Some quando o destaque é desligado, sem o KrononMarket ou na visão de banco à distância.
