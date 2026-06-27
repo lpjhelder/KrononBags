@@ -1372,9 +1372,8 @@ local function GetGearTrack(bag, slot)
   return nil
 end
 
--- ---------------- Masque (skin opcional dos ícones) ----------------
-local KB_Masque = LibStub and LibStub("Masque", true)
-local KB_MasqueGroup = KB_Masque and KB_Masque:Group("KrononBags", "Bags") or nil
+-- Integração com o Masque REMOVIDA (v0.61.2): o auto-detect do Masque exibia a textura de
+-- quest (!) em todos os ícones. O KrononBags usa o visual próprio (b.kbQuest p/ quest real).
 
 -- ---------------- Menu de clique esquerdo ----------------
 OpenItemMenu = function(self)
@@ -1703,9 +1702,6 @@ AcquireButton = function(i)
     star:SetScript("OnLeave", function() GameTooltip:Hide(); updateStar() end)
     b:SetScript("OnEnter", function(self) OnEnter(self); if self.kbUpdateStar then self.kbUpdateStar() end end)
     b:SetScript("OnLeave", function(self) GameTooltip:Hide(); if self.kbUpdateStar then self.kbUpdateStar() end end)
-    -- Masque (opcional): pinta as regiões do ItemButton. Regions=nil + Type "Item"
-    -- → o Masque auto-detecta as regiões do ContainerFrameItemButtonTemplate.
-    if KB_MasqueGroup then KB_MasqueGroup:AddButton(b, nil, "Item") end
     pool[i] = b
   end
   return b

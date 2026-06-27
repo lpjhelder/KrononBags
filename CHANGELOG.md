@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.61.2
+**Português**
+- **Corrigido:** conflito com o **Masque** que mostrava uma exclamação (textura de missão) em **todos** os itens. A integração com o Masque foi removida — o KrononBags usa o visual próprio dele.
+
+**English**
+- **Fixed:** conflict with **Masque** that showed an exclamation mark (quest texture) on **every** item. The Masque integration was removed — KrononBags uses its own icon styling.
+
+**Español**
+- **Corregido:** conflicto con **Masque** que mostraba una exclamación (textura de misión) en **todos** los objetos. Se eliminó la integración con Masque — KrononBags usa su propio estilo de iconos.
+
 ## 0.61.1
 **Português**
 - **Corrigido:** avisos de Lua repetidos do `Bindings.xml` (`Unrecognized XML`). O arquivo de atalhos é carregado automaticamente pelo jogo e não deve constar no `.toc` — a referência duplicada foi removida. Os atalhos de teclado continuam funcionando.
