@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.63.0
+**Português**
+- **Novo:** janela **Mais valiosos** presa no topo da bolsa. Ao ligar o destaque de itens valiosos, ela lista os itens mais caros em ordem — com posição, ícone, nome colorido pela qualidade e valor de mercado. **Clique numa linha** para o item piscar na bolsa. Some quando o destaque é desligado, sem o KrononMarket ou na visão de banco à distância.
+- **Melhorado:** as **moedas douradas** agora jorram de **todos** os itens destacados (não só o mais caro).
+
+**English**
+- **New:** **Most valuable** panel pinned to the top of the bag. When you turn on the valuable-items highlight, it lists your priciest items in order — with rank, icon, quality-colored name and market value. **Click a row** to flash that item in the bag. Hidden when the highlight is off, without KrononMarket, or in the remote bank view.
+- **Improved:** the **gold coins** now pour from **all** highlighted items (not just the most valuable one).
+
+**Español**
+- **Nuevo:** panel **Más valiosos** fijado en la parte superior de la bolsa. Al activar el resalte de objetos valiosos, lista tus objetos más caros en orden — con posición, icono, nombre coloreado por calidad y valor de mercado. **Haz clic en una fila** para que el objeto parpadee en la bolsa. Se oculta cuando el resalte está apagado, sin KrononMarket o en la vista de banco a distancia.
+- **Mejorado:** las **monedas doradas** ahora brotan de **todos** los objetos resaltados (no solo del más caro).
+
 ## 0.62.2
 **Português**
 - **Novo:** o botão de **destacar itens valiosos** agora mostra o estado: **ligado** = moeda dourada acesa, brilho pulsante e moedas saindo do botão; **desligado** = moeda acinzentada e parada. Fácil saber se está ativo.

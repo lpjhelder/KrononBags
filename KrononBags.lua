@@ -272,6 +272,7 @@ local EN = {
   -- v0.30.0: histórico de entradas/saídas
   HIST_BTN = "History", HIST_TITLE = "Recent changes", HIST_EMPTY = "No recent changes",
   HIST_HINT = "Shift-click to link in chat",
+  TOPVALUE_PANEL = "Most valuable",
   -- v0.32.0: comparação com o equipado no tooltip
   CMP_HEADER = "vs. equipped", CMP_PAWN = "Pawn upgrade",
   -- v0.55.0: integração com o ecossistema Kronon (KrononAlts + KrononMarket)
@@ -508,6 +509,7 @@ local PT = {
   -- v0.30.0: histórico de entradas/saídas
   HIST_BTN = "Histórico", HIST_TITLE = "Mudanças recentes", HIST_EMPTY = "Nenhuma mudança recente",
   HIST_HINT = "Shift-clique para linkar no chat",
+  TOPVALUE_PANEL = "Mais valiosos",
   -- v0.32.0: comparação com o equipado no tooltip
   CMP_HEADER = "vs. equipado", CMP_PAWN = "Upgrade (Pawn)",
   -- v0.55.0: integração com o ecossistema Kronon (KrononAlts + KrononMarket)
@@ -744,6 +746,7 @@ local ES = {
   -- v0.30.0: historial de entradas/salidas
   HIST_BTN = "Historial", HIST_TITLE = "Cambios recientes", HIST_EMPTY = "Sin cambios recientes",
   HIST_HINT = "Shift-clic para enlazar en el chat",
+  TOPVALUE_PANEL = "Más valiosos",
   -- v0.32.0: comparación con lo equipado en el tooltip
   CMP_HEADER = "vs. equipado", CMP_PAWN = "Mejora (Pawn)",
   -- v0.55.0: integración con el ecosistema Kronon (KrononAlts + KrononMarket)
@@ -4017,6 +4020,128 @@ CreateUI = function()
     fs:Show()
   end
 
+  -- v0.63.0: JANELA "MAIS VALIOSOS" — painel preso ACIMA da janela da bag, listando os N itens
+  -- mais caros em ordem decrescente. Aparece JUNTO com o destaque do botão de ouro (mesmo gatilho:
+  -- UpdateTopValue). Ancorado por BOTTOMLEFT/BOTTOMRIGHT no topo da UI: acompanha mover/redimensionar
+  -- sozinho e cresce pra cima. Backdrop FLAT escuro (#15171a). Linhas via pool (sem ghost). Clique numa
+  -- linha PISCA o item correspondente na bag (kbFlashBtn no btn guardado na linha).
+  UI.topValuePanel = CreateFrame("Frame", "KrononBagsTopValue", UI, "BackdropTemplate")
+  UI.topValuePanel:SetPoint("BOTTOMLEFT", UI, "TOPLEFT", 0, 6)
+  UI.topValuePanel:SetPoint("BOTTOMRIGHT", UI, "TOPRIGHT", 0, 6)
+  UI.topValuePanel:SetHeight(60)
+  UI.topValuePanel:SetFrameStrata("HIGH")
+  UI.topValuePanel:SetAttribute("nodeignore", true) -- fora da navegação por controle; só mouse
+  if UI.topValuePanel.SetBackdrop then
+    UI.topValuePanel:SetBackdrop({
+      bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8",
+      edgeSize = 1, tile = false,
+    })
+    UI.topValuePanel:SetBackdropColor(0.082, 0.090, 0.102, 0.96) -- #15171a, levemente translúcido
+    UI.topValuePanel:SetBackdropBorderColor(1, 1, 1, 0.10)       -- borda fina branca
+  end
+  local tvTitle = UI.topValuePanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  tvTitle:SetPoint("TOPLEFT", 10, -8)
+  tvTitle:SetText("|cfff0d98c" .. (L.TOPVALUE_PANEL or "Most valuable") .. "|r") -- header dourado
+  UI.topValuePanel:Hide()
+
+  -- FLASH forte e temporário num botão de item (clique na linha do painel). Textura dourada ADD
+  -- que pulsa ~1.5s e some. Lazy + defensivo (o btn pode ter sido reciclado/escondido). Não vaza:
+  -- auto-esconde no fim da animação (ou por timer no fallback).
+  local function kbFlashBtn(b)
+    if not b then return end
+    local fx = b.kbFlash
+    if not fx then
+      fx = b:CreateTexture(nil, "OVERLAY", nil, 4) -- sublevel acima do glow do top-value (3)
+      fx:SetPoint("TOPLEFT", -4, 4); fx:SetPoint("BOTTOMRIGHT", 4, -4)
+      fx:SetTexture("Interface\\Common\\WhiteIconFrame")
+      fx:SetBlendMode("ADD"); fx:SetVertexColor(1, 0.95, 0.4) -- dourado claro
+      local okAg, ag = pcall(function()
+        local grp = fx:CreateAnimationGroup()
+        for i = 1, 3 do
+          local a = grp:CreateAnimation("Alpha")
+          a:SetFromAlpha(1); a:SetToAlpha(0.1); a:SetDuration(0.25); a:SetOrder(i * 2 - 1)
+          local bk = grp:CreateAnimation("Alpha")
+          bk:SetFromAlpha(0.1); bk:SetToAlpha(1); bk:SetDuration(0.25); bk:SetOrder(i * 2)
+        end
+        grp:SetScript("OnFinished", function() fx:Hide() end)
+        return grp
+      end)
+      if okAg then fx.kbAg = ag end
+      fx:Hide()
+      b.kbFlash = fx
+    end
+    fx:Show()
+    if fx.kbAg then
+      pcall(fx.kbAg.Stop, fx.kbAg); pcall(fx.kbAg.Play, fx.kbAg)
+    elseif C_Timer and C_Timer.After then
+      C_Timer.After(1.5, function() if fx then fx:Hide() end end)
+    end
+  end
+
+  -- pool de linhas do painel: ranking + ícone + nome (colorido por qualidade) + valor à direita.
+  local topValRows = {}
+  local TOPVAL_ROW_H = 20
+  local function kbAcquireTopValRow(i)
+    local row = topValRows[i]
+    if not row then
+      row = CreateFrame("Button", nil, UI.topValuePanel)
+      row:SetHeight(TOPVAL_ROW_H)
+      local y = -28 - (i - 1) * (TOPVAL_ROW_H + 1)
+      row:SetPoint("TOPLEFT", UI.topValuePanel, "TOPLEFT", 10, y)
+      row:SetPoint("TOPRIGHT", UI.topValuePanel, "TOPRIGHT", -10, y)
+      row:SetAttribute("nodeignore", true)
+      row:EnableMouse(true); row:RegisterForClicks("AnyUp")
+      row.hl = row:CreateTexture(nil, "BACKGROUND")
+      row.hl:SetAllPoints(row); row.hl:SetColorTexture(1, 1, 1, 0.07); row.hl:Hide()
+      row.rank = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      row.rank:SetPoint("LEFT", 0, 0); row.rank:SetWidth(26); row.rank:SetJustifyH("LEFT")
+      row.rank:SetTextColor(1, 0.82, 0)
+      row.icon = row:CreateTexture(nil, "ARTWORK")
+      row.icon:SetSize(16, 16); row.icon:SetPoint("LEFT", row.rank, "RIGHT", 0, 0)
+      row.val = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      row.val:SetPoint("RIGHT", 0, 0); row.val:SetJustifyH("RIGHT")
+      row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0); row.name:SetJustifyH("LEFT")
+      row.name:SetPoint("RIGHT", row.val, "LEFT", -6, 0) -- nome não invade o valor
+      row:SetScript("OnEnter", function(self) self.hl:Show() end)
+      row:SetScript("OnLeave", function(self) self.hl:Hide() end)
+      row:SetScript("OnClick", function(self) if self.btn then kbFlashBtn(self.btn) end end)
+      topValRows[i] = row
+    end
+    return row
+  end
+
+  -- popula o painel a partir do `live` JÁ ordenado do UpdateTopValue. live=nil ou lim<=0 → esconde.
+  UI.RenderTopValuePanel = function(live, lim)
+    local panel = UI and UI.topValuePanel
+    if not panel then return end
+    if not live or not lim or lim <= 0 then
+      for _, r in ipairs(topValRows) do r.btn = nil; r:Hide() end
+      panel:Hide(); return
+    end
+    for i = 1, lim do
+      local e = live[i]
+      local row = kbAcquireTopValRow(i)
+      row.btn = e and e.btn -- guarda o botão pra piscar no clique (pode estar reciclado depois)
+      row.rank:SetText("#" .. i)
+      local b = e and e.btn
+      local info = (b and b.bag and b.slot) and C_Container.GetContainerItemInfo(b.bag, b.slot) or nil
+      row.icon:SetTexture((info and info.iconFileID) or "Interface\\Icons\\INV_Misc_QuestionMark")
+      if info and info.hyperlink then
+        row.name:SetText(info.hyperlink) -- já vem colorido pela qualidade
+      else
+        local nm = (b and b.itemID) and C_Item.GetItemInfo(b.itemID) or nil
+        row.name:SetText(nm or "...")
+      end
+      row.val:SetText(GetCoinTextureString((e and e.val) or 0))
+      row.hl:Hide()
+      row:Show()
+    end
+    for i = lim + 1, #topValRows do topValRows[i].btn = nil; topValRows[i]:Hide() end -- sobras (sem ghost)
+    panel:SetHeight(28 + lim * (TOPVAL_ROW_H + 1) + 8) -- altura dinâmica = título + nº de linhas
+    panel:Show()
+  end
+
   -- v0.60.0: destaca os N itens mais valiosos da bolsa (KrononMarket). 100% OPCIONAL e defensivo,
   -- mesmo padrão guard+pcall do valor da bolsa. Borda dourada pulsante (b.kbTopGlow, lazy) nos
   -- TOP-N slots VIVOS por valor de mercado = GetPrice(itemID) × pilha. Sem o KrononMarket, com o
@@ -4049,9 +4174,9 @@ CreateUI = function()
       end
       if b.kbCoinFx then KBCoin.stop(b.kbCoinFx) end -- v0.61.0: apaga as moedas junto com os glows
     end
-    if not (DB and DB.settings and DB.settings.topValueHL) then return end
-    if not (KrononMarket and KrononMarket.GetPrice) then return end -- sem o KrononMarket: nada destaca
-    if CachedMode() then return end -- visão de cache (banco de longe): sem slots vivos pra avaliar
+    if not (DB and DB.settings and DB.settings.topValueHL) then UI.RenderTopValuePanel(nil); return end
+    if not (KrononMarket and KrononMarket.GetPrice) then UI.RenderTopValuePanel(nil); return end -- sem o KrononMarket: nada destaca
+    if CachedMode() then UI.RenderTopValuePanel(nil); return end -- visão de cache (banco de longe): sem slots vivos pra avaliar
     -- 2) valor de mercado de cada item VIVO mostrado = preço × pilha (defensivo: sem preço não entra)
     local live = {}
     for _, b in ipairs(pool) do
@@ -4076,9 +4201,10 @@ CreateUI = function()
       g:SetVertexColor(1 * f, 0.82 * f, 0)
       g:Show()
       if g.kbPulse then pcall(g.kbPulse.Play, g.kbPulse) end
-      -- v0.61.0: SÓ o item mais caro (i==1) ganha as moedas jorrando, além da borda dourada
-      if i == 1 then KBCoin.play(live[i].btn) end
+      KBCoin.play(live[i].btn) -- moedas jorrando em TODOS os top-N destacados (não só o #1)
     end
+    -- 4) painel "Mais valiosos" no topo: mesmos dados/ordem do destaque (esconde se lim<=0)
+    UI.RenderTopValuePanel(live, lim)
   end
 
   -- frame invisível por cima do ouro: hover abre o painel de ouro por personagem (+ Brigada).
