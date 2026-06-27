@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.62.2
+**Português**
+- **Novo:** o botão de **destacar itens valiosos** agora mostra o estado: **ligado** = moeda dourada acesa, brilho pulsante e moedas saindo do botão; **desligado** = moeda acinzentada e parada. Fácil saber se está ativo.
+
+**English**
+- **New:** the **highlight valuable items** button now shows its state: **on** = bright gold coin, pulsing glow and coins popping out; **off** = grayed-out, still coin. Easy to tell if it's active.
+
+**Español**
+- **Nuevo:** el botón de **destacar objetos valiosos** ahora muestra su estado: **activado** = moneda dorada brillante, resplandor y monedas saliendo; **desactivado** = moneda en gris y quieta. Fácil saber si está activo.
+
 ## 0.62.1
 **Português**
 - **Novo:** o **título** do cabeçalho se ajusta ao espaço conforme você redimensiona a janela: `KrononBags` → `KBags` → `KB` → (vazio) quando há poucas colunas, liberando espaço sem sobrepor os ícones.

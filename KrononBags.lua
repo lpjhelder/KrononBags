@@ -3745,6 +3745,17 @@ CreateUI = function()
     topVal:SetNormalTexture("Interface\\ICONS\\INV_Misc_Coin_01")
   end
   topVal:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  -- feedback de LIGADO: glow dourado pulsante atrás do ícone quando o destaque está ativo
+  local tvGlow = topVal:CreateTexture(nil, "BACKGROUND")
+  tvGlow:SetPoint("CENTER"); tvGlow:SetSize(30, 30)
+  tvGlow:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); tvGlow:SetBlendMode("ADD")
+  tvGlow:SetVertexColor(1, 0.82, 0); tvGlow:Hide()
+  local okTvAg, tvAg = pcall(function()
+    local grp = tvGlow:CreateAnimationGroup(); grp:SetLooping("BOUNCE")
+    local a = grp:CreateAnimation("Alpha"); a:SetFromAlpha(0.25); a:SetToAlpha(0.9); a:SetDuration(0.6)
+    return grp
+  end)
+  topVal.kbGlow = tvGlow; topVal.kbGlowAg = okTvAg and tvAg or nil
   topVal:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   topVal:SetScript("OnClick", function(self, button)
     if not (DB and DB.settings) then return end
@@ -3757,12 +3768,14 @@ CreateUI = function()
             DB.settings.topValueN = n
             DB.settings.topValueHL = true -- escolher um N também LIGA o destaque
             if UI and UI.UpdateTopValue then UI.UpdateTopValue() end
+            if UI and UI.UpdateTopValueBtn then UI.UpdateTopValueBtn() end
           end)
         end
       end)
     else
       DB.settings.topValueHL = not DB.settings.topValueHL
       if UI and UI.UpdateTopValue then UI.UpdateTopValue() end
+      if UI and UI.UpdateTopValueBtn then UI.UpdateTopValueBtn() end
     end
   end)
   topVal:SetScript("OnEnter", function(self)
@@ -3774,11 +3787,26 @@ CreateUI = function()
   end)
   topVal:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.topValueBtn = topVal
-  -- visibilidade condicional: o botão some por completo sem o KrononMarket (igual ao valor da bolsa)
+  -- visibilidade + ESTADO: some sem o KrononMarket; LIGADO = moeda DOURADA acesa + glow + moedas
+  -- jorrando do botão; DESLIGADO = moeda CINZA (acinzentada) e tudo parado.
   UI.UpdateTopValueBtn = function()
     local btn = UI and UI.topValueBtn
     if not btn then return end
-    if KrononMarket and KrononMarket.GetPrice then btn:Show() else btn:Hide() end
+    if not (KrononMarket and KrononMarket.GetPrice) then btn:Hide(); return end
+    btn:Show()
+    local on = (DB and DB.settings and DB.settings.topValueHL) and true or false
+    local nt = btn:GetNormalTexture()
+    if nt then nt:SetDesaturated(not on); nt:SetAlpha(on and 1 or 0.5) end
+    if btn.kbGlow then
+      if on then
+        btn.kbGlow:Show()
+        if btn.kbGlowAg then pcall(btn.kbGlowAg.Play, btn.kbGlowAg) end
+      else
+        if btn.kbGlowAg then pcall(btn.kbGlowAg.Stop, btn.kbGlowAg) end
+        btn.kbGlow:Hide()
+      end
+    end
+    if on then KBCoin.play(btn) elseif btn.kbCoinFx then KBCoin.stop(btn.kbCoinFx) end
   end
   UI.UpdateTopValueBtn()
 
