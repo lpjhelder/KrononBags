@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.61.1
+**Português**
+- **Corrigido:** avisos de Lua repetidos do `Bindings.xml` (`Unrecognized XML`). O arquivo de atalhos é carregado automaticamente pelo jogo e não deve constar no `.toc` — a referência duplicada foi removida. Os atalhos de teclado continuam funcionando.
+
+**English**
+- **Fixed:** repeated Lua warnings from `Bindings.xml` (`Unrecognized XML`). The key bindings file is auto-loaded by the game and must not be listed in the `.toc` — the duplicate reference was removed. Keybindings keep working.
+
+**Español**
+- **Corregido:** advertencias de Lua repetidas de `Bindings.xml` (`Unrecognized XML`). El archivo de atajos lo carga el juego automáticamente y no debe figurar en el `.toc` — se eliminó la referencia duplicada. Los atajos siguen funcionando.
+
 ## 0.61.0
 **Português**
 - **Novo:** opção **Top 1** no menu do botão de ouro — agora dá pra destacar só o item mais valioso (**1 / 5 / 10 / 15 / 20**).

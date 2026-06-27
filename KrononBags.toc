@@ -5,7 +5,7 @@
 ## Notes-esES: Bolsa unificada del clan Kronon — botones nativos (usar/equipar/abrir/vender), categorías ordenables, pestañas plegables, ilvl en el icono, sello BoE/Banda de guerra, objeto nuevo, reutilización, valor de la basura, auto-abrir y organización automática.
 ## Author: Kronon
 ## Category: Kronon
-## Version: 0.61.0
+## Version: 0.61.1
 ## SavedVariables: KrononBagsDB
 ## OptionalDeps: Masque, Pawn, Auctionator, TradeSkillMaster, KrononMarket, KrononAlts
 ## X-Curse-Project-ID: 1577314
@@ -14,4 +14,3 @@
 Libs\LibStub\LibStub.lua
 Libs\KrononLib-1.0\KrononLib-1.0.lua
 KrononBags.lua
-Bindings.xml
