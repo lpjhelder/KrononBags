@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.61.0
+**Português**
+- **Novo:** opção **Top 1** no menu do botão de ouro — agora dá pra destacar só o item mais valioso (**1 / 5 / 10 / 15 / 20**).
+- **Novo:** **moedas jorrando** do item mais caro — o item de maior valor (top-1) ganha, além da borda dourada, uma animação leve de moedas saindo dele.
+- **Melhorado:** **brilho graduado** no destaque — o item mais caro recebe a cor dourada cheia e os seguintes vão clareando, deixando claro qual é o mais valioso.
+- **Melhorado:** o **tour guiado** agora inclui um passo apontando o botão de ouro (só com o **KrononMarket**).
+- **Corrigido:** **falso positivo de aparência** — itens cujo visual de transmog você **já tem por outra peça/fonte** não aparecem mais na categoria **Aparência não coletada** nem ganham o selo. Agora a checagem olha a **aparência inteira** (qualquer fonte coletada), não só a peça específica. Em dúvida, erra pra menos: nunca marca à toa.
+
+**English**
+- **New:** **Top 1** option in the gold button menu — you can now highlight only your single most valuable item (**1 / 5 / 10 / 15 / 20**).
+- **New:** **coins spraying** from the priciest item — the highest-value item (top-1) gets a light animation of coins flowing out of it, on top of the golden border.
+- **Improved:** **graduated glow** on the highlight — the priciest item gets the full golden color and the following ones fade lighter, making it clear which one is the most valuable.
+- **Improved:** the **guided tour** now includes a step pointing to the gold button (only with **KrononMarket**).
+- **Fixed:** **appearance false positive** — gear whose transmog look you **already own from another piece/source** no longer shows up in the **Uncollected appearance** category or gets the seal. The check now looks at the **whole appearance** (any collected source), not just the specific piece. When unsure, it errs on the safe side: it never flags by mistake.
+
+**Español**
+- **Nuevo:** opción **Top 1** en el menú del botón de oro — ahora puedes destacar solo el objeto más valioso (**1 / 5 / 10 / 15 / 20**).
+- **Nuevo:** **monedas brotando** del objeto más caro — el objeto de mayor valor (top-1) recibe, además del borde dorado, una animación ligera de monedas saliendo de él.
+- **Mejorado:** **brillo graduado** en el resaltado — el objeto más caro recibe el color dorado pleno y los siguientes se van aclarando, dejando claro cuál es el más valioso.
+- **Mejorado:** el **tour guiado** ahora incluye un paso que señala el botón de oro (solo con **KrononMarket**).
+- **Corregido:** **falso positivo de apariencia** — las piezas cuyo aspecto de transfiguración **ya tienes por otra pieza/fuente** ya no aparecen en la categoría **Apariencia no coleccionada** ni reciben el sello. Ahora la comprobación mira la **apariencia completa** (cualquier fuente coleccionada), no solo la pieza específica. En caso de duda, se equivoca por defecto: nunca marca por error.
+
 ## 0.60.0
 **Português**
 - **Novo:** botão **Destacar itens mais valiosos** (ícone de ouro no topo da janela) — realça com uma **borda dourada pulsante** os itens mais caros da sua bolsa pela Casa de Leilões do **KrononMarket**. **Clique-esquerdo** liga/desliga; **clique-direito** abre um menu pra escolher quantos destacar (**5 / 10 / 15 / 20**). O valor de cada item é preço × quantidade; só os escolhidos ganham a borda, o resto fica normal.

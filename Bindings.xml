@@ -1,11 +1,11 @@
 <Bindings>
-	<Binding name="KRONONBAGS_TOGGLE" category="BINDING_HEADER_KRONONBAGS">
+	<Binding name="KRONONBAGS_TOGGLE" header="KRONONBAGS">
 		KrononBags_ToggleWindow();
 	</Binding>
-	<Binding name="KRONONBAGS_SEARCH" category="BINDING_HEADER_KRONONBAGS">
+	<Binding name="KRONONBAGS_SEARCH">
 		KrononBags_FocusSearch();
 	</Binding>
-	<Binding name="KRONONBAGS_VIEW" category="BINDING_HEADER_KRONONBAGS">
+	<Binding name="KRONONBAGS_VIEW">
 		KrononBags_ToggleView();
 	</Binding>
 </Bindings>

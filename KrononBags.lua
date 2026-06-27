@@ -249,6 +249,8 @@ local EN = {
   TUT_ALTS_BODY = "A summary of your other characters. Click to open KrononAlts. Shows only when KrononAlts is installed.",
   TUT_MARKET_TITLE = "Market value (KrononMarket)",
   TUT_MARKET_BODY = "The estimated market value of your bag. Item tooltips also show the price trend. Shows only when KrononMarket is installed.",
+  TUT_TOPVAL_TITLE = "Highlight valuable items",
+  TUT_TOPVAL_BODY = "The gold button highlights your most valuable items by Auction House price (brighter = pricier). Left-click toggles it, right-click picks how many (1/5/10/15/20). Shows only with KrononMarket.",
   -- v0.29.0: construtor de busca modular
   FILTER_BTN = "Filter", FILTER_TITLE = "Search builder",
   FILTER_ADD = "Add filter", FILTER_APPLY = "Apply", FILTER_CLEAR = "Clear",
@@ -483,6 +485,8 @@ local PT = {
   TUT_ALTS_BODY = "Um resumo dos seus outros personagens. Clique pra abrir o KrononAlts. Só aparece com o KrononAlts instalado.",
   TUT_MARKET_TITLE = "Valor de mercado (KrononMarket)",
   TUT_MARKET_BODY = "O valor de mercado estimado da bolsa. O tooltip dos itens também mostra a tendência de preço. Só aparece com o KrononMarket instalado.",
+  TUT_TOPVAL_TITLE = "Destacar itens valiosos",
+  TUT_TOPVAL_BODY = "O botão de ouro destaca os itens mais valiosos pela Casa de Leilões (mais brilho = mais caro). Clique-esquerdo liga/desliga, clique-direito escolhe quantos (1/5/10/15/20). Só aparece com o KrononMarket.",
   -- v0.29.0: construtor de busca modular
   FILTER_BTN = "Filtrar", FILTER_TITLE = "Construtor de busca",
   FILTER_ADD = "Adicionar filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpar",
@@ -717,6 +721,8 @@ local ES = {
   TUT_ALTS_BODY = "Un resumen de tus otros personajes. Haz clic para abrir KrononAlts. Solo aparece con KrononAlts instalado.",
   TUT_MARKET_TITLE = "Valor de mercado (KrononMarket)",
   TUT_MARKET_BODY = "El valor de mercado estimado de la bolsa. La descripción de los objetos también muestra la tendencia de precio. Solo aparece con KrononMarket instalado.",
+  TUT_TOPVAL_TITLE = "Destacar objetos valiosos",
+  TUT_TOPVAL_BODY = "El botón de oro destaca los objetos más valiosos por la Casa de Subastas (más brillo = más caro). Clic-izquierdo activa/desactiva, clic-derecho elige cuántos (1/5/10/15/20). Solo con KrononMarket.",
   -- v0.29.0: constructor de búsqueda modular
   FILTER_BTN = "Filtrar", FILTER_TITLE = "Constructor de búsqueda",
   FILTER_ADD = "Añadir filtro", FILTER_APPLY = "Aplicar", FILTER_CLEAR = "Limpiar",
@@ -929,7 +935,7 @@ local function InitDB()
   if KrononBagsDB.settings.catUncollected == nil then KrononBagsDB.settings.catUncollected = true end -- v0.59.0: categoria de alta prioridade "Aparência não coletada"
   if KrononBagsDB.settings.bagValue == nil then KrononBagsDB.settings.bagValue = true end -- v0.56.0: valor de mercado total da bolsa no rodapé (requer KrononMarket)
   if KrononBagsDB.settings.topValueHL == nil then KrononBagsDB.settings.topValueHL = false end -- v0.60.0: destacar os N itens mais valiosos da bolsa (requer KrononMarket); desligado por padrão
-  if KrononBagsDB.settings.topValueN == nil then KrononBagsDB.settings.topValueN = 5 end -- v0.60.0: quantos itens destacar (5/10/15/20)
+  if KrononBagsDB.settings.topValueN == nil then KrononBagsDB.settings.topValueN = 5 end -- v0.60.0: quantos itens destacar (1/5/10/15/20)
   -- v0.54.0: janela de config redesenhada — lembra posição/tamanho e última categoria aberta
   if KrononBagsDB.settings.cfgLastTab == nil then KrononBagsDB.settings.cfgLastTab = "appearance" end
   KrononBagsDB.settings.cfgPos = KrononBagsDB.settings.cfgPos or nil   -- {point, relPoint, x, y}
@@ -1112,21 +1118,39 @@ local function IsFavorited(itemID, link)
   return (link and DB.favorites[VariantKey(link)]) or DB.favorites[itemID] or false
 end
 
--- v0.59.0: aparência de transmog NÃO coletada. Reusa EXATAMENTE a detecção do selo v0.56.0
--- (DecorateBadges): só peça equipável (equipLoc não-vazio) que TEM fonte de aparência
--- (C_TransmogCollection.GetItemInfo devolve appID/srcID) e que o personagem ainda NÃO possui
--- (PlayerHasTransmogByItemInfo == false). 100% defensivo: sem a API, ou em erro (pcall), devolve
--- false — nunca classifica errado nem dá erro em cache frio.
+-- v0.61.0: cache de "o jogador POSSUI o visual?" por appearanceID, invalidado em
+-- TRANSMOG_COLLECTION_UPDATED (ver OnEvent). Evita chamar GetAppearanceSources por item
+-- equipável a cada Refresh — só a 1ª vez por aparência paga o custo.
+local kbAppearanceOwnedCache = {} -- [appearanceID] = true (tenho o visual) | false (existe mas nenhuma fonte coletada)
+
+-- v0.59.0/v0.61.0: aparência de transmog NÃO coletada. Helper ÚNICA usada pela categoria E pelo
+-- selo (DecorateBadges). Corrige o falso positivo de transmog: PlayerHasTransmogByItemInfo só
+-- checa a FONTE/peça específica, então um visual já coletado por OUTRA fonte aparecia como "não
+-- coletado". Aqui resolvemos a APARÊNCIA inteira (appearanceID) e perguntamos se ALGUMA das suas
+-- fontes tem isCollected==true → se sim, o jogador TEM o visual.
+-- Só peça equipável (equipLoc não-vazio). 100% defensivo: sem a API, item não-transmoggable, cache
+-- frio ou erro → false (erra pra MENOS: nunca marca à toa, evitando o falso positivo).
 local function IsUncollectedAppearance(itemID, link)
   if not itemID then return false end
-  if not (C_TransmogCollection and C_TransmogCollection.PlayerHasTransmogByItemInfo and C_TransmogCollection.GetItemInfo) then return false end
+  if not (C_Item and C_Item.GetItemInfoInstant) then return false end
   local equipLoc = select(4, C_Item.GetItemInfoInstant(itemID))
   if not (equipLoc and equipLoc ~= "") then return false end
+  if not (C_TransmogCollection and C_TransmogCollection.GetItemInfo and C_TransmogCollection.GetAppearanceSources) then return false end
   local id = link or itemID
-  local okSrc, appID, srcID = pcall(C_TransmogCollection.GetItemInfo, id)
-  if not (okSrc and (appID or srcID)) then return false end -- não-transmoggable (sem fonte de aparência)
-  local okHas, has = pcall(C_TransmogCollection.PlayerHasTransmogByItemInfo, id)
-  return (okHas and has == false) and true or false
+  local okItem, appID = pcall(C_TransmogCollection.GetItemInfo, id)
+  if not (okItem and appID) then return false end -- não-transmoggable / sem aparência conhecida
+  local owned = kbAppearanceOwnedCache[appID]
+  if owned == nil then
+    local okSrc, sources = pcall(C_TransmogCollection.GetAppearanceSources, appID)
+    if not (okSrc and type(sources) == "table") then return false end -- API falhou: não cacheia, não sinaliza
+    owned = false
+    for i = 1, #sources do
+      local s = sources[i]
+      if s and s.isCollected then owned = true; break end
+    end
+    kbAppearanceOwnedCache[appID] = owned
+  end
+  return owned == false -- só "não coletado" quando a aparência existe e NENHUMA fonte foi coletada
 end
 
 -- filtros recebem (itemID, quality, bag, slot, link). "reagentbag"/"keystone"/"new" são especiais.
@@ -1930,24 +1954,80 @@ local function DecorateBadges(b, bag, slot, itemID, quality, ilvl, isBound)
     end
     b.kbUpArrow:SetShown(up)
   end
-  -- v0.56.0: selo de transmog não coletado (visual ainda não aprendido). Só peças com aparência
-  -- (GetItemInfo devolve appearance/source) e que o personagem NÃO tem (PlayerHasTransmogByItemInfo
-  -- == false). 100% defensivo: sem a API, ou em erro, o selo simplesmente não aparece (pcall).
+  -- v0.56.0/v0.61.0: selo de transmog não coletado (visual ainda não aprendido). Usa a MESMA
+  -- helper da categoria (IsUncollectedAppearance), que olha a APARÊNCIA inteira (qualquer fonte
+  -- coletada) em vez da peça específica — corrige o falso positivo de visual já tido por outra
+  -- fonte. 100% defensivo: sem a API ou em erro, a helper devolve false e o selo não aparece.
   if b.kbMog then
     local show = false
-    if DB.settings.transmogSeal and equipLoc and equipLoc ~= "" and C_TransmogCollection
-       and C_TransmogCollection.PlayerHasTransmogByItemInfo and C_TransmogCollection.GetItemInfo then
-      local id = b.link or b.cachedLink or itemID
-      if id then
-        local okSrc, appID, srcID = pcall(C_TransmogCollection.GetItemInfo, id)
-        if okSrc and (appID or srcID) then -- item é transmoggable (tem fonte de aparência)
-          local okHas, has = pcall(C_TransmogCollection.PlayerHasTransmogByItemInfo, id)
-          if okHas and has == false then show = true end
-        end
-      end
+    if DB.settings.transmogSeal then
+      show = IsUncollectedAppearance(itemID, b.link or b.cachedLink)
     end
     b.kbMog:SetShown(show)
   end
+end
+
+-- v0.61.0: efeito de "moedas jorrando" — SÓ no item MAIS valioso (top-1) quando o destaque está
+-- ligado. Lazy (b.kbCoinFx), leve (4 texturas de moeda em loop) e 100% defensivo. As helpers são
+-- de nível de módulo pra serem usadas tanto por UpdateTopValue (ligar/desligar) quanto por
+-- ClearBadges (limpar ao reciclar o slot) — sem vazar pra slot reaproveitado.
+-- table único (1 só local de módulo) com as helpers do jorro de moedas — visível tanto p/
+-- ClearBadges (stop) quanto p/ UpdateTopValue (play), bem mais à frente no arquivo.
+local KBCoin = {}
+KBCoin.stop = function(fx)
+  if not fx then return end
+  if fx.coins then
+    for i = 1, #fx.coins do
+      local c = fx.coins[i]
+      if c then
+        if c.kbGrp then pcall(c.kbGrp.Stop, c.kbGrp) end
+        c:SetAlpha(0)
+      end
+    end
+  end
+  fx:Hide()
+end
+KBCoin.ensure = function(b)
+  if b.kbCoinFx then return b.kbCoinFx end
+  local f = CreateFrame("Frame", nil, b)
+  f:SetAllPoints(b)
+  pcall(f.SetFrameLevel, f, (b:GetFrameLevel() or 0) + 6) -- acima da borda/realce
+  f.coins = {}
+  local n = 4
+  for i = 1, n do
+    local c = f:CreateTexture(nil, "OVERLAY", nil, 6)
+    if not pcall(c.SetTexture, c, "Interface\\MoneyFrame\\UI-GoldIcon") then pcall(c.SetColorTexture, c, 1, 0.82, 0) end -- fallback: pingo dourado
+    c:SetSize(9, 9)
+    local dx = (i - (n + 1) / 2) * 5 -- pontos de saída espalhados na base do ícone
+    c:SetPoint("CENTER", f, "CENTER", dx, -3)
+    c:SetAlpha(0)
+    -- loop independente por moeda: sobe (Translation) e some (Alpha), com delay escalonado pra
+    -- parecer um jorro contínuo. Defensivo: se a animação falhar, a moeda só fica oculta (alpha 0).
+    pcall(function()
+      local grp = c:CreateAnimationGroup(); grp:SetLooping("REPEAT")
+      local delay = (i - 1) * 0.28
+      local tr = grp:CreateAnimation("Translation")
+      tr:SetOffset(dx * 0.35, 22); tr:SetDuration(1.1); tr:SetStartDelay(delay); tr:SetOrder(1)
+      local a = grp:CreateAnimation("Alpha")
+      a:SetFromAlpha(1); a:SetToAlpha(0); a:SetDuration(1.1); a:SetStartDelay(delay); a:SetOrder(1)
+      c.kbGrp = grp
+    end)
+    f.coins[i] = c
+  end
+  f:Hide()
+  b.kbCoinFx = f
+  return f
+end
+KBCoin.play = function(b)
+  local f = KBCoin.ensure(b)
+  f:Show()
+  if f.coins then
+    for i = 1, #f.coins do
+      local c = f.coins[i]
+      if c and c.kbGrp then pcall(c.kbGrp.Play, c.kbGrp) end
+    end
+  end
+  return f
 end
 
 local function ClearBadges(b)
@@ -1960,6 +2040,7 @@ local function ClearBadges(b)
   if b.kbUpArrow then b.kbUpArrow:Hide() end
   if b.kbMog then b.kbMog:Hide() end
   if b.kbTopGlow then if b.kbTopGlow.kbPulse then b.kbTopGlow.kbPulse:Stop() end b.kbTopGlow:Hide() end -- v0.60.0: destaque de valor não vaza p/ slot vazio/reciclado
+  if b.kbCoinFx then KBCoin.stop(b.kbCoinFx) end -- v0.61.0: moedas do top-1 não vazam p/ slot reciclado
 end
 
 -- atualização leve só dos cooldowns dos botões visíveis (evento BAG_UPDATE_COOLDOWN)
@@ -3669,7 +3750,7 @@ CreateUI = function()
       if not MenuUtil then return end
       MenuUtil.CreateContextMenu(self, function(owner, rootMenu)
         rootMenu:CreateTitle(L.TOPVAL_MENU_TITLE)
-        for _, n in ipairs({ 5, 10, 15, 20 }) do
+        for _, n in ipairs({ 1, 5, 10, 15, 20 }) do
           rootMenu:CreateButton(string.format(L.TOPVAL_MENU_N, n), function()
             DB.settings.topValueN = n
             DB.settings.topValueHL = true -- escolher um N também LIGA o destaque
@@ -3936,6 +4017,7 @@ CreateUI = function()
         if b.kbTopGlow.kbPulse then b.kbTopGlow.kbPulse:Stop() end
         b.kbTopGlow:Hide()
       end
+      if b.kbCoinFx then KBCoin.stop(b.kbCoinFx) end -- v0.61.0: apaga as moedas junto com os glows
     end
     if not (DB and DB.settings and DB.settings.topValueHL) then return end
     if not (KrononMarket and KrononMarket.GetPrice) then return end -- sem o KrononMarket: nada destaca
@@ -3959,8 +4041,13 @@ CreateUI = function()
     local lim = math.min(n, #live)
     for i = 1, lim do
       local g = kbEnsureTopGlow(live[i].btn)
+      -- brilho GRADUADO: o mais caro (i=1) recebe a cor cheia e decai até ~40% no último destaque
+      local f = (lim > 1) and (1 - ((i - 1) / (lim - 1)) * 0.6) or 1
+      g:SetVertexColor(1 * f, 0.82 * f, 0)
       g:Show()
       if g.kbPulse then pcall(g.kbPulse.Play, g.kbPulse) end
+      -- v0.61.0: SÓ o item mais caro (i==1) ganha as moedas jorrando, além da borda dourada
+      if i == 1 then KBCoin.play(live[i].btn) end
     end
   end
 
@@ -4176,6 +4263,7 @@ CreateUI = function()
     { getTarget = function() return goldText end,       title = L.TUT_FOOTER_TITLE,       body = L.TUT_FOOTER_BODY },
     { getTarget = function() return UI.altsIndicator end, title = L.TUT_ALTS_TITLE,       body = L.TUT_ALTS_BODY },   -- condicional: só com KrononAlts
     { getTarget = function() return UI.bagValue end,    title = L.TUT_MARKET_TITLE,       body = L.TUT_MARKET_BODY }, -- condicional: só com KrononMarket
+    { getTarget = function() return UI.topValueBtn end, title = L.TUT_TOPVAL_TITLE,       body = L.TUT_TOPVAL_BODY }, -- condicional: só com KrononMarket
     { getTarget = function() return gear end,           title = L.TUT_CONFIG_TITLE,       body = L.TUT_CONFIG_BODY },
     { getTarget = function() return help end,           title = L.TUT_HELP_TITLE,         body = L.TUT_HELP_BODY },
   }
@@ -4540,20 +4628,24 @@ end
 -- callbacks antigos — mesmo DB.settings, mesmo preview de tema ao vivo. Nada de offsets cruus.
 
 -- paleta coesa (dark) — ver objetivo da v0.54.0
-local CFG_BG      = { 0.082, 0.090, 0.102 } -- #15171a corpo
-local CFG_SIDE    = { 0.063, 0.071, 0.086 } -- #101216 sidebar
-local CFG_TITLEBG = { 0.047, 0.055, 0.067 } -- #0c0e11 titlebar
-local CFG_ACCENT  = { 0.482, 0.643, 0.988 } -- #7BA4FC azul
-local CFG_GOLD    = { 1.000, 0.820, 0.000 } -- #FFD100 dourado
-local CFG_ON      = { 0.200, 0.820, 0.478 } -- #33D17A verde ligado
-local CFG_OFF     = { 0.400, 0.420, 0.460 } -- cinza desligado
-local CFG_TEXT    = { 0.850, 0.860, 0.880 } -- texto neutro
-local CFG_WHITE8  = "Interface\\Buttons\\WHITE8x8"
+-- v0.61.0: 9 cores/textura num ÚNICO local de módulo (KBPal) — mesmos valores de antes,
+-- só agrupados pra economizar slots de local (limite do Lua 5.1 = 200 no chunk principal).
+local KBPal = {
+  BG      = { 0.082, 0.090, 0.102 }, -- #15171a corpo
+  SIDE    = { 0.063, 0.071, 0.086 }, -- #101216 sidebar
+  TITLEBG = { 0.047, 0.055, 0.067 }, -- #0c0e11 titlebar
+  ACCENT  = { 0.482, 0.643, 0.988 }, -- #7BA4FC azul
+  GOLD    = { 1.000, 0.820, 0.000 }, -- #FFD100 dourado
+  ON      = { 0.200, 0.820, 0.478 }, -- #33D17A verde ligado
+  OFF     = { 0.400, 0.420, 0.460 }, -- cinza desligado
+  TEXT    = { 0.850, 0.860, 0.880 }, -- texto neutro
+  WHITE8  = "Interface\\Buttons\\WHITE8x8",
+}
 
 -- backdrop FLAT: textura sólida + borda fininha branca (não o inset bisotado nativo)
 local function kbFlat(f, r, g, b, a, ba)
   if not f.SetBackdrop then return end
-  f:SetBackdrop({ bgFile = CFG_WHITE8, edgeFile = CFG_WHITE8, edgeSize = 1, tile = false })
+  f:SetBackdrop({ bgFile = KBPal.WHITE8, edgeFile = KBPal.WHITE8, edgeSize = 1, tile = false })
   f:SetBackdropColor(r, g, b, a or 1)
   f:SetBackdropBorderColor(1, 1, 1, ba or 0.08)
 end
@@ -4621,7 +4713,7 @@ CreateConfig = function()
   CFG:SetClampedToScreen(true)
   CFG:SetMovable(true); CFG:EnableMouse(true)
   CFG:SetResizable(true)
-  kbFlat(CFG, CFG_BG[1], CFG_BG[2], CFG_BG[3], 0.98, 0.10)
+  kbFlat(CFG, KBPal.BG[1], KBPal.BG[2], KBPal.BG[3], 0.98, 0.10)
   if CFG.SetResizeBounds then
     CFG:SetResizeBounds(540, 420, 880, 780)
   elseif CFG.SetMinResize then
@@ -4638,7 +4730,7 @@ CreateConfig = function()
   local titlebar = CreateFrame("Frame", nil, CFG, "BackdropTemplate")
   titlebar:SetPoint("TOPLEFT", 1, -1); titlebar:SetPoint("TOPRIGHT", -1, -1)
   titlebar:SetHeight(38)
-  kbFlat(titlebar, CFG_TITLEBG[1], CFG_TITLEBG[2], CFG_TITLEBG[3], 1, 0.06)
+  kbFlat(titlebar, KBPal.TITLEBG[1], KBPal.TITLEBG[2], KBPal.TITLEBG[3], 1, 0.06)
   titlebar:EnableMouse(true)
   titlebar:RegisterForDrag("LeftButton")
   titlebar:SetScript("OnDragStart", function() CFG:StartMoving() end)
@@ -4654,7 +4746,7 @@ CreateConfig = function()
   local title = titlebar:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("LEFT", clogo, "RIGHT", 8, 0)
   title:SetText(L.CONFIG_TITLE)
-  title:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
+  title:SetTextColor(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3])
 
   local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version")) or ""
   local verFS = titlebar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -4668,7 +4760,7 @@ CreateConfig = function()
   sidebar:SetPoint("TOPLEFT", 1, -39)
   sidebar:SetPoint("BOTTOMLEFT", 1, 1)
   sidebar:SetWidth(168)
-  kbFlat(sidebar, CFG_SIDE[1], CFG_SIDE[2], CFG_SIDE[3], 1, 0.06)
+  kbFlat(sidebar, KBPal.SIDE[1], KBPal.SIDE[2], KBPal.SIDE[3], 1, 0.06)
 
   local vdiv = CFG:CreateTexture(nil, "ARTWORK")
   vdiv:SetColorTexture(1, 1, 1, 0.06); vdiv:SetWidth(1)
@@ -4705,7 +4797,7 @@ CreateConfig = function()
   local function Section(ctx, text)
     local h = ctx.parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     h:SetPoint("TOPLEFT", 14, ctx.y)
-    h:SetText(text); h:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
+    h:SetText(text); h:SetTextColor(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3])
     local d = ctx.parent:CreateTexture(nil, "ARTWORK")
     d:SetHeight(1)
     d:SetPoint("LEFT", h, "RIGHT", 10, 0)
@@ -4714,10 +4806,10 @@ CreateConfig = function()
     if d.SetGradient and CreateColor then
       d:SetColorTexture(1, 1, 1, 1)
       d:SetGradient("HORIZONTAL",
-        CreateColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.55),
-        CreateColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.0))
+        CreateColor(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3], 0.55),
+        CreateColor(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3], 0.0))
     else
-      d:SetColorTexture(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.35)
+      d:SetColorTexture(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3], 0.35)
     end
     ctx.y = ctx.y - 26
   end
@@ -4725,10 +4817,10 @@ CreateConfig = function()
   -- elementos comuns de uma linha de opção (highlight de hover + flash de busca + tooltip)
   local function decorateRow(row, label, tipKey)
     local hl = row:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints(); hl:SetTexture(CFG_WHITE8); hl:SetVertexColor(1, 1, 1, 0.05)
+    hl:SetAllPoints(); hl:SetTexture(KBPal.WHITE8); hl:SetVertexColor(1, 1, 1, 0.05)
     local flash = row:CreateTexture(nil, "ARTWORK")
-    flash:SetAllPoints(); flash:SetTexture(CFG_WHITE8)
-    flash:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.5)
+    flash:SetAllPoints(); flash:SetTexture(KBPal.WHITE8)
+    flash:SetVertexColor(KBPal.ACCENT[1], KBPal.ACCENT[2], KBPal.ACCENT[3], 0.5)
     flash:Hide()
     row.flash = flash
     row:SetScript("OnEnter", function(self)
@@ -4757,9 +4849,9 @@ CreateConfig = function()
     local sw = CreateFrame("Frame", nil, row)
     sw:SetSize(40, 20); sw:SetPoint("TOPLEFT", 8, -2)
     local track = sw:CreateTexture(nil, "BACKGROUND")
-    track:SetAllPoints(); track:SetTexture(CFG_WHITE8)
+    track:SetAllPoints(); track:SetTexture(KBPal.WHITE8)
     local knob = sw:CreateTexture(nil, "ARTWORK")
-    knob:SetSize(16, 16); knob:SetTexture(CFG_WHITE8); knob:SetVertexColor(0.96, 0.96, 0.97, 1)
+    knob:SetSize(16, 16); knob:SetTexture(KBPal.WHITE8); knob:SetVertexColor(0.96, 0.96, 0.97, 1)
     local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lbl:SetPoint("TOPLEFT", sw, "TOPRIGHT", 12, -2); lbl:SetJustifyH("LEFT")
     lbl:SetText(label)
@@ -4770,13 +4862,13 @@ CreateConfig = function()
     if tipKey and L[tipKey] then dsc:SetText(L[tipKey]) end
     local function paint(on)
       if on then
-        track:SetVertexColor(CFG_ON[1], CFG_ON[2], CFG_ON[3], 0.85)
+        track:SetVertexColor(KBPal.ON[1], KBPal.ON[2], KBPal.ON[3], 0.85)
         knob:ClearAllPoints(); knob:SetPoint("RIGHT", -2, 0)
-        lbl:SetTextColor(CFG_ON[1], CFG_ON[2], CFG_ON[3])
+        lbl:SetTextColor(KBPal.ON[1], KBPal.ON[2], KBPal.ON[3])
       else
-        track:SetVertexColor(CFG_OFF[1], CFG_OFF[2], CFG_OFF[3], 0.55)
+        track:SetVertexColor(KBPal.OFF[1], KBPal.OFF[2], KBPal.OFF[3], 0.55)
         knob:ClearAllPoints(); knob:SetPoint("LEFT", 2, 0)
-        lbl:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+        lbl:SetTextColor(KBPal.TEXT[1], KBPal.TEXT[2], KBPal.TEXT[3])
       end
     end
     paint(getf() and true or false)
@@ -4805,7 +4897,7 @@ CreateConfig = function()
     row:SetHeight(52)
     local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lbl:SetPoint("TOPLEFT", 8, -2)
-    lbl:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+    lbl:SetTextColor(KBPal.TEXT[1], KBPal.TEXT[2], KBPal.TEXT[3])
     local function disp(v) if dispf then return dispf(v) elseif isInt then return math.floor(v + 0.5) else return v end end
     local function setLbl(v) lbl:SetText(string.format(L[fmtKey], disp(v))) end
     local s = CreateFrame("Slider", name, row, "OptionsSliderTemplate")
@@ -4827,8 +4919,8 @@ CreateConfig = function()
     end)
     s:SetScript("OnLeave", function() GameTooltip:Hide() end)
     local flash = row:CreateTexture(nil, "ARTWORK")
-    flash:SetAllPoints(); flash:SetTexture(CFG_WHITE8)
-    flash:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.5); flash:Hide()
+    flash:SetAllPoints(); flash:SetTexture(KBPal.WHITE8)
+    flash:SetVertexColor(KBPal.ACCENT[1], KBPal.ACCENT[2], KBPal.ACCENT[3], 0.5); flash:Hide()
     row.flash = flash
     local entry = { label = (L[fmtKey] or fmtKey):gsub("[:%%].*$", ""), frame = row }
     entry.refresh = function() s:SetValue(getf()); setLbl(getf()) end
@@ -4845,7 +4937,7 @@ CreateConfig = function()
     row:SetHeight(44)
     local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lbl:SetPoint("TOPLEFT", 8, -2); lbl:SetText(label)
-    lbl:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+    lbl:SetTextColor(KBPal.TEXT[1], KBPal.TEXT[2], KBPal.TEXT[3])
     local btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     btn:SetSize(210, 22); btn:SetPoint("TOPLEFT", 10, -20); btn:SetAttribute("nodeignore", true)
     local function upd() btn:SetText(getTextf()) end
@@ -4862,8 +4954,8 @@ CreateConfig = function()
       btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end
     local flash = row:CreateTexture(nil, "ARTWORK")
-    flash:SetAllPoints(); flash:SetTexture(CFG_WHITE8)
-    flash:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.5); flash:Hide()
+    flash:SetAllPoints(); flash:SetTexture(KBPal.WHITE8)
+    flash:SetVertexColor(KBPal.ACCENT[1], KBPal.ACCENT[2], KBPal.ACCENT[3], 0.5); flash:Hide()
     row.flash = flash
     local entry = { label = label, frame = row }
     entry.refresh = upd
@@ -4880,8 +4972,8 @@ CreateConfig = function()
       if b.selbg then b.selbg:SetShown(active) end
       if b.bar then b.bar:SetShown(active) end
       if b.fs then
-        if active then b.fs:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
-        else b.fs:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3]) end
+        if active then b.fs:SetTextColor(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3])
+        else b.fs:SetTextColor(KBPal.TEXT[1], KBPal.TEXT[2], KBPal.TEXT[3]) end
       end
     end
     local sf, child = CFG.panels[key], CFG.childs[key]
@@ -4934,21 +5026,21 @@ CreateConfig = function()
     b:SetPoint("TOPLEFT", 7, -44 - (i - 1) * 32)
     b.tabKey = t.key
     local selbg = b:CreateTexture(nil, "BACKGROUND")
-    selbg:SetAllPoints(); selbg:SetTexture(CFG_WHITE8)
-    selbg:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 0.13); selbg:Hide()
+    selbg:SetAllPoints(); selbg:SetTexture(KBPal.WHITE8)
+    selbg:SetVertexColor(KBPal.ACCENT[1], KBPal.ACCENT[2], KBPal.ACCENT[3], 0.13); selbg:Hide()
     b.selbg = selbg
     local bar = b:CreateTexture(nil, "ARTWORK")
-    bar:SetSize(3, 30); bar:SetPoint("LEFT", 0, 0); bar:SetTexture(CFG_WHITE8)
-    bar:SetVertexColor(CFG_ACCENT[1], CFG_ACCENT[2], CFG_ACCENT[3], 1); bar:Hide()
+    bar:SetSize(3, 30); bar:SetPoint("LEFT", 0, 0); bar:SetTexture(KBPal.WHITE8)
+    bar:SetVertexColor(KBPal.ACCENT[1], KBPal.ACCENT[2], KBPal.ACCENT[3], 1); bar:Hide()
     b.bar = bar
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints(); hl:SetTexture(CFG_WHITE8); hl:SetVertexColor(1, 1, 1, 0.05)
+    hl:SetAllPoints(); hl:SetTexture(KBPal.WHITE8); hl:SetVertexColor(1, 1, 1, 0.05)
     local ic = b:CreateTexture(nil, "ARTWORK")
     ic:SetSize(16, 16); ic:SetPoint("LEFT", 12, 0); ic:SetTexture(t.icon)
     ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fs:SetPoint("LEFT", ic, "RIGHT", 8, 0); fs:SetText(t.label)
-    fs:SetTextColor(CFG_TEXT[1], CFG_TEXT[2], CFG_TEXT[3])
+    fs:SetTextColor(KBPal.TEXT[1], KBPal.TEXT[2], KBPal.TEXT[3])
     b.fs = fs
     b:SetScript("OnClick", function() ShowConfigTab(t.key) end)
     b:SetAttribute("nodeignore", true)
@@ -4961,9 +5053,9 @@ CreateConfig = function()
   resetBtn:SetSize(150, 26); resetBtn:SetPoint("BOTTOM", 0, 10)
   resetBtn:SetAttribute("nodeignore", true)
   local rbBG = resetBtn:CreateTexture(nil, "BACKGROUND")
-  rbBG:SetAllPoints(); rbBG:SetTexture(CFG_WHITE8); rbBG:SetVertexColor(1, 1, 1, 0.05)
+  rbBG:SetAllPoints(); rbBG:SetTexture(KBPal.WHITE8); rbBG:SetVertexColor(1, 1, 1, 0.05)
   local rbHL = resetBtn:CreateTexture(nil, "HIGHLIGHT")
-  rbHL:SetAllPoints(); rbHL:SetTexture(CFG_WHITE8); rbHL:SetVertexColor(0.85, 0.30, 0.30, 0.25)
+  rbHL:SetAllPoints(); rbHL:SetTexture(KBPal.WHITE8); rbHL:SetVertexColor(0.85, 0.30, 0.30, 0.25)
   local rbFS = resetBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   rbFS:SetPoint("CENTER"); rbFS:SetText(L.CFG_RESET); rbFS:SetTextColor(0.9, 0.6, 0.6)
   resetBtn:SetScript("OnClick", function() StaticPopup_Show("KRONONBAGS_RESETCFG") end)
@@ -5001,7 +5093,7 @@ CreateConfig = function()
     themeList:SetPoint("TOPLEFT", themeBtn, "BOTTOMLEFT", 0, -2)
     themeList:SetSize(200, #KB_THEMES * 22 + 8)
     themeList:SetFrameStrata("FULLSCREEN_DIALOG")
-    kbFlat(themeList, CFG_SIDE[1], CFG_SIDE[2], CFG_SIDE[3], 0.98, 0.12)
+    kbFlat(themeList, KBPal.SIDE[1], KBPal.SIDE[2], KBPal.SIDE[3], 0.98, 0.12)
     themeList:EnableMouse(true); themeList:Hide()
     themeList:SetScript("OnHide", function() ApplyTheme(DB.settings.theme) end) -- restaura o salvo
     CFG.themeBtn = themeBtn
@@ -5182,9 +5274,9 @@ CreateConfig = function()
     local catP = makeFlatPanel("categories")
     local secH = catP:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     secH:SetPoint("TOPLEFT", 8, -8); secH:SetText(L.SEC_CATEGORIES)
-    secH:SetTextColor(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3])
+    secH:SetTextColor(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3])
     local secD = catP:CreateTexture(nil, "ARTWORK")
-    secD:SetColorTexture(CFG_GOLD[1], CFG_GOLD[2], CFG_GOLD[3], 0.30); secD:SetHeight(1)
+    secD:SetColorTexture(KBPal.GOLD[1], KBPal.GOLD[2], KBPal.GOLD[3], 0.30); secD:SetHeight(1)
     secD:SetPoint("LEFT", secH, "RIGHT", 10, 0); secD:SetPoint("RIGHT", catP, "RIGHT", -6, 0)
     local catHint = catP:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     catHint:SetPoint("TOPLEFT", 8, -30); catHint:SetPoint("RIGHT", catP, "RIGHT", -6, 0); catHint:SetJustifyH("LEFT")
@@ -5781,6 +5873,7 @@ f:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 f:RegisterEvent("BAG_NEW_ITEMS_UPDATED")
 f:RegisterEvent("BAG_UPDATE_COOLDOWN")
 f:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+f:RegisterEvent("TRANSMOG_COLLECTION_UPDATED") -- v0.61.0: invalida o cache de "tenho o visual?"
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
 f:RegisterEvent("PLAYER_LOGOUT")
 f:RegisterEvent("MERCHANT_SHOW");      f:RegisterEvent("MERCHANT_CLOSED")
@@ -5822,6 +5915,11 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if UI and UI:IsShown() then UpdateMoney() end
   elseif event == "BAG_UPDATE_COOLDOWN" then
     if UI and UI:IsShown() then UpdateCooldowns() end
+  elseif event == "TRANSMOG_COLLECTION_UPDATED" then
+    -- coleção de transmog mudou (aprendeu/perdeu aparência): zera o cache e re-renderiza p/
+    -- a categoria "Aparência não coletada" e o selo refletirem na hora (se a janela estiver aberta).
+    wipe(kbAppearanceOwnedCache)
+    if UI and UI:IsShown() then Refresh() end
   elseif event == "GET_ITEM_INFO_RECEIVED" then
     -- cache de item esquentou: re-renderiza pra acertar os sub-grupos por expansão.
     -- só quando a opção está ligada e a janela aberta (pra não refreshar à toa); debounced.
