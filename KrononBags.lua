@@ -1778,13 +1778,16 @@ local function PX(v) local s = UIParent:GetEffectiveScale(); if not s or s == 0 
 local function FinishLayout(contentH)
   local M = UI.kbMargin or MARGIN
   local BOT = UI.kbBottom or (MARGIN + 22)
-  local tabsVisible = atBank or HasCharBankSnap() or HasWarbandSnap() -- barra de abas ocupa o topo
-  local TOP = (UI.kbTop or 34) + (tabsVisible and 22 or 0)
   local cols = (DB.settings and DB.settings.cols) or COLS
   local contentW = cols * (BTN + PAD) - PAD
+  -- v0.62.0: largura primeiro; daí o header adaptável decide 1 ou 2 linhas e fixa o kbTop ANTES
+  -- de calcular o TOP do conteúdo (assim o conteúdo desce/sobe junto, sem ficar 1 frame defasado).
+  UI:SetWidth(PX(contentW + M * 2 + SBW))
+  if UI.RelayoutHeader then UI.RelayoutHeader() end
+  local tabsVisible = atBank or HasCharBankSnap() or HasWarbandSnap() -- barra de abas ocupa o topo
+  local TOP = (UI.kbTop or 34) + (tabsVisible and 22 or 0)
   local maxH = (DB.settings and DB.settings.maxHeight) or 520
   local viewportH = math.max(80, math.min(contentH, maxH))
-  UI:SetWidth(PX(contentW + M * 2 + SBW))
   UI:SetHeight(PX(TOP + viewportH + BOT))
   if UI.scroll then
     UI.scroll:ClearAllPoints()
@@ -3648,6 +3651,12 @@ CreateUI = function()
     local close = CreateFrame("Button", nil, UI, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 2, 2)
   end
+  -- v0.62.0: estado do header adaptável (1 ou 2 linhas). kbTopBase = altura base do header
+  -- (34 escuro / 60 blizzard); no modo 2 linhas o header cresce p/ base + 24. ctrlY/gearX guiam
+  -- o posicionamento da 2ª linha. Campos em UI (não locais de chunk) pelo orçamento de locais.
+  UI.kbTopBase = UI.kbTop
+  UI.kbCtrlY, UI.kbGearX = ctrlY, gearAnchorX
+  UI.kbHeaderRows = 1
   UI:SetSize(COLS * (BTN + PAD) - PAD + UI.kbMargin * 2, 400)
 
   -- controles: organizar / busca / engrenagem (ambos os estilos), ancorados ao topo-direita
@@ -3659,6 +3668,7 @@ CreateUI = function()
   gear:SetScript("OnClick", function() ToggleConfig() end)
   gear:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_CONFIG); GameTooltip:Show() end)
   gear:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.gearBtn = gear -- referência usada pelo header adaptável (RelayoutHeader)
 
   -- botão "i" (info/dicas) à esquerda da engrenagem
   local help = CreateFrame("Button", nil, UI)
@@ -3671,6 +3681,7 @@ CreateUI = function()
   end)
   help:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_HELP); GameTooltip:Show() end)
   help:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.helpBtn = help -- referência usada pelo header adaptável (RelayoutHeader)
 
   local sb = CreateFrame("EditBox", nil, UI, "InputBoxTemplate")
   sb:SetSize(150, 20); sb:SetPoint("RIGHT", help, "LEFT", -6, 0); sb:SetAutoFocus(false) -- à esquerda do "?" (sem sobrepor)
@@ -3709,6 +3720,7 @@ CreateUI = function()
   end)
   sortBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_LEFT"); GameTooltip:SetText(L.TIP_AUTOSORT); GameTooltip:Show() end)
   sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.sortBtn = sortBtn -- referência usada pelo header adaptável (RelayoutHeader)
 
   -- botão "Onde está?" (busca global cross-char, só-leitura), à esquerda da vassoura
   local gsBtn = CreateFrame("Button", nil, UI)
@@ -3739,6 +3751,17 @@ CreateUI = function()
     topVal:SetNormalTexture("Interface\\ICONS\\INV_Misc_Coin_01")
   end
   topVal:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  -- feedback de LIGADO/DESLIGADO: glow dourado pulsante atrás do ícone quando o destaque está ativo
+  local tvGlow = topVal:CreateTexture(nil, "BACKGROUND")
+  tvGlow:SetPoint("CENTER"); tvGlow:SetSize(30, 30)
+  tvGlow:SetTexture("Interface\\Buttons\\ButtonHilight-Square"); tvGlow:SetBlendMode("ADD")
+  tvGlow:SetVertexColor(1, 0.82, 0); tvGlow:Hide()
+  local okTvAg, tvAg = pcall(function()
+    local grp = tvGlow:CreateAnimationGroup(); grp:SetLooping("BOUNCE")
+    local a = grp:CreateAnimation("Alpha"); a:SetFromAlpha(0.25); a:SetToAlpha(0.9); a:SetDuration(0.6)
+    return grp
+  end)
+  topVal.kbGlow = tvGlow; topVal.kbGlowAg = okTvAg and tvAg or nil
   topVal:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   topVal:SetScript("OnClick", function(self, button)
     if not (DB and DB.settings) then return end
@@ -3751,12 +3774,14 @@ CreateUI = function()
             DB.settings.topValueN = n
             DB.settings.topValueHL = true -- escolher um N também LIGA o destaque
             if UI and UI.UpdateTopValue then UI.UpdateTopValue() end
+            if UI and UI.UpdateTopValueBtn then UI.UpdateTopValueBtn() end
           end)
         end
       end)
     else
       DB.settings.topValueHL = not DB.settings.topValueHL
       if UI and UI.UpdateTopValue then UI.UpdateTopValue() end
+      if UI and UI.UpdateTopValueBtn then UI.UpdateTopValueBtn() end
     end
   end)
   topVal:SetScript("OnEnter", function(self)
@@ -3768,11 +3793,27 @@ CreateUI = function()
   end)
   topVal:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.topValueBtn = topVal
-  -- visibilidade condicional: o botão some por completo sem o KrononMarket (igual ao valor da bolsa)
+  -- visibilidade + ESTADO: some sem o KrononMarket; LIGADO = ícone aceso + glow pulsante,
+  -- DESLIGADO = ícone acinzentado e parado (pra dar pra saber se o destaque está on/off)
   UI.UpdateTopValueBtn = function()
     local btn = UI and UI.topValueBtn
     if not btn then return end
-    if KrononMarket and KrononMarket.GetPrice then btn:Show() else btn:Hide() end
+    if not (KrononMarket and KrononMarket.GetPrice) then btn:Hide(); return end
+    btn:Show()
+    local on = (DB and DB.settings and DB.settings.topValueHL) and true or false
+    local nt = btn:GetNormalTexture()
+    if nt then nt:SetDesaturated(not on); nt:SetAlpha(on and 1 or 0.5) end
+    if btn.kbGlow then
+      if on then
+        btn.kbGlow:Show()
+        if btn.kbGlowAg then pcall(btn.kbGlowAg.Play, btn.kbGlowAg) end
+      else
+        if btn.kbGlowAg then pcall(btn.kbGlowAg.Stop, btn.kbGlowAg) end
+        btn.kbGlow:Hide()
+      end
+    end
+    -- moedas jorrando DO PRÓPRIO BOTÃO quando LIGADO (mesmo efeito do item mais caro)
+    if on then KBCoin.play(btn) elseif btn.kbCoinFx then KBCoin.stop(btn.kbCoinFx) end
   end
   UI.UpdateTopValueBtn()
 
@@ -4385,6 +4426,98 @@ CreateUI = function()
   UI.ShowTour = UI.ToggleHelp -- compat: chamadas antigas agora só alternam os coach-marks
   tinsert(UISpecialFrames, "KrononBagsTour") -- ESC esconde os marcadores
 
+  -- v0.62.0: HEADER ADAPTÁVEL (1 ou 2 linhas). Quando a janela fica estreita demais p/ o título +
+  -- a fileira de controles caberem numa linha só, a BUSCA e o "Filtrar" descem p/ uma 2ª linha e o
+  -- header cresce (kbTop = base + 24). Pura geometria: re-ancora os controles, ajusta kbTop e
+  -- reposiciona modeBar/tabBar/scroll — NÃO mexe na largura/altura da janela (sem recursão pelo
+  -- OnSizeChanged). Guard de modo evita trabalho redundante. 100% defensivo (nil/pcall).
+  UI.RelayoutHeader = function()
+    if not UI then return end
+    local sb        = UI.searchBox
+    local filterBtn = UI.filterBtn
+    local sortBtn   = UI.sortBtn
+    local help      = UI.helpBtn
+    if not (sb and sortBtn and help) then return end -- sem os controles essenciais, nada a fazer
+
+    -- largura do título à esquerda (estável; não muda entre os modos). Fallback p/ blizzard (centralizado).
+    local titleW = 90
+    if UI.titleFS and UI.titleFS.GetStringWidth then
+      local okT, tw = pcall(UI.titleFS.GetStringWidth, UI.titleFS)
+      if okT and type(tw) == "number" and tw > 0 then titleW = tw end
+    end
+
+    -- largura canônica da fileira direita em 1 LINHA (tamanhos FIXOS p/ decisão determinística —
+    -- usar GetWidth da própria busca traria histerese, pois ela estica no modo 2 linhas).
+    local gap = 6
+    local cluster = (22 + gap) + (22 + gap) + (150 + gap) + (54 + gap) + (24 + gap) + (22 + gap)
+    if UI.topValueBtn and UI.topValueBtn:IsShown() then cluster = cluster + (22 + gap) end
+
+    local M = UI.kbMargin or MARGIN
+    local needed = (M + 28) + titleW + 16 + cluster + 30 -- margem+logo, título, folga, fileira, margem dir.
+
+    local curW = 0
+    do local okW, gw = pcall(UI.GetWidth, UI); if okW and type(gw) == "number" then curW = gw end end
+
+    -- decide o nº de linhas, com folga (histerese) p/ não piscar no limiar
+    local rows
+    if UI.kbHeaderRows == 2 then
+      rows = (curW >= needed + 10) and 1 or 2
+    else
+      rows = (curW < needed) and 2 or 1
+    end
+
+    local base = UI.kbTopBase or (UI.kbTop or 34)
+    local wantTop = (rows == 2) and (base + 24) or base
+    if rows == UI.kbHeaderRows and UI.kbTop == wantTop then return end -- nada mudou
+    UI.kbHeaderRows = rows
+    UI.kbTop = wantTop
+
+    local ctrlY = UI.kbCtrlY or -6
+    local gearX = UI.kbGearX or -28
+
+    if rows == 2 then
+      -- vassoura sobe p/ a 1ª linha (sai da cadeia da busca) — gsBtn/topVal a seguem por âncora
+      sortBtn:ClearAllPoints(); sortBtn:SetPoint("RIGHT", help, "LEFT", -gap, 0)
+      -- busca desce p/ a 2ª linha, esticando até a margem direita; "Filtrar" segue a busca sozinho
+      sb:ClearAllPoints(); sb:SetPoint("RIGHT", UI, "TOPRIGHT", gearX, ctrlY - 24)
+      local fW = 54
+      if filterBtn and filterBtn.GetWidth then
+        local okF, fw = pcall(filterBtn.GetWidth, filterBtn)
+        if okF and type(fw) == "number" and fw > 0 then fW = fw end
+      end
+      local avail = curW - M - math.abs(gearX) - fW - (gap * 2) - 24
+      if avail < 120 then avail = 120 elseif avail > 320 then avail = 320 end
+      sb:SetWidth(avail)
+    else
+      -- volta tudo p/ a 1ª linha
+      sb:ClearAllPoints(); sb:SetPoint("RIGHT", help, "LEFT", -gap, 0); sb:SetWidth(150)
+      sortBtn:ClearAllPoints(); sortBtn:SetPoint("RIGHT", filterBtn or sb, "LEFT", -gap, 0)
+    end
+
+    -- modeBar (chrome lateral) e tabBar (abas de banco) acompanham o kbTop
+    if UI.modeBar then
+      UI.modeBar:ClearAllPoints(); UI.modeBar:SetPoint("TOPRIGHT", UI, "TOPLEFT", -2, -(UI.kbTop or 34))
+    end
+    if UI.tabBar then
+      UI.tabBar:ClearAllPoints(); UI.tabBar:SetPoint("TOPLEFT", UI, "TOPLEFT", M, -((UI.kbTop or 34) - 2))
+    end
+
+    -- conteúdo desce/sobe conforme o kbTop. Recalcula o viewport pela altura REAL da janela (sem
+    -- mexer na largura); o próximo Refresh acerta o range/scroll com precisão.
+    if UI.scroll then
+      local BOT = UI.kbBottom or (MARGIN + 22)
+      local tabsVisible = atBank or HasCharBankSnap() or HasWarbandSnap()
+      local TOP = (UI.kbTop or 34) + (tabsVisible and 22 or 0)
+      local h = 0
+      do local okH, gh = pcall(UI.GetHeight, UI); if okH and type(gh) == "number" then h = gh end end
+      local vp = h - TOP - BOT; if vp < 40 then vp = 40 end
+      UI.scroll:ClearAllPoints(); UI.scroll:SetPoint("TOPLEFT", PX(M), PX(-TOP)); UI.scroll:SetHeight(PX(vp))
+    end
+  end
+  -- reavalia o header a cada mudança de tamanho (cheap + guard de modo evitam custo/recursão)
+  UI:HookScript("OnSizeChanged", function() if UI and UI.RelayoutHeader then UI.RelayoutHeader() end end)
+  UI.RelayoutHeader() -- estado inicial coerente com a largura atual
+
   -- alça de redimensionar (canto inferior direito): arraste pra mudar quantas colunas cabem.
   -- Ao soltar, calcula as colunas pela largura e re-renderiza (que reajusta a janela).
   UI:SetResizable(true)
@@ -4396,6 +4529,7 @@ CreateUI = function()
   do
     local M = UI.kbMargin or MARGIN
     local minW = COLS_MIN * (BTN + PAD) - PAD + M * 2 + SBW
+    if minW < 300 then minW = 300 end -- piso p/ o header de 2 linhas não colidir no pior caso (título x ícones)
     local maxW = COLS_MAX * (BTN + PAD) - PAD + M * 2 + SBW
     if UI.SetResizeBounds then UI:SetResizeBounds(minW, 160, maxW, 1400)
     else

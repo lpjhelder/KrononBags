@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.62.0
+**Português**
+- **Novo:** **cabeçalho adaptável**. Ao estreitar a janela, a **caixa de busca** e o botão **Filtrar** descem para uma **segunda linha**, em vez de se sobreporem aos outros controles. Ao alargar de volta, tudo retorna para uma linha só.
+- **Melhorado:** os botões de ícone (organizar, busca global, ouro), o título e a engrenagem permanecem na primeira linha; a busca estica para aproveitar a largura na segunda linha. O conteúdo acompanha a altura do cabeçalho automaticamente.
+
+**English**
+- **New:** **adaptive header**. When the window gets narrow, the **search box** and the **Filter** button drop to a **second line** instead of overlapping the other controls. Widen it back and everything returns to a single line.
+- **Improved:** the icon buttons (auto-sort, global search, gold), the title and the gear stay on the first line; the search box stretches to use the width on the second line. The item area follows the header height automatically.
+
+**Español**
+- **Nuevo:** **encabezado adaptable**. Al estrechar la ventana, el **cuadro de búsqueda** y el botón **Filtrar** bajan a una **segunda línea** en lugar de superponerse a los demás controles. Al ensancharla de nuevo, todo vuelve a una sola línea.
+- **Mejorado:** los botones de icono (ordenar, búsqueda global, oro), el título y el engranaje permanecen en la primera línea; la búsqueda se estira para aprovechar el ancho en la segunda línea. El área de objetos sigue la altura del encabezado automáticamente.
+
 ## 0.61.2
 **Português**
 - **Corrigido:** conflito com o **Masque** que mostrava uma exclamação (textura de missão) em **todos** os itens. A integração com o Masque foi removida — o KrononBags usa o visual próprio dele.
