@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.60.0
+**Português**
+- **Novo:** botão **Destacar itens mais valiosos** (ícone de ouro no topo da janela) — realça com uma **borda dourada pulsante** os itens mais caros da sua bolsa pela Casa de Leilões do **KrononMarket**. **Clique-esquerdo** liga/desliga; **clique-direito** abre um menu pra escolher quantos destacar (**5 / 10 / 15 / 20**). O valor de cada item é preço × quantidade; só os escolhidos ganham a borda, o resto fica normal.
+- Integração 100% **opcional**: o botão só aparece com o **KrononMarket** instalado; sem ele, nada muda. Na visualização do banco de longe (cache) não há destaque.
+
+**English**
+- **New:** **Highlight most valuable items** button (gold icon at the top of the window) — marks the priciest items in your bag with a **pulsing golden border**, using the **KrononMarket** auction data. **Left-click** toggles it on/off; **right-click** opens a menu to choose how many to highlight (**5 / 10 / 15 / 20**). Each item's value is price × quantity; only the chosen ones get the border, the rest stay normal.
+- 100% **optional** integration: the button only appears with **KrononMarket** installed; without it, nothing changes. There is no highlight in the remote (cached) bank view.
+
+**Español**
+- **Nuevo:** botón **Destacar objetos más valiosos** (icono de oro en la parte superior de la ventana) — resalta con un **borde dorado pulsante** los objetos más caros de tu bolsa, usando los datos de la Casa de Subastas de **KrononMarket**. **Clic izquierdo** lo activa/desactiva; **clic derecho** abre un menú para elegir cuántos destacar (**5 / 10 / 15 / 20**). El valor de cada objeto es precio × cantidad; solo los elegidos reciben el borde, el resto queda normal.
+- Integración 100% **opcional**: el botón solo aparece con **KrononMarket** instalado; sin él, nada cambia. En la vista del banco remoto (caché) no hay resaltado.
+
 ## 0.59.0
 **Português**
 - **Novo:** categoria **Aparência não coletada** no topo — agrupa automaticamente as peças equipáveis cujo visual de transmog você ainda não aprendeu, em destaque acima das demais categorias. Liga/desliga em *Comportamento* (ligada por padrão); só aparece quando há itens assim.

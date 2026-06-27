@@ -296,6 +296,11 @@ local EN = {
   OPT_BAG_VALUE = "Bag value in footer",
   TIP_OPT_BAG_VALUE = "Shows the total market value of your bag in the footer. Requires the KrononMarket addon.",
   BAG_VALUE = "Bag: %s",
+  TOPVAL_TIP_TITLE = "Highlight most valuable items",
+  TOPVAL_TIP_L1 = "Left-click: toggle the highlight on/off.",
+  TOPVAL_TIP_L2 = "Right-click: choose how many to highlight (KrononMarket).",
+  TOPVAL_MENU_TITLE = "Highlight how many?",
+  TOPVAL_MENU_N = "Top %d",
 }
 
 local PT = {
@@ -525,6 +530,11 @@ local PT = {
   OPT_BAG_VALUE = "Valor da bolsa no rodapé",
   TIP_OPT_BAG_VALUE = "Mostra no rodapé o valor de mercado total da sua bolsa. Requer o addon KrononMarket.",
   BAG_VALUE = "Bolsa: %s",
+  TOPVAL_TIP_TITLE = "Destacar itens mais valiosos",
+  TOPVAL_TIP_L1 = "Clique-esquerdo: liga/desliga o destaque.",
+  TOPVAL_TIP_L2 = "Clique-direito: escolha quantos destacar (KrononMarket).",
+  TOPVAL_MENU_TITLE = "Destacar quantos?",
+  TOPVAL_MENU_N = "Top %d",
 }
 
 local ES = {
@@ -754,6 +764,11 @@ local ES = {
   OPT_BAG_VALUE = "Valor de la bolsa en el pie",
   TIP_OPT_BAG_VALUE = "Muestra en el pie el valor de mercado total de tu bolsa. Requiere el addon KrononMarket.",
   BAG_VALUE = "Bolsa: %s",
+  TOPVAL_TIP_TITLE = "Destacar objetos más valiosos",
+  TOPVAL_TIP_L1 = "Clic izquierdo: activa/desactiva el resaltado.",
+  TOPVAL_TIP_L2 = "Clic derecho: elige cuántos destacar (KrononMarket).",
+  TOPVAL_MENU_TITLE = "¿Destacar cuántos?",
+  TOPVAL_MENU_N = "Top %d",
 }
 
 -- Monta L pela KrononLib: base EN + overlay do locale atual (ptBR/esES; esMX→esES).
@@ -913,6 +928,8 @@ local function InitDB()
   if KrononBagsDB.settings.transmogSeal == nil then KrononBagsDB.settings.transmogSeal = true end -- v0.56.0: selo de aparência de transmog não coletada no ícone
   if KrononBagsDB.settings.catUncollected == nil then KrononBagsDB.settings.catUncollected = true end -- v0.59.0: categoria de alta prioridade "Aparência não coletada"
   if KrononBagsDB.settings.bagValue == nil then KrononBagsDB.settings.bagValue = true end -- v0.56.0: valor de mercado total da bolsa no rodapé (requer KrononMarket)
+  if KrononBagsDB.settings.topValueHL == nil then KrononBagsDB.settings.topValueHL = false end -- v0.60.0: destacar os N itens mais valiosos da bolsa (requer KrononMarket); desligado por padrão
+  if KrononBagsDB.settings.topValueN == nil then KrononBagsDB.settings.topValueN = 5 end -- v0.60.0: quantos itens destacar (5/10/15/20)
   -- v0.54.0: janela de config redesenhada — lembra posição/tamanho e última categoria aberta
   if KrononBagsDB.settings.cfgLastTab == nil then KrononBagsDB.settings.cfgLastTab = "appearance" end
   KrononBagsDB.settings.cfgPos = KrononBagsDB.settings.cfgPos or nil   -- {point, relPoint, x, y}
@@ -1121,7 +1138,11 @@ local PRESET_FILTERS = {
   equip      = function(id, q, bag) local c = classOf(id); return c == 2 or c == 4 end,        -- arma / armadura
   mounts     = function(id) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id); return c == 15 and sub == 5 end, -- montaria (Diversos / subclasse Montaria)
   pets       = function(id) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id); return c == 15 and sub == 2 end, -- mascote (Diversos / subclasse Mascote)
-  consumable = function(id, q, bag) return classOf(id) == 0 end,                               -- consumível
+  consumable = function(id, q, bag, slot)                                                       -- consumível (cede recipiente de loot p/ Abríveis)
+    if classOf(id) ~= 0 then return false end
+    if bag and slot then local ci = C_Container.GetContainerItemInfo(bag, slot); if ci and ci.hasLoot then return false end end
+    return true
+  end,
   trade      = function(id, q, bag) local c = classOf(id); return c == 7 or c == 8 or c == 3 or c == 5 end, -- mats/gema/reagente
   quest      = function(id, q, bag) return classOf(id) == 12 end,                              -- missão
   openable   = function(id, q, bag, slot) if not (bag and slot) then return false end local info = C_Container.GetContainerItemInfo(bag, slot); return (info and info.hasLoot) and true or false end, -- recipiente de loot (hasLoot)
@@ -1938,6 +1959,7 @@ local function ClearBadges(b)
   if b.kbQual then b.kbQual:Hide() end
   if b.kbUpArrow then b.kbUpArrow:Hide() end
   if b.kbMog then b.kbMog:Hide() end
+  if b.kbTopGlow then if b.kbTopGlow.kbPulse then b.kbTopGlow.kbPulse:Stop() end b.kbTopGlow:Hide() end -- v0.60.0: destaque de valor não vaza p/ slot vazio/reciclado
 end
 
 -- atualização leve só dos cooldowns dos botões visíveis (evento BAG_UPDATE_COOLDOWN)
@@ -2983,6 +3005,7 @@ UpdateMoney = function()
     currencyText:SetText(table.concat(parts, "   "))
   end
   if UI and UI.UpdateBagValue then UI.UpdateBagValue() end -- v0.56.0: valor de mercado da bolsa no rodapé
+  if UI and UI.UpdateTopValue then UI.UpdateTopValue() end -- v0.60.0: destaque dos itens mais valiosos
 end
 
 -- destaca o modo de visualização ativo (Categorias/Grade) na barra lateral
@@ -3627,6 +3650,55 @@ CreateUI = function()
   -- botão "Filtrar" + construtor visual de busca (gera a string que o parser já entende)
   CreateFilterBuilder(sb, sortBtn)
 
+  -- v0.60.0: botão de OURO "Destacar itens mais valiosos" (KrononMarket). 100% OPCIONAL: SÓ
+  -- aparece com o KrononMarket presente — escondido por completo se ausente, igual ao valor da
+  -- bolsa. À esquerda da luneta (gsBtn), sem colidir com os demais botões do topo.
+  -- Esquerdo: liga/desliga o destaque ao vivo. Direito: menu pra escolher quantos (5/10/15/20).
+  local topVal = CreateFrame("Button", nil, UI)
+  topVal:SetSize(22, 22)
+  topVal:SetPoint("RIGHT", gsBtn, "LEFT", -4, 0)
+  -- ícone de moeda de ouro: textura nativa válida, com fallback defensivo (pcall) p/ ícone de moeda
+  if not pcall(topVal.SetNormalTexture, topVal, "Interface\\MoneyFrame\\UI-GoldIcon") then
+    topVal:SetNormalTexture("Interface\\ICONS\\INV_Misc_Coin_01")
+  end
+  topVal:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  topVal:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  topVal:SetScript("OnClick", function(self, button)
+    if not (DB and DB.settings) then return end
+    if button == "RightButton" then
+      if not MenuUtil then return end
+      MenuUtil.CreateContextMenu(self, function(owner, rootMenu)
+        rootMenu:CreateTitle(L.TOPVAL_MENU_TITLE)
+        for _, n in ipairs({ 5, 10, 15, 20 }) do
+          rootMenu:CreateButton(string.format(L.TOPVAL_MENU_N, n), function()
+            DB.settings.topValueN = n
+            DB.settings.topValueHL = true -- escolher um N também LIGA o destaque
+            if UI and UI.UpdateTopValue then UI.UpdateTopValue() end
+          end)
+        end
+      end)
+    else
+      DB.settings.topValueHL = not DB.settings.topValueHL
+      if UI and UI.UpdateTopValue then UI.UpdateTopValue() end
+    end
+  end)
+  topVal:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText(L.TOPVAL_TIP_TITLE)
+    GameTooltip:AddLine(L.TOPVAL_TIP_L1, 0.8, 0.8, 0.8, true)
+    GameTooltip:AddLine(L.TOPVAL_TIP_L2, 0.5, 1, 0.5, true)
+    GameTooltip:Show()
+  end)
+  topVal:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.topValueBtn = topVal
+  -- visibilidade condicional: o botão some por completo sem o KrononMarket (igual ao valor da bolsa)
+  UI.UpdateTopValueBtn = function()
+    local btn = UI and UI.topValueBtn
+    if not btn then return end
+    if KrononMarket and KrononMarket.GetPrice then btn:Show() else btn:Hide() end
+  end
+  UI.UpdateTopValueBtn()
+
   -- barra de modos de visualização (à ESQUERDA, FORA da janela: não mexe na largura/scroll)
   local modeBar = CreateFrame("Frame", nil, UI)
   modeBar:SetSize(30, 64)
@@ -3832,6 +3904,64 @@ CreateUI = function()
     if total <= 0 then fs:Hide(); return end
     fs:SetText(string.format(L.BAG_VALUE, GetCoinTextureString(total)))
     fs:Show()
+  end
+
+  -- v0.60.0: destaca os N itens mais valiosos da bolsa (KrononMarket). 100% OPCIONAL e defensivo,
+  -- mesmo padrão guard+pcall do valor da bolsa. Borda dourada pulsante (b.kbTopGlow, lazy) nos
+  -- TOP-N slots VIVOS por valor de mercado = GetPrice(itemID) × pilha. Sem o KrononMarket, com o
+  -- destaque desligado, ou em visão de cache (sem slots vivos), nada destaca. Roda no fim do
+  -- render (Refresh/RenderGrid) e em BAG_UPDATE_DELAYED (que dispara Refresh): primeiro apaga TODOS
+  -- os glows do pool (não vaza pra slots reciclados), depois acende só os escolhidos.
+  local function kbEnsureTopGlow(b)
+    if b.kbTopGlow then return b.kbTopGlow end
+    local g = b:CreateTexture(nil, "OVERLAY", nil, 3) -- sublevel alto: acima da borda/novo/missão
+    g:SetPoint("TOPLEFT", -3, 3); g:SetPoint("BOTTOMRIGHT", 3, -3)
+    g:SetTexture("Interface\\Common\\WhiteIconFrame") -- moldura quadrada (a mesma do realce "novo")
+    g:SetBlendMode("ADD"); g:SetVertexColor(1, 0.82, 0) -- dourado brilhante
+    -- leve pulso (alfa vai-e-volta); defensivo: se a animação falhar, o glow fica fixo (ainda visível)
+    local okAg, ag = pcall(function()
+      local grp = g:CreateAnimationGroup(); grp:SetLooping("BOUNCE")
+      local a = grp:CreateAnimation("Alpha"); a:SetFromAlpha(1); a:SetToAlpha(0.4); a:SetDuration(0.7)
+      return grp
+    end)
+    if okAg then g.kbPulse = ag end
+    g:Hide()
+    b.kbTopGlow = g
+    return g
+  end
+  UI.UpdateTopValue = function()
+    -- 1) apaga o destaque de TODOS os botões do pool (evita vazar pra slot reciclado)
+    for _, b in ipairs(pool) do
+      if b.kbTopGlow then
+        if b.kbTopGlow.kbPulse then b.kbTopGlow.kbPulse:Stop() end
+        b.kbTopGlow:Hide()
+      end
+    end
+    if not (DB and DB.settings and DB.settings.topValueHL) then return end
+    if not (KrononMarket and KrononMarket.GetPrice) then return end -- sem o KrononMarket: nada destaca
+    if CachedMode() then return end -- visão de cache (banco de longe): sem slots vivos pra avaliar
+    -- 2) valor de mercado de cada item VIVO mostrado = preço × pilha (defensivo: sem preço não entra)
+    local live = {}
+    for _, b in ipairs(pool) do
+      if b:IsShown() and b.bag and b.slot and b.itemID then
+        local info = C_Container.GetContainerItemInfo(b.bag, b.slot)
+        if info and info.itemID then
+          local ok, p = pcall(KrononMarket.GetPrice, info.itemID)
+          if ok and type(p) == "number" and p > 0 then
+            live[#live + 1] = { btn = b, val = p * (info.stackCount or 1) }
+          end
+        end
+      end
+    end
+    -- 3) top-N por valor decrescente recebe a borda dourada pulsante; o resto fica normal
+    table.sort(live, function(x, y) return x.val > y.val end)
+    local n = tonumber(DB.settings.topValueN) or 5
+    local lim = math.min(n, #live)
+    for i = 1, lim do
+      local g = kbEnsureTopGlow(live[i].btn)
+      g:Show()
+      if g.kbPulse then pcall(g.kbPulse.Play, g.kbPulse) end
+    end
   end
 
   -- frame invisível por cima do ouro: hover abre o painel de ouro por personagem (+ Brigada).
@@ -4385,6 +4515,8 @@ CreateUI = function()
   UI:HookScript("OnShow", function()
     if UI and UI.UpdateAltsIndicator then UI.UpdateAltsIndicator() end -- v0.55.0: resumo do KrononAlts no rodapé
     if UI and UI.UpdateBagValue then UI.UpdateBagValue() end -- v0.56.0: valor de mercado da bolsa no rodapé
+    if UI and UI.UpdateTopValueBtn then UI.UpdateTopValueBtn() end -- v0.60.0: botão de destaque só com o KrononMarket
+    if UI and UI.UpdateTopValue then UI.UpdateTopValue() end -- v0.60.0: reaplica o destaque ao reabrir
     if not (UI and UI.UpdateScanProgress) then return end
     if KrononMarket and KrononMarket.GetScanProgress then
       local ok, scanning, current, total = pcall(KrononMarket.GetScanProgress)
@@ -5142,7 +5274,7 @@ CreateConfig = function()
       sortMode = "ilvl", stackItems = false, nestByExpansion = false, compactExpac = false,
       qualityBorder = true, searchHighlight = true, autoSellJunk = true, autoRepair = true,
       altsIndicator = true, upgradeArrow = true, transmogSeal = true, bagValue = true,
-      catUncollected = true,
+      catUncollected = true, topValueHL = false, topValueN = 5,
     }
     for k, v in pairs(d) do DB.settings[k] = v end
     ApplyTheme(DB.settings.theme); ApplyOpacity()
