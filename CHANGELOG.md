@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.63.2
+**Português**
+- **Corrigido:** o botão **"Abrir tudo"** (categoria Abríveis) agora fica bloqueado com **banco, banco de guilda, troca, correio ou casa de leilões** abertos. Antes, nesses contextos, os recipientes eram **depositados/anexados em cadeia** em vez de abertos. No vendedor já era bloqueado; a proteção foi estendida a todos os contextos.
+
+**English**
+- **Fixed:** the **"Open all"** button (Openables category) is now blocked while the **bank, guild bank, trade, mail or auction house** is open. In those contexts, containers were being **deposited/attached in a chain** instead of opened. It was already blocked at the merchant; the protection now covers every context.
+
+**Español**
+- **Corregido:** el botón **"Abrir todo"** (categoría Abribles) ahora queda bloqueado con el **banco, banco del clan, intercambio, correo o casa de subastas** abiertos. En esos contextos, los recipientes se **depositaban/adjuntaban en cadena** en lugar de abrirse. En el vendedor ya estaba bloqueado; la protección ahora cubre todos los contextos.
+
 ## 0.63.1
 **Português**
 - **Novo:** o destaque dos itens mais valiosos agora funciona também no **Banco** (aberto ou visto de longe).

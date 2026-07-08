@@ -2538,15 +2538,27 @@ local function TransferBySearch()
   end
 end
 
+-- CRÍTICO: contextos onde UseContainerItem NÃO abre o recipiente — vendedor VENDE, banco
+-- (e banco de guilda) DEPOSITA, troca COLOCA NA JANELA, correio ANEXA, casa de leilões põe
+-- no slot de venda. "Abrir tudo" nesses contextos dispararia a ação errada em cadeia
+-- (via BAG_UPDATE_DELAYED), então fica bloqueado em todos eles.
+local function OpenAllBlocked()
+  return (MerchantFrame and MerchantFrame:IsShown())
+    or atBank -- modo bankReplace ligado
+    or (BankFrame and BankFrame:IsShown()) -- banco nativo (bankReplace desligado deixa atBank=false)
+    or (GuildBankFrame and GuildBankFrame:IsShown())
+    or (TradeFrame and TradeFrame:IsShown())
+    or (SendMailFrame and SendMailFrame:IsShown())
+    or (AuctionHouseFrame and AuctionHouseFrame:IsShown())
+end
+
 -- abrir tudo: abre 1 recipiente de loot por vez (assíncrono). Acha o 1º hasLoot
 -- não-trancado, abre, e marca UI.openingAll; o handler de BAG_UPDATE_DELAYED chama
 -- de novo até não sobrar nenhum.
 local function OpenAllOpenables()
   if not UI then return end
   if InCombatLockdown() then UI.openingAll = false; return end
-  -- CRÍTICO: com o vendedor aberto, UseContainerItem VENDE em vez de abrir. Nunca "abrir tudo"
-  -- no vendedor, senão venderia todos os recipientes em cadeia (via BAG_UPDATE_DELAYED).
-  if MerchantFrame and MerchantFrame:IsShown() then UI.openingAll = false; return end
+  if OpenAllBlocked() then UI.openingAll = false; return end
   for _, bag in ipairs(ActiveBags()) do
     local slots = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, slots do
@@ -2784,8 +2796,8 @@ Refresh = function()
         UI.distribBtn:Show()
       end
       -- botão "Abrir tudo" no cabeçalho de Abríveis: abre todos os recipientes de loot (pula trancados).
-      -- escondido no vendedor (lá UseContainerItem venderia em vez de abrir); fica só no mouse fora do vendedor.
-      if cat == "Abríveis" and not (MerchantFrame and MerchantFrame:IsShown()) then
+      -- escondido nos contextos onde UseContainerItem faria outra coisa (ver OpenAllBlocked).
+      if cat == "Abríveis" and not OpenAllBlocked() then
         if not UI.openAllBtn then
           local o = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate")
           o:SetAttribute("nodeignore", true) -- "Abrir tudo" fora da navegação por controle (linha do cabeçalho; só mouse)
