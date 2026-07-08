@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.63.5
+**Português**
+- **Corrigido:** o botão **"Vender lixo"** encavalava com os ícones do cabeçalho (Histórico, destacar valiosos, "Onde está?"). Agora ele fica **fixo à esquerda da fileira de ícones**, e enquanto está visível o **nome do addon some** pra dar espaço (o logo fica).
+
+**English**
+- **Fixed:** the **"Sell junk"** button overlapped the header icons (History, highlight valuables, "Where is it?"). It now sits **fixed to the left of the icon row**, and while visible the **addon name hides** to make room (the logo stays).
+
+**Español**
+- **Corregido:** el botón **"Vender basura"** se superponía a los iconos del encabezado (Historial, destacar valiosos, "¿Dónde está?"). Ahora queda **fijo a la izquierda de la fila de iconos**, y mientras es visible el **nombre del addon se oculta** para dar espacio (el logo se queda).
+
 ## 0.63.4
 **Português**
 - **Corrigido:** vender **muitos itens de uma vez** ("Vender filtrados" e "Vender lixo") agora vende **todos** — o servidor descarta vendas em rajada, então só as ~17 primeiras eram efetivadas. A venda passou a ser **compassada** (1 item a cada 0,2s) com **passes de verificação**: o que o servidor descartar em silêncio é detectado e vendido de novo. Aviso no chat do total ao final; fechar o vendedor no meio interrompe com segurança.

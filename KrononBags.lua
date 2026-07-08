@@ -3216,7 +3216,13 @@ UpdateTabs = function()
       UI.buyTabBtn:SetAttribute("overrideBankType", (mode == "warband") and BANK_ACCT or BANK_CHAR)
     end
   end
-  if UI.sellJunkBtn then UI.sellJunkBtn:SetShown((MerchantFrame and MerchantFrame:IsShown()) and mode == "bags") end
+  if UI.sellJunkBtn then
+    local showJunk = (MerchantFrame and MerchantFrame:IsShown()) and mode == "bags"
+    UI.sellJunkBtn:SetShown(showJunk)
+    -- o botão fica na área do título em janela estreita: o NOME do addon some
+    -- enquanto "Vender lixo" estiver visível (o logo fica)
+    if UI.titleFS then UI.titleFS:SetShown(not showJunk) end
+  end
   -- "Transferir": só com busca ativa E (vendedor aberto OU no banco)
   if UI.transferBtn then
     local merchant = MerchantFrame and MerchantFrame:IsShown()
@@ -3930,6 +3936,9 @@ CreateUI = function()
   -- botão "Vender lixo" (só aparece no vendedor, modo Mochila); API nativa, sem taint
   local sellJunk = CreateFrame("Button", nil, UI, "UIPanelButtonTemplate")
   sellJunk:SetSize(86, 20)
+  -- âncora provisória (o histBtn ainda não existe aqui); a definitiva — à ESQUERDA
+  -- da cadeia inteira de ícones (Histórico ← valiosos ← luneta ← vassoura) — é
+  -- aplicada logo após a criação do histBtn, senão o botão encavala nos ícones.
   sellJunk:SetPoint("RIGHT", sortBtn, "LEFT", -6, 0)
   sellJunk:SetText(L.BTN_SELL_JUNK)
   sellJunk:SetScript("OnClick", function()
@@ -4880,6 +4889,13 @@ CreateUI = function()
   histBtn:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_BOTTOM"); GameTooltip:SetText(L.HIST_BTN); GameTooltip:Show() end)
   histBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.histBtn = histBtn
+  -- âncora DEFINITIVA do "Vender lixo": à esquerda do relógio (a ponta esquerda da
+  -- cadeia de ícones), pra nunca sobrepor Histórico/valiosos/luneta/vassoura.
+  -- O "Transferir" segue ancorado à esquerda do "Vender lixo" e acompanha.
+  if UI.sellJunkBtn then
+    UI.sellJunkBtn:ClearAllPoints()
+    UI.sellJunkBtn:SetPoint("RIGHT", histBtn, "LEFT", -6, 0)
+  end
 
   -- ao abrir a janela, verifica se já existe uma varredura do KrononMarket em curso
   -- (opcional, defensivo): se a API existir e houver scan ativo, mostra o progresso atual.
