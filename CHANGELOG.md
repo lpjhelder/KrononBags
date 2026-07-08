@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.63.4
+**Português**
+- **Corrigido:** vender **muitos itens de uma vez** ("Vender filtrados" e "Vender lixo") agora vende **todos** — o servidor descarta vendas em rajada, então só as ~17 primeiras eram efetivadas. A venda passou a ser **compassada** (1 item a cada 0,2s) com **passes de verificação**: o que o servidor descartar em silêncio é detectado e vendido de novo. Aviso no chat do total ao final; fechar o vendedor no meio interrompe com segurança.
+
+**English**
+- **Fixed:** selling **many items at once** ("Sell filtered" and "Sell junk") now sells **all of them** — the server drops burst sales, so only the first ~17 went through. Selling is now **paced** (1 item every 0.2s) with **verification passes**: anything the server silently drops is detected and sold again. Chat notice with the total at the end; closing the merchant mid-way stops safely.
+
+**Español**
+- **Corregido:** vender **muchos objetos a la vez** ("Vender filtrados" y "Vender basura") ahora los vende **todos** — el servidor descarta ventas en ráfaga, así que solo las ~17 primeras se efectuaban. La venta ahora es **acompasada** (1 objeto cada 0,2 s) con **pases de verificación**: lo que el servidor descarte en silencio se detecta y se vende de nuevo. Aviso en el chat con el total al final; cerrar el vendedor a medias se detiene con seguridad.
+
 ## 0.63.3
 **Português**
 - **Corrigido:** a proteção por **Conjunto de Equipamento** agora vale também no **auto-vender lixo** logo ao abrir o vendedor, mesmo sem ter aberto a bolsa na sessão (o mapa de conjuntos era montado só ao abrir a janela).

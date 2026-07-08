@@ -117,6 +117,8 @@ local EN = {
   MSG_CATS_IMPORTED = "categories imported.",
   MSG_IMPORT_FAILED = "import failed (%s).",
   MSG_SELLJUNK_UNAVAIL = "sell junk function is unavailable in this version.",
+  MSG_JUNK_SOLD = "Sold %d gray item(s).",
+  MSG_SELL_BUSY = "Hold on: a sale is already in progress.",
   MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
   MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
   MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
@@ -372,6 +374,8 @@ local PT = {
   MSG_CATS_IMPORTED = "categorias importadas.",
   MSG_IMPORT_FAILED = "import falhou (%s).",
   MSG_SELLJUNK_UNAVAIL = "função de vender lixo indisponível nesta versão.",
+  MSG_JUNK_SOLD = "Vendido(s) %d item(ns) cinza.",
+  MSG_SELL_BUSY = "Aguarde: já existe uma venda em andamento.",
   MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
   MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
   MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
@@ -609,6 +613,8 @@ local ES = {
   MSG_CATS_IMPORTED = "categorías importadas.",
   MSG_IMPORT_FAILED = "la importación falló (%s).",
   MSG_SELLJUNK_UNAVAIL = "la función de vender basura no está disponible en esta versión.",
+  MSG_JUNK_SOLD = "Vendido(s) %d objeto(s) gris(es).",
+  MSG_SELL_BUSY = "Espera: ya hay una venta en curso.",
   MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
   MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
   MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
@@ -2454,26 +2460,87 @@ local function CollectSearchMatches()
   return out
 end
 
--- vende (loop UseContainerItem) a lista já filtrada — chamado só no OnAccept do popup
+-- CADEIA DE VENDA: o servidor DESCARTA vendas em rajada — um loop síncrono de 91
+-- UseContainerItem só efetiva as ~10-17 primeiras. Padrão consagrado (SellJunk/
+-- Scrap/macros do fórum): vender 1 item por tick de SELL_STEP_PAUSE. Além disso,
+-- descartes silenciosos acontecem mesmo pausado; então ao fim de cada passe a
+-- cadeia ESPERA o servidor assentar (SELL_SETTLE) e revarre a lista original —
+-- o que ainda estiver na bolsa vai pro próximo passe (até SELL_MAX_PASSES).
+-- Cada venda revalida o slot na hora exata (mesmo item + validate() ok — rede de
+-- segurança contra auto-sort/loot ter mexido nas bolsas). Aborta com o parcial se
+-- o vendedor fechar ou entrar em combate. Uma cadeia por vez (sellChainActive);
+-- QUALQUER erro dentro dos passos reseta a flag (pcall) — cadeia nunca fica presa.
+local SELL_STEP_PAUSE  = 0.2 -- 1 item por tick (padrão dos addons de venda)
+local SELL_SETTLE      = 1.0 -- espera pós-passe antes de conferir o que sobrou
+local SELL_MAX_PASSES  = 3
+local sellChainActive = false
+local function RunSellChain(list, validate, doneMsg)
+  if sellChainActive then print(KB_PREFIX .. L.MSG_SELL_BUSY) return end
+  sellChainActive = true
+  local queue, i, pass = list, 1, 1
+
+  -- um item ainda está na bolsa e elegível? (usado na venda, na revarredura e no total final)
+  -- isLocked: item com venda EM VOO fica locked até a resposta do servidor — sem esse
+  -- check, a revarredura re-venderia um item já vendido (duplicata destrutiva em lag alto).
+  local function stillValid(it)
+    if not (it.bag and it.slot) then return false end
+    local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
+    return (info and not info.isLocked and info.itemID == it.itemID and validate(info, it)) and true or false
+  end
+
+  local function finish()
+    sellChainActive = false
+    -- total REAL: o que saiu da lista original (não conta tentativa descartada)
+    local remaining = 0
+    for _, it in ipairs(list) do if stillValid(it) then remaining = remaining + 1 end end
+    print(KB_PREFIX .. string.format(doneMsg, #list - remaining))
+    if UI and UI:IsShown() then Refresh() end
+  end
+
+  local step -- (recursiva via C_Timer)
+  local function guardOK()
+    return MerchantFrame and MerchantFrame:IsShown() and not InCombatLockdown()
+  end
+  local function stepBody()
+    if not guardOK() then return finish() end -- vendedor fechou/combate: para com o parcial
+    while i <= #queue do
+      local it = queue[i]; i = i + 1
+      if stillValid(it) then
+        C_Container.UseContainerItem(it.bag, it.slot)
+        C_Timer.After(SELL_STEP_PAUSE, step)
+        return
+      end
+    end
+    -- passe terminou: espera o servidor assentar e revarre a LISTA ORIGINAL
+    C_Timer.After(SELL_SETTLE, function()
+      local ok, err = pcall(function()
+        if not guardOK() or pass >= SELL_MAX_PASSES then return finish() end
+        pass = pass + 1
+        local rest = {}
+        for _, it in ipairs(list) do if stillValid(it) then rest[#rest + 1] = it end end
+        if #rest == 0 then return finish() end
+        queue, i = rest, 1
+        step()
+      end)
+      if not ok then sellChainActive = false; geterrorhandler()(err) end
+    end)
+  end
+  step = function()
+    local ok, err = pcall(stepBody)
+    if not ok then sellChainActive = false; geterrorhandler()(err) end
+  end
+  step()
+end
+
+-- vende (em cadeia, com pausa entre lotes) a lista já filtrada — só no OnAccept do popup
 local KB_transferSellList
 local function SellMatches(list)
   if InCombatLockdown() then print(KB_PREFIX .. L.MSG_NO_EQUIP_COMBAT); return end
   if not (MerchantFrame and MerchantFrame:IsShown()) then return end
-  local n = 0
-  for _, it in ipairs(list or {}) do
-    if it.bag and it.slot then
-      -- revalida o slot na hora de vender: as bolsas podem ter sido reorganizadas (auto-sort
-      -- dispara em BAG_UPDATE) entre abrir o popup e confirmar. Só vende se o slot ainda contém
-      -- o MESMO item e ele NÃO está protegido (rede de segurança contra vender item trocado/favorito).
-      local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
-      -- revalida pela variação ATUAL do slot (info.hyperlink); link nil → IsProtected devolve true (não vende)
-      if info and info.itemID == it.itemID and not IsProtected(it.itemID, info.hyperlink) then
-        C_Container.UseContainerItem(it.bag, it.slot); n = n + 1
-      end
-    end
-  end
-  print(KB_PREFIX .. string.format(L.MSG_TRANSFER_SOLD, n))
-  if UI and UI:IsShown() then Refresh() end
+  RunSellChain(list or {}, function(info, it)
+    -- revalida pela variação ATUAL do slot (info.hyperlink); link nil → IsProtected devolve true (não vende)
+    return not IsProtected(it.itemID, info.hyperlink)
+  end, L.MSG_TRANSFER_SOLD)
 end
 
 -- vende lixo (cinza) RESPEITANDO a proteção do addon. Substitui C_MerchantFrame.SellAllJunkItems,
@@ -2492,6 +2559,9 @@ local function SellJunkItems()
   -- MERCHANT_SHOW antes de qualquer Refresh (que é quem popula o mapa). Reconstrói
   -- aqui pra IsProtected enxergar os conjuntos mesmo sem a janela ter aberto na sessão.
   RebuildEquipSets()
+  -- 1º passo: só COLETA os candidatos; a venda acontece na cadeia em lotes
+  -- (RunSellChain), que revalida cada slot na hora exata de vender.
+  local list = {}
   for _, bag in ipairs(BAGS) do
     local slots = C_Container.GetContainerNumSlots(bag) or 0
     for slot = slots, 1, -1 do
@@ -2500,19 +2570,20 @@ local function SellJunkItems()
       if info and info.itemID and info.quality == 0 and not info.hasNoValue then
         local link = info.hyperlink
         local sellPrice = link and select(11, C_Item.GetItemInfo(link)) or nil
-        -- só vende com link válido, valor de venda confirmado (>0 quando conhecido) e NÃO protegido
+        -- só candidata com link válido, valor de venda confirmado (>0 quando conhecido) e NÃO protegido
         if link and (sellPrice == nil or sellPrice > 0) and not IsProtected(info.itemID, link) then
-          -- REVALIDAÇÃO: relê o slot na hora exata da venda. Tem de ser o MESMO item, ainda cinza,
-          -- ainda com valor, com link e ainda NÃO protegido. Qualquer divergência/nil → não vende.
-          local now = C_Container.GetContainerItemInfo(bag, slot)
-          if now and now.itemID == info.itemID and now.quality == 0 and not now.hasNoValue
-             and now.hyperlink and not IsProtected(now.itemID, now.hyperlink) then
-            C_Container.UseContainerItem(bag, slot)
-          end
+          list[#list + 1] = { bag = bag, slot = slot, itemID = info.itemID }
         end
       end
     end
   end
+  if #list == 0 then return end -- nada a vender: sem cadeia e sem mensagem
+  RunSellChain(list, function(now, it)
+    -- REVALIDAÇÃO: o MESMO item, ainda cinza, ainda com valor, com link e NÃO protegido.
+    -- Qualquer divergência/nil → não vende.
+    return now.quality == 0 and not now.hasNoValue
+       and now.hyperlink ~= nil and not IsProtected(now.itemID, now.hyperlink)
+  end, L.MSG_JUNK_SOLD)
 end
 
 -- botão "Transferir": vende no vendedor (com confirmação) ou deposita no banco (direto)
