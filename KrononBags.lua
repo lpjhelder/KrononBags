@@ -98,7 +98,7 @@ local EN = {
   TIP_SEARCH_L3 = "operators:  & (and)   | (or)   ! (not)   ( )",
   TIP_AUTOSORT = "Auto-sort",
   TIP_SELLJUNK_TITLE = "Sell all gray items (junk)",
-  TIP_SELLJUNK_BODY = "Uses the game's native selling. Careful: favorited gray items are sold too.",
+  TIP_SELLJUNK_BODY = "Sells gray items respecting protection: favorites, Equipment Set pieces and protected categories are never sold.",
   TIP_VIEW_CATS = "View by categories", TIP_VIEW_GRID = "View all slots (grid)",
   TIP_DEPOSIT = "Automatically deposits the items marked for deposit in this bank",
   TIP_GRIP = "Drag to change columns and height",
@@ -356,7 +356,7 @@ local PT = {
   TIP_SEARCH_L3 = "operadores:  & (e)   | (ou)   ! (não)   ( )",
   TIP_AUTOSORT = "Organizar automático",
   TIP_SELLJUNK_TITLE = "Vende todos os itens cinza (lixo)",
-  TIP_SELLJUNK_BODY = "Usa a venda nativa do jogo. Cuidado: cinza favoritado também é vendido.",
+  TIP_SELLJUNK_BODY = "Vende os cinzas respeitando a proteção: favoritos, peças de Conjunto de Equipamento e categorias protegidas nunca são vendidos.",
   TIP_VIEW_CATS = "Ver por categorias", TIP_VIEW_GRID = "Ver todos os slots (grade)",
   TIP_DEPOSIT = "Guarda automaticamente os itens marcados pra depósito neste banco",
   TIP_GRIP = "Arraste pra mudar colunas e altura",
@@ -593,7 +593,7 @@ local ES = {
   TIP_SEARCH_L3 = "operadores:  & (y)   | (o)   ! (no)   ( )",
   TIP_AUTOSORT = "Organizar automático",
   TIP_SELLJUNK_TITLE = "Vende todos los objetos grises (basura)",
-  TIP_SELLJUNK_BODY = "Usa la venta nativa del juego. Cuidado: los grises favoritos también se venden.",
+  TIP_SELLJUNK_BODY = "Vende los grises respetando la protección: favoritos, piezas de Conjunto de Equipo y categorías protegidas nunca se venden.",
   TIP_VIEW_CATS = "Ver por categorías", TIP_VIEW_GRID = "Ver todas las casillas (cuadrícula)",
   TIP_DEPOSIT = "Deposita automáticamente los objetos marcados para depósito en este banco",
   TIP_GRIP = "Arrastra para cambiar columnas y altura",
@@ -2488,6 +2488,10 @@ local function SellJunkItems()
   if InCombatLockdown() then return end
   if not (MerchantFrame and MerchantFrame:IsShown()) then return end -- guarda obrigatória: sem vendedor, não vende
   if not (C_Container and C_Container.GetContainerItemInfo and C_Container.UseContainerItem) then return end
+  -- a proteção por Conjunto de Equipamento pode estar FRIA: o auto-sell roda no
+  -- MERCHANT_SHOW antes de qualquer Refresh (que é quem popula o mapa). Reconstrói
+  -- aqui pra IsProtected enxergar os conjuntos mesmo sem a janela ter aberto na sessão.
+  RebuildEquipSets()
   for _, bag in ipairs(BAGS) do
     local slots = C_Container.GetContainerNumSlots(bag) or 0
     for slot = slots, 1, -1 do
@@ -6140,6 +6144,9 @@ f:SetScript("OnEvent", function(_, event, arg1)
     AutoVendor() -- auto-vender lixo + auto-reparar (se ligados na config)
     AutoShow(); if UI then UpdateTabs() end; Refresh() -- bloquear venda de protegidos + botão vender lixo
   elseif event == "MERCHANT_CLOSED" then
+    -- o popup de "vender filtrados" não sobrevive ao vendedor: a lista era do
+    -- contexto antigo e poderia ser confirmada num vendedor futuro por engano
+    StaticPopup_Hide("KRONONBAGS_TRANSFER_SELL"); KB_transferSellList = nil
     AutoHide(); if UI then UpdateTabs() end; Refresh() -- restaura usar/equipar; esconde vender lixo
   elseif event == "BANKFRAME_OPENED" then
     if DB and DB.settings and DB.settings.bankReplace then

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.63.3
+**Português**
+- **Corrigido:** a proteção por **Conjunto de Equipamento** agora vale também no **auto-vender lixo** logo ao abrir o vendedor, mesmo sem ter aberto a bolsa na sessão (o mapa de conjuntos era montado só ao abrir a janela).
+- **Corrigido:** a confirmação de **"Vender filtrados"** fecha ao sair do vendedor — antes ela sobrevivia e podia ser confirmada num vendedor futuro com a lista antiga.
+- **Corrigido:** o texto do botão **"Vender lixo"** descrevia o comportamento antigo ("favoritado também é vendido") — na verdade favoritos, conjuntos e categorias protegidas **nunca** são vendidos.
+
+**English**
+- **Fixed:** **Equipment Set** protection now also applies to **auto-sell junk** right when the merchant opens, even if the bag wasn't opened this session (the set map was only built when the window opened).
+- **Fixed:** the **"Sell filtered"** confirmation closes when you leave the merchant — it used to survive and could be confirmed at a future merchant with the old list.
+- **Fixed:** the **"Sell junk"** tooltip described the old behavior ("favorited items are sold too") — in fact favorites, sets and protected categories are **never** sold.
+
+**Español**
+- **Corregido:** la protección por **Conjunto de Equipo** ahora también se aplica al **auto-vender basura** justo al abrir el vendedor, aunque no hayas abierto la bolsa en la sesión (el mapa de conjuntos solo se construía al abrir la ventana).
+- **Corregido:** la confirmación de **"Vender filtrados"** se cierra al salir del vendedor — antes sobrevivía y podía confirmarse en un vendedor futuro con la lista antigua.
+- **Corregido:** el texto del botón **"Vender basura"** describía el comportamiento antiguo ("los favoritos también se venden") — en realidad favoritos, conjuntos y categorías protegidas **nunca** se venden.
+
 ## 0.63.2
 **Português**
 - **Corrigido:** o botão **"Abrir tudo"** (categoria Abríveis) agora fica bloqueado com **banco, banco de guilda, troca, correio ou casa de leilões** abertos. Antes, nesses contextos, os recipientes eram **depositados/anexados em cadeia** em vez de abertos. No vendedor já era bloqueado; a proteção foi estendida a todos os contextos.
