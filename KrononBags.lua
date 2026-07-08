@@ -119,6 +119,15 @@ local EN = {
   MSG_SELLJUNK_UNAVAIL = "sell junk function is unavailable in this version.",
   MSG_JUNK_SOLD = "Sold %d gray item(s).",
   MSG_SELL_BUSY = "Hold on: a sale is already in progress.",
+  -- v0.64.0: recibo pós-venda com desfazer (recompra)
+  RECEIPT_TITLE = "Sale receipt",
+  RECEIPT_SUMMARY = "%d item(s) sold — %s",
+  RECEIPT_UNDO = "Undo",
+  RECEIPT_HINT = "Undo buys the item back (the vendor keeps the last 12).",
+  RECEIPT_GONE = "This item is no longer available for buyback.",
+  RECEIPT_MORE = "… and %d more item(s)",
+  OPT_RECEIPT = "Show receipt after selling",
+  TIP_OPT_RECEIPT = "After auto-sell, Sell junk or Sell filtered, shows a receipt with what was sold, the total earned and an Undo button per item (vendor buyback).",
   MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
   MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
   MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
@@ -376,6 +385,15 @@ local PT = {
   MSG_SELLJUNK_UNAVAIL = "função de vender lixo indisponível nesta versão.",
   MSG_JUNK_SOLD = "Vendido(s) %d item(ns) cinza.",
   MSG_SELL_BUSY = "Aguarde: já existe uma venda em andamento.",
+  -- v0.64.0: recibo pós-venda com desfazer (recompra)
+  RECEIPT_TITLE = "Recibo de venda",
+  RECEIPT_SUMMARY = "%d item(ns) vendido(s) — %s",
+  RECEIPT_UNDO = "Desfazer",
+  RECEIPT_HINT = "Desfazer recompra o item (o vendedor guarda os últimos 12).",
+  RECEIPT_GONE = "Este item não está mais disponível pra recompra.",
+  RECEIPT_MORE = "… e mais %d item(ns)",
+  OPT_RECEIPT = "Mostrar recibo após vender",
+  TIP_OPT_RECEIPT = "Após o auto-vender, Vender lixo ou Vender filtrados, mostra um recibo com o que foi vendido, o total ganho e um botão Desfazer por item (recompra do vendedor).",
   MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
   MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
   MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
@@ -615,6 +633,15 @@ local ES = {
   MSG_SELLJUNK_UNAVAIL = "la función de vender basura no está disponible en esta versión.",
   MSG_JUNK_SOLD = "Vendido(s) %d objeto(s) gris(es).",
   MSG_SELL_BUSY = "Espera: ya hay una venta en curso.",
+  -- v0.64.0: recibo pós-venta con deshacer (recompra)
+  RECEIPT_TITLE = "Recibo de venta",
+  RECEIPT_SUMMARY = "%d objeto(s) vendido(s) — %s",
+  RECEIPT_UNDO = "Deshacer",
+  RECEIPT_HINT = "Deshacer recompra el objeto (el vendedor guarda los últimos 12).",
+  RECEIPT_GONE = "Este objeto ya no está disponible para recompra.",
+  RECEIPT_MORE = "… y %d objeto(s) más",
+  OPT_RECEIPT = "Mostrar recibo después de vender",
+  TIP_OPT_RECEIPT = "Tras el auto-vender, Vender basura o Vender filtrados, muestra un recibo con lo vendido, el total ganado y un botón Deshacer por objeto (recompra del vendedor).",
   MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
   MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
   MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
@@ -938,6 +965,7 @@ local function InitDB()
   if KrononBagsDB.settings.searchHighlight == nil then KrononBagsDB.settings.searchHighlight = true end -- na busca, escurece o resto em vez de esconder
   if KrononBagsDB.settings.autoSellJunk == nil then KrononBagsDB.settings.autoSellJunk = true end -- vender lixo automaticamente ao abrir o vendedor
   if KrononBagsDB.settings.autoRepair == nil then KrononBagsDB.settings.autoRepair = true end -- reparar tudo ao abrir o vendedor (fundos da guilda quando possível)
+  if KrononBagsDB.settings.sellReceipt == nil then KrononBagsDB.settings.sellReceipt = true end -- v0.64.0: recibo pós-venda com desfazer (recompra)
   if KrononBagsDB.settings.altsIndicator == nil then KrononBagsDB.settings.altsIndicator = true end -- v0.55.0: indicador do KrononAlts no rodapé (só aparece se o KrononAlts existir)
   if KrononBagsDB.settings.upgradeArrow == nil then KrononBagsDB.settings.upgradeArrow = true end -- v0.56.0: seta verde de upgrade por ilvl no ícone
   if KrononBagsDB.settings.transmogSeal == nil then KrononBagsDB.settings.transmogSeal = true end -- v0.56.0: selo de aparência de transmog não coletada no ícone
@@ -2482,10 +2510,24 @@ local function RunSellChain(list, validate, doneMsg)
   -- um item ainda está na bolsa e elegível? (usado na venda, na revarredura e no total final)
   -- isLocked: item com venda EM VOO fica locked até a resposta do servidor — sem esse
   -- check, a revarredura re-venderia um item já vendido (duplicata destrutiva em lag alto).
+  -- Retorna também o info atual (o registro do recibo precisa do link/pilha do momento).
   local function stillValid(it)
     if not (it.bag and it.slot) then return false end
     local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
-    return (info and not info.isLocked and info.itemID == it.itemID and validate(info, it)) and true or false
+    if info and not info.isLocked and info.itemID == it.itemID and validate(info, it) then return true, info end
+    return false
+  end
+
+  -- v0.64.0: RECIBO — registra cada venda (por bolsa:slot; a retentativa de um
+  -- descarte sobrescreve a própria entrada, sem duplicar linha no recibo)
+  local receipt, receiptByKey = {}, {}
+  local function recordSale(it, info)
+    local k = it.bag * 1000 + it.slot
+    local r = receiptByKey[k]
+    if not r then r = {}; receiptByKey[k] = r; receipt[#receipt + 1] = r end
+    r.link, r.icon, r.count = info.hyperlink, info.iconFileID, info.stackCount or 1
+    local unit = r.link and select(11, C_Item.GetItemInfo(r.link)) or nil
+    r.value = (type(unit) == "number" and unit > 0) and (unit * r.count) or 0
   end
 
   local function finish()
@@ -2494,6 +2536,14 @@ local function RunSellChain(list, validate, doneMsg)
     local remaining = 0
     for _, it in ipairs(list) do if stillValid(it) then remaining = remaining + 1 end end
     print(KB_PREFIX .. string.format(doneMsg, #list - remaining))
+    -- recibo pós-venda (opt-out na config): só com o vendedor ainda aberto (o
+    -- desfazer usa a recompra, que precisa do vendedor)
+    if (#list - remaining) > 0 and #receipt > 0
+       and DB and DB.settings and DB.settings.sellReceipt
+       and MerchantFrame and MerchantFrame:IsShown()
+       and UI and UI.ShowSellReceipt then
+      pcall(UI.ShowSellReceipt, receipt)
+    end
     if UI and UI:IsShown() then Refresh() end
   end
 
@@ -2505,7 +2555,9 @@ local function RunSellChain(list, validate, doneMsg)
     if not guardOK() then return finish() end -- vendedor fechou/combate: para com o parcial
     while i <= #queue do
       local it = queue[i]; i = i + 1
-      if stillValid(it) then
+      local ok, info = stillValid(it)
+      if ok then
+        recordSale(it, info) -- registra ANTES (depois da venda o slot muda/trava)
         C_Container.UseContainerItem(it.bag, it.slot)
         C_Timer.After(SELL_STEP_PAUSE, step)
         return
@@ -4897,6 +4949,118 @@ CreateUI = function()
     UI.sellJunkBtn:SetPoint("RIGHT", histBtn, "LEFT", -6, 0)
   end
 
+  -- ====== Recibo pós-venda (v0.64.0): o que foi vendido + total + Desfazer ======
+  -- Painel flutuante no estilo do Histórico, mostrado ao fim da cadeia de venda.
+  -- Lista as ÚLTIMAS 12 vendas (a recompra do vendedor só guarda 12) + resumo com
+  -- o total de TUDO. "Desfazer" procura o item na recompra pelo link e chama
+  -- BuybackItem (API nativa, não protegida — sem taint). Fecha com o vendedor.
+  local rcPanel = CreateFrame("Frame", "KrononBagsReceipt", UIParent, "BackdropTemplate")
+  rcPanel:SetSize(330, 120)
+  rcPanel:SetPoint("TOPLEFT", UI, "TOPRIGHT", 8, 0)
+  rcPanel:SetFrameStrata("DIALOG")
+  rcPanel:SetClampedToScreen(true) -- bolsa colada na borda direita: recibo não nasce fora da tela
+  rcPanel:SetMovable(true); rcPanel:EnableMouse(true); rcPanel:RegisterForDrag("LeftButton")
+  rcPanel:SetScript("OnDragStart", rcPanel.StartMoving)
+  rcPanel:SetScript("OnDragStop", rcPanel.StopMovingOrSizing)
+  rcPanel:SetAttribute("nodeignore", true) -- fora da navegação por controle; só mouse
+  if rcPanel.SetBackdrop then
+    rcPanel:SetBackdrop({
+      bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 16, edgeSize = 16,
+      insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    rcPanel:SetBackdropColor(0, 0, 0, 0.95)
+  end
+  local rcTitle = rcPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  rcTitle:SetPoint("TOP", 0, -12); rcTitle:SetText("|cfff0d98c" .. L.RECEIPT_TITLE .. "|r")
+  local rcClose = CreateFrame("Button", nil, rcPanel, "UIPanelCloseButton")
+  rcClose:SetPoint("TOPRIGHT", 2, 2)
+  local rcMore = rcPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  local rcSummary = rcPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  rcSummary:SetPoint("BOTTOM", 0, 26)
+  local rcHint = rcPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  rcHint:SetPoint("BOTTOM", 0, 10); rcHint:SetText(L.RECEIPT_HINT)
+  rcPanel:Hide()
+  tinsert(UISpecialFrames, "KrononBagsReceipt") -- ESC fecha
+  UI.receiptPanel = rcPanel
+
+  local rcRows = {}
+  local RC_ROWS = 12
+  local function AcquireRcRow(idx)
+    local row = rcRows[idx]
+    if not row then
+      row = CreateFrame("Frame", nil, rcPanel)
+      row:SetSize(302, 20)
+      if idx == 1 then
+        row:SetPoint("TOPLEFT", rcPanel, "TOPLEFT", 14, -40)
+      else
+        row:SetPoint("TOPLEFT", rcRows[idx - 1], "BOTTOMLEFT", 0, -2)
+      end
+      row.icon = row:CreateTexture(nil, "ARTWORK")
+      row.icon:SetSize(18, 18); row.icon:SetPoint("LEFT", 0, 0)
+      row.undo = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+      row.undo:SetSize(70, 18); row.undo:SetPoint("RIGHT", 0, 0)
+      row.undo:SetText(L.RECEIPT_UNDO)
+      row.undo:SetAttribute("nodeignore", true)
+      row.val = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      row.val:SetPoint("RIGHT", row.undo, "LEFT", -6, 0); row.val:SetJustifyH("RIGHT")
+      row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+      row.name:SetPoint("RIGHT", row.val, "LEFT", -6, 0)
+      row.name:SetJustifyH("LEFT"); row.name:SetWordWrap(false)
+      row.undo:SetScript("OnClick", function()
+        if InCombatLockdown() then return end
+        if not (MerchantFrame and MerchantFrame:IsShown()) then return end
+        local n = (type(GetNumBuybackItems) == "function" and GetNumBuybackItems()) or 0
+        for b = n, 1, -1 do -- mais recente primeiro
+          local l = GetBuybackItemLink and GetBuybackItemLink(b)
+          if l and l == row.kbLink and type(BuybackItem) == "function" then
+            BuybackItem(b)
+            row.undo:Disable(); row:SetAlpha(0.45)
+            if UI and UI:IsShown() then Refresh() end
+            return
+          end
+        end
+        print(KB_PREFIX .. L.RECEIPT_GONE)
+      end)
+      rcRows[idx] = row
+    end
+    return row
+  end
+
+  UI.ShowSellReceipt = function(entries)
+    local n = #entries
+    if n == 0 then return end
+    local total = 0
+    for _, e in ipairs(entries) do total = total + (e.value or 0) end
+    local shown = math.min(n, RC_ROWS)
+    for idx = 1, shown do
+      local e = entries[n - idx + 1] -- mais recente no topo (é o que a recompra alcança)
+      local row = AcquireRcRow(idx)
+      row.kbLink = e.link
+      row.icon:SetTexture(e.icon or 134400)
+      local nm = e.link or "?"
+      if (e.count or 1) > 1 then nm = nm .. " |cffaaaaaax" .. e.count .. "|r" end
+      row.name:SetText(nm)
+      row.val:SetText(GetCoinTextureString(e.value or 0))
+      row.undo:Enable(); row:SetAlpha(1)
+      row:Show()
+    end
+    for idx = shown + 1, #rcRows do rcRows[idx]:Hide() end
+    rcMore:ClearAllPoints()
+    if n > shown then
+      rcMore:SetPoint("TOPLEFT", rcRows[shown], "BOTTOMLEFT", 0, -4)
+      rcMore:SetText(string.format(L.RECEIPT_MORE, n - shown))
+      rcMore:Show()
+    else
+      rcMore:Hide()
+    end
+    rcSummary:SetText(string.format(L.RECEIPT_SUMMARY, n, GetCoinTextureString(total)))
+    rcPanel:SetHeight(40 + shown * 22 + (n > shown and 16 or 0) + 48)
+    rcPanel:Show()
+  end
+
   -- ao abrir a janela, verifica se já existe uma varredura do KrononMarket em curso
   -- (opcional, defensivo): se a API existir e houver scan ativo, mostra o progresso atual.
   UI:HookScript("OnShow", function()
@@ -5555,6 +5719,9 @@ CreateConfig = function()
     Check(ctx, L.OPT_AUTOREPAIR,
       function() return DB.settings.autoRepair end,
       function(v) DB.settings.autoRepair = v end, "TIP_OPT_AUTOREPAIR")
+    Check(ctx, L.OPT_RECEIPT,
+      function() return DB.settings.sellReceipt end,
+      function(v) DB.settings.sellReceipt = v end, "TIP_OPT_RECEIPT")
     finishPanel(child, ctx)
   end
 
@@ -6234,6 +6401,8 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- o popup de "vender filtrados" não sobrevive ao vendedor: a lista era do
     -- contexto antigo e poderia ser confirmada num vendedor futuro por engano
     StaticPopup_Hide("KRONONBAGS_TRANSFER_SELL"); KB_transferSellList = nil
+    -- o recibo também não: o desfazer usa a recompra, que exige o vendedor aberto
+    if UI and UI.receiptPanel then UI.receiptPanel:Hide() end
     AutoHide(); if UI then UpdateTabs() end; Refresh() -- restaura usar/equipar; esconde vender lixo
   elseif event == "BANKFRAME_OPENED" then
     if DB and DB.settings and DB.settings.bankReplace then

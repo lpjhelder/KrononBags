@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.64.0
+**Português**
+- **Novo: recibo pós-venda com "Desfazer".** Ao fim de qualquer venda em massa (auto-vender, **Vender lixo**, **Vender filtrados**), um recibo mostra o que foi vendido e o **total ganho** — com um botão **Desfazer** por item, que recompra do vendedor em 1 clique. Mostra os últimos 12 (o limite da recompra do vendedor); fecha junto com o vendedor. Desligável em Config → Vendedor.
+
+**English**
+- **New: post-sale receipt with "Undo".** After any bulk sale (auto-sell, **Sell junk**, **Sell filtered**), a receipt shows what was sold and the **total earned** — with an **Undo** button per item that buys it back from the vendor in 1 click. Shows the last 12 (the vendor buyback limit); closes with the merchant. Can be disabled in Config → Vendor.
+
+**Español**
+- **Nuevo: recibo pós-venta con "Deshacer".** Al final de cualquier venta masiva (auto-vender, **Vender basura**, **Vender filtrados**), un recibo muestra lo vendido y el **total ganado** — con un botón **Deshacer** por objeto que lo recompra del vendedor en 1 clic. Muestra los últimos 12 (el límite de recompra del vendedor); se cierra con el vendedor. Se puede desactivar en Config → Vendedor.
+
 ## 0.63.5
 **Português**
 - **Corrigido:** o botão **"Vender lixo"** encavalava com os ícones do cabeçalho (Histórico, destacar valiosos, "Onde está?"). Agora ele fica **fixo à esquerda da fileira de ícones**, e enquanto está visível o **nome do addon some** pra dar espaço (o logo fica).
