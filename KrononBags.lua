@@ -128,6 +128,11 @@ local EN = {
   RECEIPT_MORE = "… and %d more item(s)",
   OPT_RECEIPT = "Show receipt after selling",
   TIP_OPT_RECEIPT = "After auto-sell, Sell junk or Sell filtered, shows a receipt with what was sold, the total earned and an Undo button per item (vendor buyback).",
+  -- v0.65.0: auto-depósito por categoria
+  MENU_BANK_HOME = "Lives in the bank (auto-deposit)",
+  BTN_DEPOSIT_HOME = "Store marked",
+  TIP_DEPOSIT_HOME = "Deposits into the bank every bag item whose category is marked as \"lives in the bank\" (right-click a category header to mark it).",
+  MSG_HOME_EMPTY = "No bag item belongs to a category marked as \"lives in the bank\".",
   MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
   MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
   MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
@@ -394,6 +399,11 @@ local PT = {
   RECEIPT_MORE = "… e mais %d item(ns)",
   OPT_RECEIPT = "Mostrar recibo após vender",
   TIP_OPT_RECEIPT = "Após o auto-vender, Vender lixo ou Vender filtrados, mostra um recibo com o que foi vendido, o total ganho e um botão Desfazer por item (recompra do vendedor).",
+  -- v0.65.0: auto-depósito por categoria
+  MENU_BANK_HOME = "Mora no banco (auto-depósito)",
+  BTN_DEPOSIT_HOME = "Guardar marcadas",
+  TIP_DEPOSIT_HOME = "Deposita no banco todo item da bolsa cuja categoria está marcada como \"mora no banco\" (clique-direito no cabeçalho da categoria pra marcar).",
+  MSG_HOME_EMPTY = "Nenhum item da bolsa pertence a uma categoria marcada como \"mora no banco\".",
   MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
   MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
   MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
@@ -642,6 +652,11 @@ local ES = {
   RECEIPT_MORE = "… y %d objeto(s) más",
   OPT_RECEIPT = "Mostrar recibo después de vender",
   TIP_OPT_RECEIPT = "Tras el auto-vender, Vender basura o Vender filtrados, muestra un recibo con lo vendido, el total ganado y un botón Deshacer por objeto (recompra del vendedor).",
+  -- v0.65.0: auto-depósito por categoría
+  MENU_BANK_HOME = "Vive en el banco (auto-depósito)",
+  BTN_DEPOSIT_HOME = "Guardar marcadas",
+  TIP_DEPOSIT_HOME = "Deposita en el banco todo objeto de la bolsa cuya categoría está marcada como \"vive en el banco\" (clic derecho en el encabezado de la categoría para marcarla).",
+  MSG_HOME_EMPTY = "Ningún objeto de la bolsa pertenece a una categoría marcada como \"vive en el banco\".",
   MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
   MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
   MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
@@ -933,6 +948,7 @@ local function InitDB()
   KrononBagsDB.protected   = KrononBagsDB.protected or {}
   KrononBagsDB.categories  = KrononBagsDB.categories or {}  -- legado (migrado p/ catList)
   KrononBagsDB.assignments = KrononBagsDB.assignments or {} -- [itemID] = nomeCategoria custom
+  KrononBagsDB.bankHome = KrononBagsDB.bankHome or {} -- v0.65.0: [nomeCategoria] = true → "mora no banco" (auto-depósito)
   KrononBagsDB.collapsed   = KrononBagsDB.collapsed or {}   -- [nomeCategoria] = true (recolhida)
   KrononBagsDB.charPos     = KrononBagsDB.charPos or {}     -- [char-realm] = {point, relPoint, x, y}
   KrononBagsDB.charItems   = KrononBagsDB.charItems or {}   -- [char-realm] = {name, class, bags={}, bank={}} (contagem nos alts)
@@ -1039,6 +1055,7 @@ local function DeleteCategory(entry)
     if c == entry.name then DB.assignments[id] = nil end
   end
   DB.collapsed[entry.name] = nil -- limpa estado de recolhido órfão (não reaparece recolhida)
+  if DB.bankHome then DB.bankHome[entry.name] = nil end -- sem isso, o "Guardar marcadas" viraria botão fantasma indesmarcável
 end
 
 local function MoveCategory(i, dir)
@@ -1091,6 +1108,12 @@ local function ImportCategories(str, replace)
   if #newList == 0 then return false, L.IMP_ERR_NOCATS end
   if replace then
     DB.catList, DB.assignments = newList, newAssign
+    -- poda marcas "mora no banco" órfãs (categorias que não existem mais no layout novo)
+    if DB.bankHome then
+      for name in pairs(DB.bankHome) do
+        if not CatEntryByName(name) then DB.bankHome[name] = nil end
+      end
+    end
   else
     for _, c in ipairs(newList) do
       local exists = false
@@ -1478,9 +1501,18 @@ local function DepositCategoryToBank(items)
   end
   local i = 1
   local function step()
-    if InCombatLockdown() then return end
+    if InCombatLockdown() or not atBank then return end -- banco fechou no meio: para
     local it = queue[i]; i = i + 1
     if not it then C_Timer.After(0.2, function() if UI and UI:IsShown() then Refresh() end end); return end
+    -- REVALIDAÇÃO: relê o slot na hora exata do pickup — auto-sort/venda pode ter
+    -- rearranjado as bolsas desde o render. Item diferente ou travado → pula sem depositar.
+    local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
+    -- itemID igual E mesma variação (link byte-idêntico na sessão): auto-sort pode pôr
+    -- OUTRA variação do mesmo itemID no slot — inclusive peça de conjunto — e não pode passar
+    if not (info and not info.isLocked and info.itemID == it.itemID
+            and (not it.link or info.hyperlink == it.link)) then
+      return step() -- tail call: só pula pro próximo (sem consumir slot livre)
+    end
     local dst = table.remove(free, 1)
     if not dst then print(KB_PREFIX .. L.MSG_BANK_FULL); return end
     if CursorHasItem() then ClearCursor() end
@@ -1537,6 +1569,20 @@ local function OpenCategoryMenu(h)
         root:CreateDivider()
         root:CreateButton(L.MENU_DEPOSIT_ALL, function() DepositCategoryToBank(items) end)
       end
+    end
+    -- v0.65.0: "morar no banco" — categoria marcada entra no "Guardar marcadas"
+    -- (botão que aparece no banco). Só categorias reais (custom/preset); conjuntos
+    -- de equipamento e "Diversos" ficam de fora (gear/miscelânea não auto-deposita).
+    -- equipSetIDByName: cabeçalho de CONJUNTO não ganha o checkbox nem quando existe
+    -- categoria custom homônima (colisão de nomes convidaria a depositar gear).
+    if cat and CatEntryByName(cat) and not equipSetIDByName[cat] then
+      root:CreateDivider()
+      root:CreateCheckbox(L.MENU_BANK_HOME,
+        function() return DB.bankHome[cat] and true or false end,
+        function()
+          DB.bankHome[cat] = (not DB.bankHome[cat]) or nil
+          if UpdateTabs then UpdateTabs() end -- atualiza a visibilidade do botão no banco
+        end)
     end
   end)
 end
@@ -2490,21 +2536,24 @@ end
 
 -- CADEIA DE VENDA: o servidor DESCARTA vendas em rajada — um loop síncrono de 91
 -- UseContainerItem só efetiva as ~10-17 primeiras. Padrão consagrado (SellJunk/
--- Scrap/macros do fórum): vender 1 item por tick de SELL_STEP_PAUSE. Além disso,
+-- Scrap/macros do fórum): vender 1 item por tick de KBSell.STEP. Além disso,
 -- descartes silenciosos acontecem mesmo pausado; então ao fim de cada passe a
--- cadeia ESPERA o servidor assentar (SELL_SETTLE) e revarre a lista original —
--- o que ainda estiver na bolsa vai pro próximo passe (até SELL_MAX_PASSES).
+-- cadeia ESPERA o servidor assentar (KBSell.SETTLE) e revarre a lista original —
+-- o que ainda estiver na bolsa vai pro próximo passe (até KBSell.MAX_PASSES).
 -- Cada venda revalida o slot na hora exata (mesmo item + validate() ok — rede de
 -- segurança contra auto-sort/loot ter mexido nas bolsas). Aborta com o parcial se
--- o vendedor fechar ou entrar em combate. Uma cadeia por vez (sellChainActive);
+-- o vendedor fechar ou entrar em combate. Uma cadeia por vez (KBSell.active);
 -- QUALQUER erro dentro dos passos reseta a flag (pcall) — cadeia nunca fica presa.
-local SELL_STEP_PAUSE  = 0.2 -- 1 item por tick (padrão dos addons de venda)
-local SELL_SETTLE      = 1.0 -- espera pós-passe antes de conferir o que sobrou
-local SELL_MAX_PASSES  = 3
-local sellChainActive = false
+-- agrupado numa tabela: o chunk está encostado no limite de 200 locals do Lua 5.1
+local KBSell = {
+  STEP = 0.2,       -- 1 item por tick (padrão dos addons de venda)
+  SETTLE = 1.0,     -- espera pós-passe antes de conferir o que sobrou
+  MAX_PASSES = 3,
+  active = false,   -- uma cadeia por vez
+}
 local function RunSellChain(list, validate, doneMsg)
-  if sellChainActive then print(KB_PREFIX .. L.MSG_SELL_BUSY) return end
-  sellChainActive = true
+  if KBSell.active then print(KB_PREFIX .. L.MSG_SELL_BUSY) return end
+  KBSell.active = true
   local queue, i, pass = list, 1, 1
 
   -- um item ainda está na bolsa e elegível? (usado na venda, na revarredura e no total final)
@@ -2531,7 +2580,7 @@ local function RunSellChain(list, validate, doneMsg)
   end
 
   local function finish()
-    sellChainActive = false
+    KBSell.active = false
     -- total REAL: o que saiu da lista original (não conta tentativa descartada)
     local remaining = 0
     for _, it in ipairs(list) do if stillValid(it) then remaining = remaining + 1 end end
@@ -2559,14 +2608,14 @@ local function RunSellChain(list, validate, doneMsg)
       if ok then
         recordSale(it, info) -- registra ANTES (depois da venda o slot muda/trava)
         C_Container.UseContainerItem(it.bag, it.slot)
-        C_Timer.After(SELL_STEP_PAUSE, step)
+        C_Timer.After(KBSell.STEP, step)
         return
       end
     end
     -- passe terminou: espera o servidor assentar e revarre a LISTA ORIGINAL
-    C_Timer.After(SELL_SETTLE, function()
+    C_Timer.After(KBSell.SETTLE, function()
       local ok, err = pcall(function()
-        if not guardOK() or pass >= SELL_MAX_PASSES then return finish() end
+        if not guardOK() or pass >= KBSell.MAX_PASSES then return finish() end
         pass = pass + 1
         local rest = {}
         for _, it in ipairs(list) do if stillValid(it) then rest[#rest + 1] = it end end
@@ -2574,12 +2623,12 @@ local function RunSellChain(list, validate, doneMsg)
         queue, i = rest, 1
         step()
       end)
-      if not ok then sellChainActive = false; geterrorhandler()(err) end
+      if not ok then KBSell.active = false; geterrorhandler()(err) end
     end)
   end
   step = function()
     local ok, err = pcall(stepBody)
-    if not ok then sellChainActive = false; geterrorhandler()(err) end
+    if not ok then KBSell.active = false; geterrorhandler()(err) end
   end
   step()
 end
@@ -3271,9 +3320,23 @@ UpdateTabs = function()
   if UI.sellJunkBtn then
     local showJunk = (MerchantFrame and MerchantFrame:IsShown()) and mode == "bags"
     UI.sellJunkBtn:SetShown(showJunk)
-    -- o botão fica na área do título em janela estreita: o NOME do addon some
-    -- enquanto "Vender lixo" estiver visível (o logo fica)
-    if UI.titleFS then UI.titleFS:SetShown(not showJunk) end
+    -- v0.65.0: "Guardar marcadas" ocupa a MESMA vaga (vendedor e banco nunca juntos):
+    -- aparece no banco, aba Mochila, quando há categoria marcada como "morar no banco"
+    local showHome = false
+    if UI.bankHomeBtn then
+      showHome = (atBank and mode == "bags" and DB and DB.bankHome and next(DB.bankHome) ~= nil) and true or false
+      showHome = showHome and not showJunk -- cinto extra: banco e vendedor nunca juntos
+      UI.bankHomeBtn:SetShown(showHome)
+    end
+    -- o "Transferir" divide a vaga: fica à esquerda do botão VISÍVEL (os dois têm
+    -- larguras diferentes; sem isso ele ficaria por baixo do "Guardar marcadas")
+    if UI.transferBtn then
+      UI.transferBtn:ClearAllPoints()
+      UI.transferBtn:SetPoint("RIGHT", (showHome and UI.bankHomeBtn) or UI.sellJunkBtn, "LEFT", -6, 0)
+    end
+    -- os botões ficam na área do título em janela estreita: o NOME do addon some
+    -- enquanto qualquer um deles estiver visível (o logo fica)
+    if UI.titleFS then UI.titleFS:SetShown(not (showJunk or showHome)) end
   end
   -- "Transferir": só com busca ativa E (vendedor aberto OU no banco)
   if UI.transferBtn then
@@ -4948,6 +5011,53 @@ CreateUI = function()
     UI.sellJunkBtn:ClearAllPoints()
     UI.sellJunkBtn:SetPoint("RIGHT", histBtn, "LEFT", -6, 0)
   end
+
+  -- ====== Auto-depósito por categoria (v0.65.0): botão "Guardar marcadas" ======
+  -- Aparece no BANCO (aba Mochila) quando existe categoria marcada como "morar no
+  -- banco" (checkbox no menu do cabeçalho). Ocupa a vaga do "Vender lixo" — os dois
+  -- nunca aparecem juntos (vendedor e banco são mutuamente exclusivos).
+  local bhBtn = CreateFrame("Button", nil, UI, "UIPanelButtonTemplate")
+  bhBtn:SetSize(120, 20)
+  bhBtn:SetPoint("RIGHT", histBtn, "LEFT", -6, 0)
+  bhBtn:SetText(L.BTN_DEPOSIT_HOME)
+  bhBtn:SetAttribute("nodeignore", true) -- linha do cabeçalho; só mouse
+  bhBtn:SetScript("OnClick", function()
+    if InCombatLockdown() or not atBank then return end
+    RebuildEquipSets() -- ResolveCat depende do mapa de conjuntos quente (proteção de gear)
+    local list = {}
+    for _, bag in ipairs(BAGS) do
+      local slots = C_Container.GetContainerNumSlots(bag) or 0
+      for slot = 1, slots do
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if info and info.itemID then
+          -- registro completo: as regras de categoria usam name/ilvl/quality/etc
+          local it = {
+            bag = bag, slot = slot, itemID = info.itemID, link = info.hyperlink,
+            count = info.stackCount, quality = info.quality, bound = info.isBound,
+            name = (info.hyperlink and C_Item.GetItemInfo(info.hyperlink)) or "",
+            ilvl = GetIlvl(info.hyperlink),
+          }
+          local cat = ResolveCat(it)
+          -- peça EXATA de Conjunto de Equipamento NUNCA deposita, mesmo se uma
+          -- categoria custom homônima ao conjunto estiver marcada (colisão de nomes)
+          if cat and DB.bankHome[cat]
+             and not (it.link and equipSetByVariant[VariantKey(it.link)]) then
+            list[#list + 1] = it
+          end
+        end
+      end
+    end
+    if #list == 0 then print(KB_PREFIX .. L.MSG_HOME_EMPTY); return end
+    DepositCategoryToBank(list)
+  end)
+  bhBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText(L.BTN_DEPOSIT_HOME)
+    GameTooltip:AddLine(L.TIP_DEPOSIT_HOME, 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  bhBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.bankHomeBtn = bhBtn; bhBtn:Hide()
 
   -- ====== Recibo pós-venda (v0.64.0): o que foi vendido + total + Desfazer ======
   -- Painel flutuante no estilo do Histórico, mostrado ao fim da cadeia de venda.

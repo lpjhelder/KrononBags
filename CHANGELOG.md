@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.65.0
+**Português**
+- **Novo: auto-depósito por categoria.** Clique-direito no cabeçalho de uma categoria e marque **"Mora no banco (auto-depósito)"**. No banco, um botão **"Guardar marcadas"** deposita de uma vez tudo o que estiver nas categorias marcadas. Conjuntos de Equipamento e "Diversos" ficam de fora por segurança.
+- **Corrigido:** o depósito por categoria agora **revalida cada slot** na hora exata de mover — se o auto-organizar rearranjou a bolsa no meio, o item errado não é mais depositado. Também para com segurança se o banco fechar durante a fila.
+
+**English**
+- **New: auto-deposit by category.** Right-click a category header and check **"Lives in the bank (auto-deposit)"**. At the bank, a **"Store marked"** button deposits everything in the marked categories at once. Equipment Sets and "Miscellaneous" are excluded for safety.
+- **Fixed:** category deposit now **revalidates each slot** at the exact moment of moving — if auto-sort rearranged the bag mid-queue, the wrong item is no longer deposited. It also stops safely if the bank closes during the queue.
+
+**Español**
+- **Nuevo: auto-depósito por categoría.** Clic derecho en el encabezado de una categoría y marca **"Vive en el banco (auto-depósito)"**. En el banco, un botón **"Guardar marcadas"** deposita de una vez todo lo que esté en las categorías marcadas. Los Conjuntos de Equipo y "Varios" quedan fuera por seguridad.
+- **Corregido:** el depósito por categoría ahora **revalida cada ranura** en el momento exacto de mover — si el auto-ordenar reorganizó la bolsa a medio proceso, ya no se deposita el objeto equivocado. También se detiene con seguridad si el banco se cierra durante la cola.
+
 ## 0.64.0
 **Português**
 - **Novo: recibo pós-venda com "Desfazer".** Ao fim de qualquer venda em massa (auto-vender, **Vender lixo**, **Vender filtrados**), um recibo mostra o que foi vendido e o **total ganho** — com um botão **Desfazer** por item, que recompra do vendedor em 1 clique. Mostra os últimos 12 (o limite da recompra do vendedor); fecha junto com o vendedor. Desligável em Config → Vendedor.
