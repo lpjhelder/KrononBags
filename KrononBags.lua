@@ -2699,6 +2699,47 @@ local function RunSellChain(list, validate, doneMsg)
   step()
 end
 
+-- v0.67.1: venda MANUAL (clique-direito no vendedor) também entra no extrato.
+-- Post-hook seguro em UseContainerItem: com o vendedor aberto (e FORA da cadeia,
+-- que já contabiliza as próprias vendas), registra o slot e confere ~0.7s depois.
+-- Só credita se o item SAIU do slot E o link apareceu na RECOMPRA do vendedor —
+-- as duas condições juntas evitam crédito falso (ex.: auto-sort movendo o item).
+-- Vendas manuais próximas (<60s) se agrupam numa linha só do histórico.
+if type(hooksecurefunc) == "function" and C_Container and C_Container.UseContainerItem then
+  hooksecurefunc(C_Container, "UseContainerItem", function(bag, slot)
+    if KBSell.active then return end -- cadeia conta as próprias vendas
+    if not (MerchantFrame and MerchantFrame:IsShown()) then return end
+    if type(bag) ~= "number" or type(slot) ~= "number" or bag < 0 or bag > 5 then return end
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if not (info and info.itemID) or info.hasNoValue or not info.hyperlink then return end
+    local itemID, link, count = info.itemID, info.hyperlink, info.stackCount or 1
+    local unit = select(11, C_Item.GetItemInfo(link))
+    local value = (type(unit) == "number" and unit > 0) and (unit * count) or 0
+    C_Timer.After(0.7, function()
+      local now = C_Container.GetContainerItemInfo(bag, slot)
+      if now and now.itemID == itemID then return end -- ainda no slot: não vendeu
+      local sold = false
+      local n = (type(GetNumBuybackItems) == "function" and GetNumBuybackItems()) or 0
+      for b = n, 1, -1 do
+        local l = GetBuybackItemLink and GetBuybackItemLink(b)
+        if l == link then sold = true; break end
+      end
+      if not sold then return end
+      KBSell.goldSold = (KBSell.goldSold or 0) + value
+      KBSell.itemsSold = (KBSell.itemsSold or 0) + 1
+      local ev = kbHistory[1]
+      local ts = (time and time()) or 0
+      if ev and ev.sale and ev.manual and (ts - (ev.t or 0)) <= 60 then
+        ev.gold = (ev.gold or 0) + value; ev.count = (ev.count or 0) + 1; ev.t = ts
+      else
+        tinsert(kbHistory, 1, { sale = true, manual = true, gold = value, count = 1, t = ts })
+        while #kbHistory > 50 do tremove(kbHistory) end
+      end
+      if UI and UI.histPanel and UI.histPanel:IsShown() and RenderHistory then pcall(RenderHistory) end
+    end)
+  end)
+end
+
 -- vende (em cadeia, com pausa entre lotes) a lista já filtrada — só no OnAccept do popup
 local KB_transferSellList
 local function SellMatches(list)

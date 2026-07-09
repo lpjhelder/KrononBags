@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.67.1
+**Português**
+- **Corrigido:** a **venda manual** (clique-direito no item com o vendedor aberto) agora também entra no extrato **"Vendido nesta sessão"** e no histórico — antes só as vendas em massa contavam. Vendas manuais seguidas se agrupam numa linha só.
+
+**English**
+- **Fixed:** **manual selling** (right-clicking an item with the merchant open) now also counts toward the **"Sold this session"** ledger and the history — previously only bulk sales counted. Consecutive manual sales group into a single row.
+
+**Español**
+- **Corregido:** la **venta manual** (clic derecho en el objeto con el vendedor abierto) ahora también cuenta en el extracto **"Vendido en esta sesión"** y en el historial — antes solo contaban las ventas masivas. Las ventas manuales seguidas se agrupan en una sola fila.
+
 ## 0.67.0
 **Português**
 - **Novo: histórico virou extrato.** O painel de Histórico ganhou uma **busca por nome** no topo, cada venda em massa aparece como uma **linha "Venda: N itens" com o total ganho**, e o rodapé mostra o acumulado **"Vendido nesta sessão"** — que é abatido automaticamente quando você usa o Desfazer do recibo.
