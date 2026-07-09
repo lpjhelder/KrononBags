@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.67.0
+**Português**
+- **Novo: histórico virou extrato.** O painel de Histórico ganhou uma **busca por nome** no topo, cada venda em massa aparece como uma **linha "Venda: N itens" com o total ganho**, e o rodapé mostra o acumulado **"Vendido nesta sessão"** — que é abatido automaticamente quando você usa o Desfazer do recibo.
+
+**English**
+- **New: history is now a ledger.** The History panel gained a **name search** at the top, each bulk sale shows as a **"Sale: N items" row with the total earned**, and the footer shows the running **"Sold this session"** total — automatically reduced when you use the receipt's Undo.
+
+**Español**
+- **Nuevo: el historial ahora es un extracto.** El panel de Historial ganó una **búsqueda por nombre** arriba, cada venta masiva aparece como una **fila "Venta: N objetos" con el total ganado**, y el pie muestra el acumulado **"Vendido en esta sesión"** — que se descuenta automáticamente al usar el Deshacer del recibo.
+
 ## 0.66.0
 **Português**
 - **Novo: "Completar pilhas".** No banco (aba Banco ou Brigada), um botão deposita de uma vez **todo item empilhável da bolsa que já existe naquele banco** — completando as pilhas parciais quando a pilha inteira cabe, senão usando slots livres. O quick-stack clássico, com a segurança do addon: revalidação de cada movimento e peças de Conjunto de Equipamento nunca se movem.

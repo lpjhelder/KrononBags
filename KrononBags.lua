@@ -137,6 +137,9 @@ local EN = {
   BTN_STACK_BANK = "Top up stacks",
   TIP_STACK_BANK = "Deposits every stackable bag item that already exists in this bank tab — topping up partial stacks when the whole stack fits, otherwise using free slots. Equipment Set pieces never move.",
   MSG_STACK_NONE = "Nothing to top up: no stackable bag item already exists in this bank.",
+  -- v0.67.0: histórico turbinado
+  HIST_SALE_ROW = "Sale: %d item(s)",
+  HIST_SOLD_SESSION = "Sold this session: %s (%d items)",
   MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
   MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
   MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
@@ -412,6 +415,9 @@ local PT = {
   BTN_STACK_BANK = "Completar pilhas",
   TIP_STACK_BANK = "Deposita todo item empilhável da bolsa que já existe nesta aba do banco — completando pilhas parciais quando a pilha inteira cabe, senão usando slots livres. Peças de Conjunto de Equipamento nunca se movem.",
   MSG_STACK_NONE = "Nada pra completar: nenhum item empilhável da bolsa já existe neste banco.",
+  -- v0.67.0: histórico turbinado
+  HIST_SALE_ROW = "Venda: %d item(ns)",
+  HIST_SOLD_SESSION = "Vendido nesta sessão: %s (%d itens)",
   MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
   MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
   MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
@@ -669,6 +675,9 @@ local ES = {
   BTN_STACK_BANK = "Completar pilas",
   TIP_STACK_BANK = "Deposita todo objeto apilable de la bolsa que ya existe en esta pestaña del banco — completando pilas parciales cuando la pila entera cabe, si no usando ranuras libres. Las piezas de Conjunto de Equipo nunca se mueven.",
   MSG_STACK_NONE = "Nada que completar: ningún objeto apilable de la bolsa ya existe en este banco.",
+  -- v0.67.0: historial mejorado
+  HIST_SALE_ROW = "Venta: %d objeto(s)",
+  HIST_SOLD_SESSION = "Vendido en esta sesión: %s (%d objetos)",
   MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
   MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
   MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
@@ -2610,6 +2619,7 @@ local function RunSellChain(list, validate, doneMsg)
     local k = it.bag * 1000 + it.slot
     local r = receiptByKey[k]
     if not r then r = {}; receiptByKey[k] = r; receipt[#receipt + 1] = r end
+    r.bag, r.slot, r.itemID = it.bag, it.slot, it.itemID -- pro extrato conferir o que saiu de fato
     r.link, r.icon, r.count = info.hyperlink, info.iconFileID, info.stackCount or 1
     local unit = r.link and select(11, C_Item.GetItemInfo(r.link)) or nil
     r.value = (type(unit) == "number" and unit > 0) and (unit * r.count) or 0
@@ -2621,6 +2631,26 @@ local function RunSellChain(list, validate, doneMsg)
     local remaining = 0
     for _, it in ipairs(list) do if stillValid(it) then remaining = remaining + 1 end end
     print(KB_PREFIX .. string.format(doneMsg, #list - remaining))
+    -- v0.67.0: EXTRATO — soma no acumulado da sessão só o que SAIU da bolsa de fato
+    -- e registra um evento de venda no histórico (aparece como linha com o total).
+    -- Venda em voo (finish por vendedor fechado/combate) conta como NÃO-vendida:
+    -- o extrato subconta nesse caso raro, nunca infla.
+    local soldGold, soldN = 0, 0
+    for _, r in ipairs(receipt) do
+      if r.bag and r.slot then
+        local nowInfo = C_Container.GetContainerItemInfo(r.bag, r.slot)
+        if not (nowInfo and nowInfo.itemID == r.itemID) then
+          soldGold = soldGold + (r.value or 0); soldN = soldN + 1
+        end
+      end
+    end
+    if soldN > 0 then
+      KBSell.goldSold = (KBSell.goldSold or 0) + soldGold
+      KBSell.itemsSold = (KBSell.itemsSold or 0) + soldN
+      tinsert(kbHistory, 1, { sale = true, gold = soldGold, count = soldN, t = (time and time()) or 0 })
+      while #kbHistory > 50 do tremove(kbHistory) end
+      if UI and UI.histPanel and UI.histPanel:IsShown() and RenderHistory then pcall(RenderHistory) end
+    end
     -- recibo pós-venda (opt-out na config): só com o vendedor ainda aberto (o
     -- desfazer usa a recompra, que precisa do vendedor)
     if (#list - remaining) > 0 and #receipt > 0
@@ -4967,7 +4997,7 @@ CreateUI = function()
   -- exibição. Lista os primeiros eventos de kbHistory (mais novos primeiro): +N entrou,
   -- −N saiu, com o horário.
   local histPanel = CreateFrame("Frame", "KrononBagsHistory", UIParent, "BackdropTemplate")
-  histPanel:SetSize(300, 432)
+  histPanel:SetSize(300, 456) -- +24: linha de busca no topo (v0.67.0)
   histPanel:SetPoint("CENTER")
   histPanel:SetFrameStrata("DIALOG")
   histPanel:SetMovable(true); histPanel:EnableMouse(true); histPanel:RegisterForDrag("LeftButton")
@@ -4997,6 +5027,21 @@ CreateUI = function()
   local histHint = histPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
   histHint:SetPoint("BOTTOM", 0, 10); histHint:SetText(L.HIST_HINT)
 
+  -- v0.67.0: busca por nome + extrato de vendas da sessão
+  local histFilter = ""
+  local histSearch = CreateFrame("EditBox", nil, histPanel, "SearchBoxTemplate")
+  histSearch:SetSize(150, 20)
+  histSearch:SetPoint("TOPLEFT", 14, -28)
+  histSearch:SetAutoFocus(false)
+  histSearch:SetScript("OnTextChanged", function(self)
+    if SearchBoxTemplate_OnTextChanged then SearchBoxTemplate_OnTextChanged(self) end -- mantém o X de limpar
+    histFilter = (self:GetText() or ""):lower()
+    if RenderHistory then RenderHistory() end
+  end)
+  -- extrato da sessão (alimentado pela cadeia de venda; Desfazer no recibo abate)
+  local histSummary = histPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  histSummary:SetPoint("BOTTOM", 0, 24)
+
   -- pool de linhas: ícone (18, com borda de qualidade) + nome colorido + delta/hora.
   -- Cada linha tem mouse: hover mostra tooltip e realce; shift-clique linka no chat. Sem ghost.
   local histRowPool = {}
@@ -5007,7 +5052,7 @@ CreateUI = function()
       row = CreateFrame("Button", nil, histPanel) -- Button: precisa de OnClick/RegisterForClicks
       row:SetSize(272, 19)
       if i == 1 then
-        row:SetPoint("TOPLEFT", histPanel, "TOPLEFT", 14, -44)
+        row:SetPoint("TOPLEFT", histPanel, "TOPLEFT", 14, -54) -- abaixo da busca
       else
         row:SetPoint("TOPLEFT", histRowPool[i - 1], "BOTTOMLEFT", 0, -1)
       end
@@ -5037,8 +5082,11 @@ CreateUI = function()
         if not ev then return end
         self.hl:Show()
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        if ev.link then GameTooltip:SetHyperlink(ev.link)
-        else GameTooltip:SetItemByID(ev.id) end
+        if ev.sale then -- linha de venda: resumo em vez de tooltip de item
+          GameTooltip:SetText(string.format(L.HIST_SALE_ROW, ev.count or 0))
+          GameTooltip:AddLine(GetCoinTextureString(ev.gold or 0), 1, 1, 1)
+        elseif ev.link then GameTooltip:SetHyperlink(ev.link)
+        elseif ev.id then GameTooltip:SetItemByID(ev.id) end
         GameTooltip:Show()
       end)
       row:SetScript("OnLeave", function(self)
@@ -5058,7 +5106,21 @@ CreateUI = function()
 
   RenderHistory = function()
     if not UI or not UI.histPanel then return end
-    local n = #kbHistory
+    -- extrato da sessão (sempre atualizado, mesmo com a lista vazia/filtrada)
+    histSummary:SetText(string.format(L.HIST_SOLD_SESSION,
+      GetCoinTextureString(KBSell.goldSold or 0), KBSell.itemsSold or 0))
+    -- v0.67.0: filtro por nome (busca do topo); linhas de venda casam com o rótulo delas
+    local list = kbHistory
+    if histFilter ~= "" then
+      list = {}
+      for _, ev in ipairs(kbHistory) do
+        local nm
+        if ev.sale then nm = string.format(L.HIST_SALE_ROW, ev.count or 0)
+        else nm = (ev.link and C_Item.GetItemInfo(ev.link)) or (ev.id and C_Item.GetItemInfo(ev.id)) or "" end
+        if nm ~= "" and nm:lower():find(histFilter, 1, true) then list[#list + 1] = ev end
+      end
+    end
+    local n = #list
     if n == 0 then
       for _, row in ipairs(histRowPool) do row.ev = nil; row:Hide() end
       histEmpty:Show()
@@ -5067,28 +5129,36 @@ CreateUI = function()
     histEmpty:Hide()
     local shown = math.min(n, HIST_ROWS)
     for i = 1, shown do
-      local ev = kbHistory[i]
+      local ev = list[i]
       local row = AcquireHistRow(i)
       row.ev = ev
-      local iconID = select(5, C_Item.GetItemInfoInstant(ev.id))
-      row.icon:SetTexture(iconID or "Interface\\Icons\\INV_Misc_QuestionMark")
-      -- nome: o link já vem colorido por qualidade; sem link, cai no nome simples
-      if ev.link then row.name:SetText(ev.link)
-      else row.name:SetText(C_Item.GetItemInfo(ev.id) or "...") end
-      -- borda de qualidade no ícone (só quando há link com qualidade conhecida)
-      local q = ev.link and select(3, C_Item.GetItemInfo(ev.link))
-      local c = q and q >= 0 and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-      if c then row.border:SetVertexColor(c.r, c.g, c.b); row.border:Show()
-      else row.border:Hide() end
-      local deltaStr
-      if ev.delta > 0 then deltaStr = "|cff33ff33+" .. ev.delta .. "|r"
-      else deltaStr = "|cffff5555" .. ev.delta .. "|r" end
       local hora = ""
       if date and ev.t and ev.t > 0 then
         local ok, s = pcall(date, "%H:%M", ev.t)
         if ok and s then hora = s end
       end
-      row.info:SetText(deltaStr .. "  " .. hora)
+      if ev.sale then
+        -- linha de VENDA (cadeia concluída): moeda + total ganho
+        row.icon:SetTexture("Interface\\MoneyFrame\\UI-GoldIcon")
+        row.border:Hide()
+        row.name:SetText("|cfff0d98c" .. string.format(L.HIST_SALE_ROW, ev.count or 0) .. "|r")
+        row.info:SetText(GetCoinTextureString(ev.gold or 0) .. "  " .. hora)
+      else
+        local iconID = select(5, C_Item.GetItemInfoInstant(ev.id))
+        row.icon:SetTexture(iconID or "Interface\\Icons\\INV_Misc_QuestionMark")
+        -- nome: o link já vem colorido por qualidade; sem link, cai no nome simples
+        if ev.link then row.name:SetText(ev.link)
+        else row.name:SetText(C_Item.GetItemInfo(ev.id) or "...") end
+        -- borda de qualidade no ícone (só quando há link com qualidade conhecida)
+        local q = ev.link and select(3, C_Item.GetItemInfo(ev.link))
+        local c = q and q >= 0 and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+        if c then row.border:SetVertexColor(c.r, c.g, c.b); row.border:Show()
+        else row.border:Hide() end
+        local deltaStr
+        if ev.delta > 0 then deltaStr = "|cff33ff33+" .. ev.delta .. "|r"
+        else deltaStr = "|cffff5555" .. ev.delta .. "|r" end
+        row.info:SetText(deltaStr .. "  " .. hora)
+      end
       row.hl:Hide()
       row:Show()
     end
@@ -5232,6 +5302,10 @@ CreateUI = function()
           local l = GetBuybackItemLink and GetBuybackItemLink(b)
           if l and l == row.kbLink and type(BuybackItem) == "function" then
             BuybackItem(b)
+            -- desfez a venda: abate do extrato da sessão (clamp em zero)
+            KBSell.goldSold = math.max(0, (KBSell.goldSold or 0) - (row.kbValue or 0))
+            KBSell.itemsSold = math.max(0, (KBSell.itemsSold or 0) - 1)
+            if UI.histPanel and UI.histPanel:IsShown() and RenderHistory then pcall(RenderHistory) end
             row.undo:Disable(); row:SetAlpha(0.45)
             if UI and UI:IsShown() then Refresh() end
             return
@@ -5254,6 +5328,7 @@ CreateUI = function()
       local e = entries[n - idx + 1] -- mais recente no topo (é o que a recompra alcança)
       local row = AcquireRcRow(idx)
       row.kbLink = e.link
+      row.kbValue = e.value or 0 -- pro Desfazer abater do extrato da sessão
       row.icon:SetTexture(e.icon or 134400)
       local nm = e.link or "?"
       if (e.count or 1) > 1 then nm = nm .. " |cffaaaaaax" .. e.count .. "|r" end
