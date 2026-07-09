@@ -133,6 +133,10 @@ local EN = {
   BTN_DEPOSIT_HOME = "Store marked",
   TIP_DEPOSIT_HOME = "Deposits into the bank every bag item whose category is marked as \"lives in the bank\" (right-click a category header to mark it).",
   MSG_HOME_EMPTY = "No bag item belongs to a category marked as \"lives in the bank\".",
+  -- v0.66.0: completar pilhas
+  BTN_STACK_BANK = "Top up stacks",
+  TIP_STACK_BANK = "Deposits every stackable bag item that already exists in this bank tab — topping up partial stacks when the whole stack fits, otherwise using free slots. Equipment Set pieces never move.",
+  MSG_STACK_NONE = "Nothing to top up: no stackable bag item already exists in this bank.",
   MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
   MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
   MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
@@ -404,6 +408,10 @@ local PT = {
   BTN_DEPOSIT_HOME = "Guardar marcadas",
   TIP_DEPOSIT_HOME = "Deposita no banco todo item da bolsa cuja categoria está marcada como \"mora no banco\" (clique-direito no cabeçalho da categoria pra marcar).",
   MSG_HOME_EMPTY = "Nenhum item da bolsa pertence a uma categoria marcada como \"mora no banco\".",
+  -- v0.66.0: completar pilhas
+  BTN_STACK_BANK = "Completar pilhas",
+  TIP_STACK_BANK = "Deposita todo item empilhável da bolsa que já existe nesta aba do banco — completando pilhas parciais quando a pilha inteira cabe, senão usando slots livres. Peças de Conjunto de Equipamento nunca se movem.",
+  MSG_STACK_NONE = "Nada pra completar: nenhum item empilhável da bolsa já existe neste banco.",
   MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
   MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
   MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
@@ -657,6 +665,10 @@ local ES = {
   BTN_DEPOSIT_HOME = "Guardar marcadas",
   TIP_DEPOSIT_HOME = "Deposita en el banco todo objeto de la bolsa cuya categoría está marcada como \"vive en el banco\" (clic derecho en el encabezado de la categoría para marcarla).",
   MSG_HOME_EMPTY = "Ningún objeto de la bolsa pertenece a una categoría marcada como \"vive en el banco\".",
+  -- v0.66.0: completar pilas
+  BTN_STACK_BANK = "Completar pilas",
+  TIP_STACK_BANK = "Deposita todo objeto apilable de la bolsa que ya existe en esta pestaña del banco — completando pilas parciales cuando la pila entera cabe, si no usando ranuras libres. Las piezas de Conjunto de Equipo nunca se mueven.",
+  MSG_STACK_NONE = "Nada que completar: ningún objeto apilable de la bolsa ya existe en este banco.",
   MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
   MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
   MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
@@ -1488,10 +1500,14 @@ end
 -- Guardar todos os itens da categoria no banco do personagem via pegar/soltar
 -- (PickupContainerItem NÃO é protegida, ao contrário de UseContainerItem). Throttle por
 -- item (~0.08s) pra não perder movimentos por latência.
-local function DepositCategoryToBank(items)
+-- bankType (opcional): BANK_CHAR (padrão) ou BANK_ACCT. Cada item pode trazer um
+-- destino preferencial `it.dst = {bag, slot}` (pilha parcial pra COMPLETAR, v0.66.0);
+-- o destino é revalidado na hora do drop (mesmo itemID + espaço) — inválido cai
+-- num slot livre.
+local function DepositCategoryToBank(items, bankType)
   if InCombatLockdown() or not atBank then return end
   local free = {}
-  for _, bb in ipairs(PurchasedTabs(BANK_CHAR)) do
+  for _, bb in ipairs(PurchasedTabs(bankType or BANK_CHAR)) do
     local fs = C_Container.GetContainerFreeSlots and C_Container.GetContainerFreeSlots(bb)
     if fs then for _, s in ipairs(fs) do free[#free + 1] = { bag = bb, slot = s } end end
   end
@@ -1501,9 +1517,18 @@ local function DepositCategoryToBank(items)
   end
   local i = 1
   local function step()
-    if InCombatLockdown() or not atBank then return end -- banco fechou no meio: para
+    -- saídas SEMPRE limpam o cursor: drop que falhou no último item (ou banco
+    -- fechado/combate no meio) não pode deixar item preso na mão do jogador
+    if InCombatLockdown() or not atBank then
+      if CursorHasItem() then ClearCursor() end
+      return
+    end
     local it = queue[i]; i = i + 1
-    if not it then C_Timer.After(0.2, function() if UI and UI:IsShown() then Refresh() end end); return end
+    if not it then
+      if CursorHasItem() then ClearCursor() end
+      C_Timer.After(0.2, function() if UI and UI:IsShown() then Refresh() end end)
+      return
+    end
     -- REVALIDAÇÃO: relê o slot na hora exata do pickup — auto-sort/venda pode ter
     -- rearranjado as bolsas desde o render. Item diferente ou travado → pula sem depositar.
     local info = C_Container.GetContainerItemInfo(it.bag, it.slot)
@@ -1513,13 +1538,24 @@ local function DepositCategoryToBank(items)
             and (not it.link or info.hyperlink == it.link)) then
       return step() -- tail call: só pula pro próximo (sem consumir slot livre)
     end
-    local dst = table.remove(free, 1)
+    -- destino preferencial (completar pilha): só vale se o slot do banco AINDA tem o
+    -- mesmo item, destravado e com espaço pra pilha INTEIRA (sem sobra no cursor)
+    local dst
+    if it.dst then
+      local t = C_Container.GetContainerItemInfo(it.dst.bag, it.dst.slot)
+      local room = t and it.maxStack and (it.maxStack - (t.stackCount or 0)) or 0
+      if t and not t.isLocked and t.itemID == it.itemID and room >= (info.stackCount or 1) then
+        dst = it.dst
+      end
+    end
+    local fromFree = not dst
+    if fromFree then dst = table.remove(free, 1) end
     if not dst then print(KB_PREFIX .. L.MSG_BANK_FULL); return end
     if CursorHasItem() then ClearCursor() end
     C_Container.PickupContainerItem(it.bag, it.slot)
     if CursorHasItem() then
       C_Container.PickupContainerItem(dst.bag, dst.slot)
-    else
+    elseif fromFree then
       table.insert(free, 1, dst) -- não pegou (item travado/bloqueado): devolve o slot livre
     end
     if C_Timer and C_Timer.After then C_Timer.After(0.08, step) else step() end
@@ -3305,8 +3341,9 @@ UpdateTabs = function()
     elseif id == "warband" then t:SetShown(showWb) end
     if t.sel then t.sel:SetShown(id == mode) end
   end
-  -- depositar só vale no banco de verdade
+  -- depositar/completar pilhas só valem no banco de verdade
   if UI.depositBtn then UI.depositBtn:SetShown(atBank and (mode == "bank" or mode == "warband")) end
+  if UI.stackBankBtn then UI.stackBankBtn:SetShown(atBank and (mode == "bank" or mode == "warband")) end
   -- "Comprar aba": visível só no banco de verdade na aba Banco/Brigada. SetShown/SetAttribute
   -- num frame seguro só FORA de combate (banco não é usável em combate, então é seguro pular).
   if UI.buyTabBtn and not InCombatLockdown() then
@@ -4592,6 +4629,74 @@ CreateUI = function()
   dep:SetScript("OnLeave", function() GameTooltip:Hide() end)
   UI.depositBtn = dep
 
+  -- v0.66.0: "Completar pilhas" — deposita da bolsa tudo que JÁ TEM pilha no banco
+  -- da aba atual (personagem ou Brigada), preferindo COMPLETAR pilhas parciais
+  -- (só quando a pilha inteira cabe — nunca sobra item no cursor). Itens sem pilha
+  -- parcial vão pra slots livres. Peça de Conjunto de Equipamento nunca entra.
+  local stk = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
+  stk:SetSize(120, 18); stk:SetText(L.BTN_STACK_BANK)
+  stk:SetPoint("LEFT", dep, "RIGHT", 6, 0)
+  stk:SetAttribute("nodeignore", true)
+  stk:SetScript("OnClick", function()
+    if InCombatLockdown() or not atBank then return end
+    RebuildEquipSets() -- proteção de gear depende do mapa quente
+    local bt = (mode == "warband") and BANK_ACCT or BANK_CHAR
+    -- 1) mapeia o banco da aba atual: o que existe + pilhas parciais com espaço
+    local exists, partial = {}, {}
+    for _, bb in ipairs(PurchasedTabs(bt)) do
+      local slots = C_Container.GetContainerNumSlots(bb) or 0
+      for s = 1, slots do
+        local ti = C_Container.GetContainerItemInfo(bb, s)
+        if ti and ti.itemID then
+          exists[ti.itemID] = true
+          local maxStack = ti.hyperlink and select(8, C_Item.GetItemInfo(ti.hyperlink)) or nil
+          if type(maxStack) == "number" and maxStack > 1
+             and (ti.stackCount or 0) < maxStack and not ti.isLocked then
+            local pl = partial[ti.itemID]
+            if not pl then pl = {}; partial[ti.itemID] = pl end
+            pl[#pl + 1] = { bag = bb, slot = s, room = maxStack - (ti.stackCount or 0) }
+          end
+        end
+      end
+    end
+    -- 2) fila: EMPILHÁVEIS da bolsa cujo itemID já existe no banco
+    local list = {}
+    for _, bag in ipairs(BAGS) do
+      local slots = C_Container.GetContainerNumSlots(bag) or 0
+      for slot = 1, slots do
+        local info = C_Container.GetContainerItemInfo(bag, slot)
+        if info and info.itemID and exists[info.itemID]
+           and not (info.hyperlink and equipSetByVariant[VariantKey(info.hyperlink)]) then
+          local maxStack = info.hyperlink and select(8, C_Item.GetItemInfo(info.hyperlink)) or nil
+          if type(maxStack) == "number" and maxStack > 1 then
+            local it = { bag = bag, slot = slot, itemID = info.itemID, link = info.hyperlink, maxStack = maxStack }
+            local pl = partial[info.itemID]
+            if pl then
+              for _, d in ipairs(pl) do
+                if d.room >= (info.stackCount or 1) then -- só se a pilha INTEIRA couber
+                  it.dst = { bag = d.bag, slot = d.slot }
+                  d.room = d.room - (info.stackCount or 1) -- consome o espaço no plano
+                  break
+                end
+              end
+            end
+            list[#list + 1] = it
+          end
+        end
+      end
+    end
+    if #list == 0 then print(KB_PREFIX .. L.MSG_STACK_NONE); return end
+    DepositCategoryToBank(list, bt)
+  end)
+  stk:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(L.BTN_STACK_BANK)
+    GameTooltip:AddLine(L.TIP_STACK_BANK, 0.8, 0.8, 0.8, true)
+    GameTooltip:Show()
+  end)
+  stk:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  UI.stackBankBtn = stk
+
   -- Botão "Comprar aba": usa o template SEGURO da Blizzard. O OnClick nativo do template
   -- faz toda a compra (custo + popup + PurchaseBankTab) por clique de HARDWARE — nunca por
   -- Lua. NÃO adicionamos OnClick próprio (chamar PurchaseBankTab por Lua taintaria). O tipo
@@ -4599,7 +4704,7 @@ CreateUI = function()
   local okBuy, buy = pcall(CreateFrame, "Button", "KrononBagsBuyTab", UI, "BankPanelPurchaseButtonScriptTemplate")
   if okBuy and buy then
     buy:SetSize(110, 18)
-    buy:SetPoint("LEFT", dep, "RIGHT", 6, 0)
+    buy:SetPoint("LEFT", stk, "RIGHT", 6, 0) -- cadeia: Depositar → Completar pilhas → Comprar aba
     if buy.SetText then buy:SetText(L.BUY_TAB) end
     if not InCombatLockdown() then buy:SetAttribute("nodeignore", true) end -- fora da navegação por controle
     buy:HookScript("OnEnter", function(self)

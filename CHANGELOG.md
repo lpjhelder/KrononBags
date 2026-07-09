@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.66.0
+**Português**
+- **Novo: "Completar pilhas".** No banco (aba Banco ou Brigada), um botão deposita de uma vez **todo item empilhável da bolsa que já existe naquele banco** — completando as pilhas parciais quando a pilha inteira cabe, senão usando slots livres. O quick-stack clássico, com a segurança do addon: revalidação de cada movimento e peças de Conjunto de Equipamento nunca se movem.
+
+**English**
+- **New: "Top up stacks".** At the bank (Bank or Warband tab), one button deposits at once **every stackable bag item that already exists in that bank** — topping up partial stacks when the whole stack fits, otherwise using free slots. The classic quick-stack, with the addon's safety: every move is revalidated and Equipment Set pieces never move.
+
+**Español**
+- **Nuevo: "Completar pilas".** En el banco (pestaña Banco o Banda de guerra), un botón deposita de una vez **todo objeto apilable de la bolsa que ya existe en ese banco** — completando las pilas parciales cuando la pila entera cabe, si no usando ranuras libres. El quick-stack clásico, con la seguridad del addon: cada movimiento se revalida y las piezas de Conjunto de Equipo nunca se mueven.
+
 ## 0.65.0
 **Português**
 - **Novo: auto-depósito por categoria.** Clique-direito no cabeçalho de uma categoria e marque **"Mora no banco (auto-depósito)"**. No banco, um botão **"Guardar marcadas"** deposita de uma vez tudo o que estiver nas categorias marcadas. Conjuntos de Equipamento e "Diversos" ficam de fora por segurança.
