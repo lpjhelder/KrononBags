@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.69.0
+**Português**
+- **Novo: botão "Usar tudo" na categoria Moradia.** Usa cada decoração da bolsa, uma por vez — todas vão pro **baú da sua casa** em cadeia, sem clicar uma a uma. Com as mesmas proteções do "Abrir tudo": bloqueado com vendedor, banco, correio ou leilões abertos (onde o clique faria outra coisa).
+
+**English**
+- **New: "Use all" button on the Housing category.** Uses every decor item in your bags, one at a time — they all go to your **house chest** in a chain, no one-by-one clicking. Same protections as "Open all": blocked while a merchant, bank, mail or auction house is open (where the click would do something else).
+
+**Español**
+- **Nuevo: botón "Usar todo" en la categoría Vivienda.** Usa cada decoración de la bolsa, una por vez — todas van al **baúl de tu casa** en cadena, sin hacer clic una a una. Con las mismas protecciones de "Abrir todo": bloqueado con vendedor, banco, correo o subastas abiertos (donde el clic haría otra cosa).
+
 ## 0.68.0
 **Português**
 - **Novo: categoria "Moradia".** As **decorações de Moradia** (housing) da bolsa agora se agrupam sozinhas — a categoria aparece automaticamente no próximo login. Se você a remover, dá pra readicionar em Config → Categorias → "+". Funciona com tudo: "mora no banco", ordenação, busca, recolher.

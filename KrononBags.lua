@@ -140,6 +140,9 @@ local EN = {
   -- v0.67.0: histórico turbinado
   HIST_SALE_ROW = "Sale: %d item(s)",
   HIST_SOLD_SESSION = "Sold this session: %s (%d items)",
+  -- v0.69.0: usar tudo da Moradia
+  BTN_LEARN_ALL = "Use all",
+  TIP_LEARN_ALL = "Uses every Housing decor item in your bags, one at a time — they all go to your house chest. Blocked while a merchant, bank, mail or auction house is open.",
   MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
   MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
   MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
@@ -418,6 +421,9 @@ local PT = {
   -- v0.67.0: histórico turbinado
   HIST_SALE_ROW = "Venda: %d item(ns)",
   HIST_SOLD_SESSION = "Vendido nesta sessão: %s (%d itens)",
+  -- v0.69.0: usar tudo da Moradia
+  BTN_LEARN_ALL = "Usar tudo",
+  TIP_LEARN_ALL = "Usa cada decoração de Moradia da bolsa, uma por vez — todas vão pro baú da sua casa. Bloqueado com vendedor, banco, correio ou casa de leilões abertos.",
   MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
   MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
   MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
@@ -678,6 +684,9 @@ local ES = {
   -- v0.67.0: historial mejorado
   HIST_SALE_ROW = "Venta: %d objeto(s)",
   HIST_SOLD_SESSION = "Vendido en esta sesión: %s (%d objetos)",
+  -- v0.69.0: usar todo de Vivienda
+  BTN_LEARN_ALL = "Usar todo",
+  TIP_LEARN_ALL = "Usa cada decoración de Vivienda de la bolsa, una por vez — todas van al baúl de tu casa. Bloqueado con vendedor, banco, correo o casa de subastas abiertos.",
   MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
   MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
   MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
@@ -2877,6 +2886,31 @@ local function OpenAllOpenables()
   UI.openingAll = false -- não há mais nada pra abrir
 end
 
+-- usar tudo da Moradia: usa 1 decoração por vez (assíncrono, mesmo padrão do "Abrir
+-- tudo") — cada uso GUARDA a decoração no baú da casa. Só nas bolsas (0-5, nunca
+-- banco), pula item travado e respeita os MESMOS bloqueios de contexto (OpenAllBlocked:
+-- no vendedor VENDERIA a decoração em cadeia). O handler de BAG_UPDATE_DELAYED chama
+-- de novo até não sobrar nenhuma.
+local function LearnAllHousing()
+  if not UI then return end
+  if InCombatLockdown() then UI.learningAll = false; return end
+  if OpenAllBlocked() then UI.learningAll = false; return end
+  local isHousing = PRESET_FILTERS.housing
+  if not isHousing then UI.learningAll = false; return end
+  for _, bag in ipairs(BAGS) do
+    local slots = C_Container.GetContainerNumSlots(bag) or 0
+    for slot = 1, slots do
+      local info = C_Container.GetContainerItemInfo(bag, slot)
+      if info and info.itemID and not info.isLocked and isHousing(info.itemID) then
+        UI.learningAll = true
+        C_Container.UseContainerItem(bag, slot)
+        return
+      end
+    end
+  end
+  UI.learningAll = false -- não há mais decoração pra usar
+end
+
 -- ---------------- Render ----------------
 Refresh = function()
   if not UI or not UI:IsShown() or not DB then return end
@@ -2889,6 +2923,7 @@ Refresh = function()
   EnsureItemsCached(bags)
   if UI.distribBtn then UI.distribBtn:Hide() end -- esconde já (a grade não tem cabeçalho de seção)
   if UI.openAllBtn then UI.openAllBtn:Hide() end
+  if UI.learnAllBtn then UI.learnAllBtn:Hide() end
   local cached = CachedMode()
   if DB.settings.gridView and not cached then return RenderGrid() end -- cache sempre usa a visão por categorias
 
@@ -2973,6 +3008,7 @@ Refresh = function()
   for _, sh in ipairs(subHeaderPool) do sh:Hide() end -- reset igual ao headerPool (sem fantasma)
   if UI.distribBtn then UI.distribBtn:Hide() end
   if UI.openAllBtn then UI.openAllBtn:Hide() end
+  if UI.learnAllBtn then UI.learnAllBtn:Hide() end
 
   -- 5) desenha (dentro do conteúdo rolável: x a partir de 0, yOff a partir de 0)
   local cols = (DB.settings and DB.settings.cols) or COLS
@@ -3121,6 +3157,31 @@ Refresh = function()
         UI.openAllBtn:ClearAllPoints()
         UI.openAllBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
         UI.openAllBtn:Show()
+      end
+      -- botão "Usar tudo" no cabeçalho de Moradia: usa cada decoração (vai pro baú
+      -- da casa), uma por vez. Mesmos bloqueios de contexto do "Abrir tudo" — no
+      -- vendedor/banco/correio o UseContainerItem faria outra coisa (ver OpenAllBlocked).
+      -- Só na visão AO VIVO das bolsas (cache do banco não tem como usar item).
+      if cat == "Moradia" and not cached and not OpenAllBlocked() then
+        if not UI.learnAllBtn then
+          local o = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate")
+          o:SetAttribute("nodeignore", true) -- linha do cabeçalho; só mouse
+          o:SetSize(72, 18); o:SetText(L.BTN_LEARN_ALL)
+          o:SetScript("OnClick", function() LearnAllHousing() end)
+          o:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(L.BTN_LEARN_ALL)
+            GameTooltip:AddLine(L.TIP_LEARN_ALL, 0.7, 0.7, 0.7, true)
+            GameTooltip:Show()
+          end)
+          o:SetScript("OnLeave", function() GameTooltip:Hide() end)
+          UI.learnAllBtn = o
+        end
+        UI.learnAllBtn:SetParent(UI.content)
+        UI.learnAllBtn:SetFrameLevel(h:GetFrameLevel() + 5)
+        UI.learnAllBtn:ClearAllPoints()
+        UI.learnAllBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
+        UI.learnAllBtn:Show()
       end
       yOff = yOff - 18
 
@@ -6777,6 +6838,8 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- "Abrir tudo" é assíncrono: depois que um recipiente abre, BAG_UPDATE_DELAYED dispara
     -- e a gente abre o próximo, até não sobrar nenhum (OpenAllOpenables zera openingAll).
     if event == "BAG_UPDATE_DELAYED" and UI and UI.openingAll then OpenAllOpenables() end
+    -- idem pra cadeia de "Usar tudo" da Moradia (LearnAllHousing zera learningAll no fim)
+    if event == "BAG_UPDATE_DELAYED" and UI and UI.learningAll then LearnAllHousing() end
     if event == "BAG_UPDATE_DELAYED" then HistorySnapshotDiff() end -- rastreia entradas/saídas (BAG_UPDATE_DELAYED já é throttled)
     Refresh(); RefreshReady()
     if DB and atBank then CaptureBank() end -- snapshot do banco fresco (base da consulta de longe), sempre que no banco
