@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.69.3
+**Português**
+- **Melhorado:** o botão **"Usar (N)"** da Moradia agora avança pro **próximo item a cada clique**, sem esperar o servidor confirmar o anterior — cliques rápidos esvaziam a categoria em sequência. Se algum uso falhar, o item volta à fila em segundos.
+
+**English**
+- **Improved:** the Housing **"Use (N)"** button now advances to the **next item on every click**, without waiting for the server to confirm the previous one — fast clicks drain the category in sequence. If a use fails, the item returns to the queue within seconds.
+
+**Español**
+- **Mejorado:** el botón **"Usar (N)"** de Vivienda ahora avanza al **siguiente objeto con cada clic**, sin esperar a que el servidor confirme el anterior — los clics rápidos vacían la categoría en secuencia. Si un uso falla, el objeto vuelve a la cola en segundos.
+
 ## 0.69.2
 **Português**
 - **Corrigido:** erro "Cannot anchor protected frames to regions" ao abrir a bolsa com a categoria Moradia — o botão seguro "Usar (N)" agora ancora corretamente no cabeçalho.

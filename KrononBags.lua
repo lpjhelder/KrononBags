@@ -3154,20 +3154,34 @@ Refresh = function()
           o:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
           o:SetSize(84, 18)
           o:SetAttribute("type", "item")
+          -- slots usados HÁ POUCO: o item usado só some quando o servidor confirma —
+          -- sem essa marca, cliques rápidos re-armariam o MESMO item e o ritmo
+          -- ficaria travado na confirmação. Marcado no clique, o arm pula o slot e
+          -- vai pro PRÓXIMO na hora. TTL: uso que falhar em silêncio volta a ser
+          -- elegível em USED_TTL segundos (nada se perde).
+          local usedAt, USED_TTL = {}, 4
           -- acha a PRÓXIMA decoração das bolsas e arma o botão (atributos seguros
           -- só fora de combate; contexto bloqueado desarma — clique vira no-op)
           UI.ArmLearnBtn = function()
             if InCombatLockdown() or not UI.learnAllBtn then return end
             local isHousing = PRESET_FILTERS.housing
             local nb, ns, count = nil, nil, 0
+            local now = GetTime()
             if isHousing then
               for _, bag in ipairs(BAGS) do
                 local slots = C_Container.GetContainerNumSlots(bag) or 0
                 for slot = 1, slots do
                   local info = C_Container.GetContainerItemInfo(bag, slot)
                   if info and info.itemID and not info.isLocked and isHousing(info.itemID) then
-                    count = count + 1
-                    if not nb then nb, ns = bag, slot end
+                    local k = bag * 1000 + slot
+                    local u = usedAt[k]
+                    if u and (now - u.t) < USED_TTL and u.id == info.itemID then
+                      -- uso em voo: não conta nem escolhe (some do rótulo já no clique)
+                    else
+                      if u then usedAt[k] = nil end -- expirou ou o slot mudou de item
+                      count = count + 1
+                      if not nb then nb, ns = bag, slot end
+                    end
                   end
                 end
               end
@@ -3198,9 +3212,22 @@ Refresh = function()
               btn:SetAttribute("bag", nil); btn:SetAttribute("slot", nil)
             end
           end)
-          o:SetScript("PostClick", function()
-            -- o uso resolve assíncrono (item sai da bolsa): re-arma pro próximo
-            C_Timer.After(0.3, function() if UI and UI.ArmLearnBtn then pcall(UI.ArmLearnBtn) end end)
+          o:SetScript("PostClick", function(btn, _, down)
+            -- marca o slot como usado SÓ na fase que executa a ação (o gate do
+            -- SecureActionButton segue o cvar ActionButtonUseKeyDown) — senão a
+            -- fase "morta" do clique marcaria o item seguinte sem tê-lo usado
+            local usesDown = GetCVarBool and GetCVarBool("ActionButtonUseKeyDown")
+            if (down and usesDown) or (not down and not usesDown) then
+              local bag, slot = btn:GetAttribute("bag"), btn:GetAttribute("slot")
+              local info = bag and slot and C_Container.GetContainerItemInfo(bag, slot)
+              if info and info.itemID then
+                usedAt[bag * 1000 + slot] = { t = GetTime(), id = info.itemID }
+              end
+            end
+            -- re-arma JÁ pro próximo (cliques rápidos drenam em sequência) e mais
+            -- uma vez depois que o servidor resolver (contador/estado final)
+            if UI and UI.ArmLearnBtn then pcall(UI.ArmLearnBtn) end
+            C_Timer.After(0.4, function() if UI and UI.ArmLearnBtn then pcall(UI.ArmLearnBtn) end end)
           end)
           o:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
