@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.68.0
+**Português**
+- **Novo: categoria "Moradia".** As **decorações de Moradia** (housing) da bolsa agora se agrupam sozinhas — a categoria aparece automaticamente no próximo login. Se você a remover, dá pra readicionar em Config → Categorias → "+". Funciona com tudo: "mora no banco", ordenação, busca, recolher.
+
+**English**
+- **New: "Housing" category.** The **Housing decor items** in your bags now group themselves — the category shows up automatically on your next login. If you remove it, you can re-add it via Config → Categories → "+". Works with everything: "lives in the bank", sorting, search, collapsing.
+
+**Español**
+- **Nuevo: categoría "Vivienda".** Las **decoraciones de Vivienda** (housing) de la bolsa ahora se agrupan solas — la categoría aparece automáticamente en el próximo inicio de sesión. Si la quitas, puedes readdirla en Config → Categorías → "+". Funciona con todo: "vive en el banco", orden, búsqueda, plegado.
+
 ## 0.67.1
 **Português**
 - **Corrigido:** a **venda manual** (clique-direito no item com o vendedor aberto) agora também entra no extrato **"Vendido nesta sessão"** e no histórico — antes só as vendas em massa contavam. Vendas manuais seguidas se agrupam numa linha só.

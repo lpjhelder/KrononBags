@@ -52,7 +52,7 @@ local EN = {
   BTN_SELL_JUNK = "Sell Junk", BTN_DEPOSIT = "Deposit Items",
   BUY_TAB = "Buy tab", TIP_BUY_TAB = "Purchase a new tab for this bank.",
   -- v0.23.0: transferir pela busca + categoria Abríveis
-  CAT_OPENABLE = "Openable", CAT_MOUNTS = "Mounts",
+  CAT_OPENABLE = "Openable", CAT_MOUNTS = "Mounts", CAT_HOUSING = "Housing",
   CAT_PETS = "Pets", CAT_UNCOLLECTED = "Uncollected appearance", OPT_CAT_UNCOLLECTED = "Group uncollected appearance",
   TIP_CAT_UNCOLLECTED = "Groups equippable gear whose transmog appearance you have not learned yet into a top category.",
   BTN_OPEN_ALL = "Open all",
@@ -339,7 +339,7 @@ local PT = {
   BTN_EXPORT = "Exportar", BTN_DELETE = "Excluir", BTN_RULE = "Regra", BTN_PRESET = "Pré-pronta…",
   BTN_SELL_JUNK = "Vender lixo", BTN_DEPOSIT = "Depositar itens",
   BUY_TAB = "Comprar aba", TIP_BUY_TAB = "Compra uma nova aba pra este banco.",
-  CAT_OPENABLE = "Abríveis", CAT_MOUNTS = "Montarias",
+  CAT_OPENABLE = "Abríveis", CAT_MOUNTS = "Montarias", CAT_HOUSING = "Moradia",
   CAT_PETS = "Mascotes", CAT_UNCOLLECTED = "Aparência não coletada", OPT_CAT_UNCOLLECTED = "Agrupar aparência não coletada",
   TIP_CAT_UNCOLLECTED = "Agrupa numa categoria no topo as peças equipáveis cujo visual de transmog você ainda não aprendeu.",
   BTN_OPEN_ALL = "Abrir tudo",
@@ -599,7 +599,7 @@ local ES = {
   BTN_EXPORT = "Exportar", BTN_DELETE = "Eliminar", BTN_RULE = "Regla", BTN_PRESET = "Predefinida…",
   BTN_SELL_JUNK = "Vender basura", BTN_DEPOSIT = "Depositar objetos",
   BUY_TAB = "Comprar pestaña", TIP_BUY_TAB = "Compra una nueva pestaña para este banco.",
-  CAT_OPENABLE = "Para abrir", CAT_MOUNTS = "Monturas",
+  CAT_OPENABLE = "Para abrir", CAT_MOUNTS = "Monturas", CAT_HOUSING = "Vivienda",
   CAT_PETS = "Mascotas", CAT_UNCOLLECTED = "Apariencia no coleccionada", OPT_CAT_UNCOLLECTED = "Agrupar apariencia no coleccionada",
   TIP_CAT_UNCOLLECTED = "Agrupa en una categoría superior las piezas equipables cuyo aspecto de transfiguración aún no has aprendido.",
   BTN_OPEN_ALL = "Abrir todo",
@@ -862,6 +862,7 @@ local CAT_DISPLAY_KEY = {
   ["Materiais"] = "CAT_TRADE", ["Missão"] = "CAT_QUEST", ["Lixo"] = "CAT_JUNK", ["Diversos"] = "CAT_MISC",
   ["Abríveis"] = "CAT_OPENABLE", ["Montarias"] = "CAT_MOUNTS",
   ["Mascotes"] = "CAT_PETS", ["Aparência não coletada"] = "CAT_UNCOLLECTED",
+  ["Moradia"] = "CAT_HOUSING",
 }
 -- nome interno (chave de dados) da categoria de alta prioridade "Aparência não coletada" (v0.59.0).
 -- É virtual: NÃO entra em catList/SavedVariables — resolvida direto no ResolveCat e na ordem do Refresh.
@@ -937,6 +938,7 @@ local KB_PRESETS = {
   { name = "Equipamento", filter = "equip" },
   { name = "Montarias",   filter = "mounts" },
   { name = "Mascotes",    filter = "pets" },
+  { name = "Moradia",     filter = "housing" },
   { name = "Consumíveis", filter = "consumable" },
   { name = "Reagentes",   filter = "reagentbag" },
   { name = "Materiais",   filter = "trade" },
@@ -1243,6 +1245,25 @@ local PRESET_FILTERS = {
   equip      = function(id, q, bag) local c = classOf(id); return c == 2 or c == 4 end,        -- arma / armadura
   mounts     = function(id) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id); return c == 15 and sub == 5 end, -- montaria (Diversos / subclasse Montaria)
   pets       = function(id) local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id); return c == 15 and sub == 2 end, -- mascote (Diversos / subclasse Mascote)
+  housing    = (function()                                                                     -- decoração de Moradia (housing do Midnight)
+    -- classe CALIBRADA em runtime por uma decoração conhecida (Bredo de Vento Cortante,
+    -- itemID 248627): à prova de idioma e de renumeração de classe — GetItemInfoInstant
+    -- resolve no cliente, sem servidor, e o resultado é MEMOIZADO (não muda na sessão).
+    -- Se a classe do housing for compartilhada (Diversos/Consumível), exige a MESMA
+    -- subclasse; se for dedicada, qualquer subclasse (Decoração/Fixture/etc.) entra.
+    local refC, refSub
+    return function(id)
+      if refC == nil then
+        local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(248627)
+        refC, refSub = c or false, sub
+      end
+      if not refC then return false end -- item de referência ausente no cliente: nunca casa (degrada limpo)
+      local _, _, _, _, _, c, sub = C_Item.GetItemInfoInstant(id)
+      if c ~= refC then return false end
+      if refC == 15 or refC == 0 then return sub == refSub end
+      return true
+    end
+  end)(),
   consumable = function(id, q, bag, slot)                                                       -- consumível (cede recipiente de loot p/ Abríveis)
     if classOf(id) ~= 0 then return false end
     if bag and slot then local ci = C_Container.GetContainerItemInfo(bag, slot); if ci and ci.hasLoot then return false end end
