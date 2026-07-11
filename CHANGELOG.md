@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.69.2
+**Português**
+- **Corrigido:** erro "Cannot anchor protected frames to regions" ao abrir a bolsa com a categoria Moradia — o botão seguro "Usar (N)" agora ancora corretamente no cabeçalho.
+
+**English**
+- **Fixed:** "Cannot anchor protected frames to regions" error when opening the bag with the Housing category — the secure "Use (N)" button now anchors correctly to the header.
+
+**Español**
+- **Corregido:** error "Cannot anchor protected frames to regions" al abrir la bolsa con la categoría Vivienda — el botón seguro "Usar (N)" ahora se ancla correctamente al encabezado.
+
 ## 0.69.1
 **Português**
 - **Corrigido:** o botão da Moradia não usava nada — a Blizzard **protege o uso de decoração** contra automação. Agora ele é um **botão seguro**: cada clique usa 1 decoração (vai pro baú da casa) e o botão se re-arma pra próxima, mostrando quantas faltam ("Usar (12)"). É só segurar os cliques até esvaziar.

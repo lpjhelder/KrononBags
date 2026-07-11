@@ -3214,7 +3214,11 @@ Refresh = function()
         UI.learnAllBtn:SetParent(UI.content)
         UI.learnAllBtn:SetFrameLevel(h:GetFrameLevel() + 5)
         UI.learnAllBtn:ClearAllPoints()
-        UI.learnAllBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
+        -- frame PROTEGIDO não pode ancorar em region (h.label é FontString) →
+        -- ancora no FRAME do cabeçalho compensando a largura do texto (label está
+        -- em LEFT 0,0 do h; o texto já foi setado acima, GetStringWidth é confiável)
+        local lw = h.label:GetStringWidth() or 0 -- retorna 0 (não nil) se o layout não resolveu
+        UI.learnAllBtn:SetPoint("LEFT", h, "LEFT", (lw > 0 and lw or 60) + 10, 0)
         UI.learnAllBtn:Show()
         UI.ArmLearnBtn()
       end
