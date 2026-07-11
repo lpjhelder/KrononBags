@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.69.1
+**Português**
+- **Corrigido:** o botão da Moradia não usava nada — a Blizzard **protege o uso de decoração** contra automação. Agora ele é um **botão seguro**: cada clique usa 1 decoração (vai pro baú da casa) e o botão se re-arma pra próxima, mostrando quantas faltam ("Usar (12)"). É só segurar os cliques até esvaziar.
+
+**English**
+- **Fixed:** the Housing button wasn't using anything — Blizzard **protects decor usage** against automation. It is now a **secure button**: each click uses 1 decor item (goes to your house chest) and the button re-arms for the next, showing how many are left ("Use (12)"). Just keep clicking to empty it.
+
+**Español**
+- **Corregido:** el botón de Vivienda no usaba nada — Blizzard **protege el uso de decoración** contra la automatización. Ahora es un **botón seguro**: cada clic usa 1 decoración (va al baúl de tu casa) y el botón se rearma para la siguiente, mostrando cuántas quedan ("Usar (12)"). Solo sigue haciendo clic hasta vaciarla.
+
 ## 0.69.0
 **Português**
 - **Novo: botão "Usar tudo" na categoria Moradia.** Usa cada decoração da bolsa, uma por vez — todas vão pro **baú da sua casa** em cadeia, sem clicar uma a uma. Com as mesmas proteções do "Abrir tudo": bloqueado com vendedor, banco, correio ou leilões abertos (onde o clique faria outra coisa).

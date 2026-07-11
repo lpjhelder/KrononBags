@@ -142,7 +142,8 @@ local EN = {
   HIST_SOLD_SESSION = "Sold this session: %s (%d items)",
   -- v0.69.0: usar tudo da Moradia
   BTN_LEARN_ALL = "Use all",
-  TIP_LEARN_ALL = "Uses every Housing decor item in your bags, one at a time — they all go to your house chest. Blocked while a merchant, bank, mail or auction house is open.",
+  BTN_LEARN_N = "Use (%d)",
+  TIP_LEARN_ALL = "Each click uses 1 Housing decor item — it goes to your house chest and the button re-arms for the next one (Blizzard requires a real click per use). Keep clicking to empty the category. Blocked while a merchant, bank, trade, mail or auction house is open.",
   MSG_RELOAD_VISUAL = "type |cffffff00/reload|r to apply the new look.",
   MSG_RELOAD_BANK = "type |cffffff00/reload|r to apply the bank swap.",
   MSG_RELOAD_BAG = "type |cffffff00/reload|r to apply the bag swap.",
@@ -423,7 +424,8 @@ local PT = {
   HIST_SOLD_SESSION = "Vendido nesta sessão: %s (%d itens)",
   -- v0.69.0: usar tudo da Moradia
   BTN_LEARN_ALL = "Usar tudo",
-  TIP_LEARN_ALL = "Usa cada decoração de Moradia da bolsa, uma por vez — todas vão pro baú da sua casa. Bloqueado com vendedor, banco, correio ou casa de leilões abertos.",
+  BTN_LEARN_N = "Usar (%d)",
+  TIP_LEARN_ALL = "Cada clique usa 1 decoração de Moradia — ela vai pro baú da sua casa e o botão se re-arma pra próxima (a Blizzard exige clique real por uso). Continue clicando até esvaziar a categoria. Bloqueado com vendedor, banco, troca, correio ou leilões abertos.",
   MSG_RELOAD_VISUAL = "dê |cffffff00/reload|r pra aplicar o novo visual.",
   MSG_RELOAD_BANK = "dê |cffffff00/reload|r pra aplicar a troca de banco.",
   MSG_RELOAD_BAG = "dê |cffffff00/reload|r pra aplicar a troca da bag.",
@@ -686,7 +688,8 @@ local ES = {
   HIST_SOLD_SESSION = "Vendido en esta sesión: %s (%d objetos)",
   -- v0.69.0: usar todo de Vivienda
   BTN_LEARN_ALL = "Usar todo",
-  TIP_LEARN_ALL = "Usa cada decoración de Vivienda de la bolsa, una por vez — todas van al baúl de tu casa. Bloqueado con vendedor, banco, correo o casa de subastas abiertos.",
+  BTN_LEARN_N = "Usar (%d)",
+  TIP_LEARN_ALL = "Cada clic usa 1 decoración de Vivienda — va al baúl de tu casa y el botón se rearma para la siguiente (Blizzard exige un clic real por uso). Sigue haciendo clic hasta vaciar la categoría. Bloqueado con vendedor, banco, intercambio, correo o subastas abiertos.",
   MSG_RELOAD_VISUAL = "usa |cffffff00/reload|r para aplicar el nuevo aspecto.",
   MSG_RELOAD_BANK = "usa |cffffff00/reload|r para aplicar el cambio de banco.",
   MSG_RELOAD_BAG = "usa |cffffff00/reload|r para aplicar el cambio de bolsa.",
@@ -2886,31 +2889,6 @@ local function OpenAllOpenables()
   UI.openingAll = false -- não há mais nada pra abrir
 end
 
--- usar tudo da Moradia: usa 1 decoração por vez (assíncrono, mesmo padrão do "Abrir
--- tudo") — cada uso GUARDA a decoração no baú da casa. Só nas bolsas (0-5, nunca
--- banco), pula item travado e respeita os MESMOS bloqueios de contexto (OpenAllBlocked:
--- no vendedor VENDERIA a decoração em cadeia). O handler de BAG_UPDATE_DELAYED chama
--- de novo até não sobrar nenhuma.
-local function LearnAllHousing()
-  if not UI then return end
-  if InCombatLockdown() then UI.learningAll = false; return end
-  if OpenAllBlocked() then UI.learningAll = false; return end
-  local isHousing = PRESET_FILTERS.housing
-  if not isHousing then UI.learningAll = false; return end
-  for _, bag in ipairs(BAGS) do
-    local slots = C_Container.GetContainerNumSlots(bag) or 0
-    for slot = 1, slots do
-      local info = C_Container.GetContainerItemInfo(bag, slot)
-      if info and info.itemID and not info.isLocked and isHousing(info.itemID) then
-        UI.learningAll = true
-        C_Container.UseContainerItem(bag, slot)
-        return
-      end
-    end
-  end
-  UI.learningAll = false -- não há mais decoração pra usar
-end
-
 -- ---------------- Render ----------------
 Refresh = function()
   if not UI or not UI:IsShown() or not DB then return end
@@ -3158,16 +3136,72 @@ Refresh = function()
         UI.openAllBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
         UI.openAllBtn:Show()
       end
-      -- botão "Usar tudo" no cabeçalho de Moradia: usa cada decoração (vai pro baú
-      -- da casa), uma por vez. Mesmos bloqueios de contexto do "Abrir tudo" — no
-      -- vendedor/banco/correio o UseContainerItem faria outra coisa (ver OpenAllBlocked).
-      -- Só na visão AO VIVO das bolsas (cache do banco não tem como usar item).
+      -- botão "Usar" no cabeçalho de Moradia: o uso de decoração é PROTEGIDO pela
+      -- Blizzard (ADDON_ACTION_FORBIDDEN via Lua) — só o CAMINHO SEGURO com clique
+      -- real funciona. Botão SecureActionButton (type=item + bag/slot): cada CLIQUE
+      -- usa 1 decoração (vai pro baú da casa) e o PostClick re-arma pro próximo item.
+      -- Mesmos bloqueios de contexto do "Abrir tudo" (no vendedor o uso VENDERIA) e
+      -- só na visão AO VIVO das bolsas. Refresh retorna cedo em combate, então todos
+      -- os SetAttribute/SetParent daqui rodam fora de combate.
       if cat == "Moradia" and not cached and not OpenAllBlocked() then
         if not UI.learnAllBtn then
-          local o = CreateFrame("Button", nil, UI.content, "UIPanelButtonTemplate")
+          local o = CreateFrame("Button", "KrononBagsUseHousing", UI.content,
+            "SecureActionButtonTemplate,UIPanelButtonTemplate")
           o:SetAttribute("nodeignore", true) -- linha do cabeçalho; só mouse
-          o:SetSize(72, 18); o:SetText(L.BTN_LEARN_ALL)
-          o:SetScript("OnClick", function() LearnAllHousing() end)
+          -- as DUAS fases: o gate interno do SecureActionButton executa a ação na
+          -- fase que casa com o cvar ActionButtonUseKeyDown (down no retail moderno) —
+          -- registrar só o Up deixaria o botão morto pra maioria dos usuários
+          o:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
+          o:SetSize(84, 18)
+          o:SetAttribute("type", "item")
+          -- acha a PRÓXIMA decoração das bolsas e arma o botão (atributos seguros
+          -- só fora de combate; contexto bloqueado desarma — clique vira no-op)
+          UI.ArmLearnBtn = function()
+            if InCombatLockdown() or not UI.learnAllBtn then return end
+            local isHousing = PRESET_FILTERS.housing
+            local nb, ns, count = nil, nil, 0
+            if isHousing then
+              for _, bag in ipairs(BAGS) do
+                local slots = C_Container.GetContainerNumSlots(bag) or 0
+                for slot = 1, slots do
+                  local info = C_Container.GetContainerItemInfo(bag, slot)
+                  if info and info.itemID and not info.isLocked and isHousing(info.itemID) then
+                    count = count + 1
+                    if not nb then nb, ns = bag, slot end
+                  end
+                end
+              end
+            end
+            local btn = UI.learnAllBtn
+            if nb and not OpenAllBlocked() then
+              btn:SetAttribute("bag", nb); btn:SetAttribute("slot", ns)
+              btn:SetText(string.format(L.BTN_LEARN_N, count))
+              btn:Enable()
+            else
+              btn:SetAttribute("bag", nil); btn:SetAttribute("slot", nil)
+              btn:SetText(string.format(L.BTN_LEARN_N, 0))
+              btn:Disable()
+            end
+          end
+          -- REVALIDAÇÃO NO CLIQUE (código insecure PODE SetAttribute fora de combate):
+          -- se um contexto perigoso abriu depois do arm (trade/AH/aba de enviar correio
+          -- não disparam Refresh) ou o slot armado não contém mais uma decoração
+          -- destravada (sort moveu), DESARMA — o clique vira no-op em vez de vender/
+          -- anexar/usar item errado.
+          o:SetScript("PreClick", function(btn)
+            if InCombatLockdown() then return end -- combate coberto pelo REGEN_DISABLED
+            local bag, slot = btn:GetAttribute("bag"), btn:GetAttribute("slot")
+            local info = bag and slot and C_Container.GetContainerItemInfo(bag, slot)
+            local isHousing = PRESET_FILTERS.housing
+            if OpenAllBlocked()
+               or not (info and info.itemID and not info.isLocked and isHousing and isHousing(info.itemID)) then
+              btn:SetAttribute("bag", nil); btn:SetAttribute("slot", nil)
+            end
+          end)
+          o:SetScript("PostClick", function()
+            -- o uso resolve assíncrono (item sai da bolsa): re-arma pro próximo
+            C_Timer.After(0.3, function() if UI and UI.ArmLearnBtn then pcall(UI.ArmLearnBtn) end end)
+          end)
           o:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetText(L.BTN_LEARN_ALL)
@@ -3182,6 +3216,7 @@ Refresh = function()
         UI.learnAllBtn:ClearAllPoints()
         UI.learnAllBtn:SetPoint("LEFT", h.label, "RIGHT", 10, 0)
         UI.learnAllBtn:Show()
+        UI.ArmLearnBtn()
       end
       yOff = yOff - 18
 
@@ -6754,6 +6789,7 @@ f:RegisterEvent("BAG_UPDATE_COOLDOWN")
 f:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 f:RegisterEvent("TRANSMOG_COLLECTION_UPDATED") -- v0.61.0: invalida o cache de "tenho o visual?"
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
+f:RegisterEvent("PLAYER_REGEN_DISABLED") -- desarma o botão seguro da Moradia ANTES do lockdown
 f:RegisterEvent("PLAYER_LOGOUT")
 f:RegisterEvent("MERCHANT_SHOW");      f:RegisterEvent("MERCHANT_CLOSED")
 f:RegisterEvent("BANKFRAME_OPENED");   f:RegisterEvent("BANKFRAME_CLOSED")
@@ -6805,8 +6841,19 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if DB and DB.settings and DB.settings.nestByExpansion and UI and UI:IsShown() then
       KB_ExpacRefreshSoon()
     end
+  elseif event == "PLAYER_REGEN_DISABLED" then
+    -- entra em combate: DESARMA o botão seguro da Moradia (o evento chega antes do
+    -- lockdown, então a mudança é permitida). Botão armado em combate seria clicável
+    -- com atributos velhos — slot re-preenchido usaria OUTRO item, e vendedor de
+    -- combate (Jeeves etc.) faria o clique VENDER a decoração.
+    if UI and UI.learnAllBtn then
+      UI.learnAllBtn:SetAttribute("bag", nil); UI.learnAllBtn:SetAttribute("slot", nil)
+      UI.learnAllBtn:Disable()
+    end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if UI and UI.refreshPending and UI:IsShown() then UI.refreshPending = nil; Refresh() end
+    -- re-arma o botão da Moradia saindo do combate (sem depender de bag update)
+    if UI and UI.ArmLearnBtn then pcall(UI.ArmLearnBtn) end
   elseif event == "MERCHANT_SHOW" then
     AutoVendor() -- auto-vender lixo + auto-reparar (se ligados na config)
     AutoShow(); if UI then UpdateTabs() end; Refresh() -- bloquear venda de protegidos + botão vender lixo
@@ -6838,8 +6885,6 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- "Abrir tudo" é assíncrono: depois que um recipiente abre, BAG_UPDATE_DELAYED dispara
     -- e a gente abre o próximo, até não sobrar nenhum (OpenAllOpenables zera openingAll).
     if event == "BAG_UPDATE_DELAYED" and UI and UI.openingAll then OpenAllOpenables() end
-    -- idem pra cadeia de "Usar tudo" da Moradia (LearnAllHousing zera learningAll no fim)
-    if event == "BAG_UPDATE_DELAYED" and UI and UI.learningAll then LearnAllHousing() end
     if event == "BAG_UPDATE_DELAYED" then HistorySnapshotDiff() end -- rastreia entradas/saídas (BAG_UPDATE_DELAYED já é throttled)
     Refresh(); RefreshReady()
     if DB and atBank then CaptureBank() end -- snapshot do banco fresco (base da consulta de longe), sempre que no banco
